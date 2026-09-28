@@ -1,12 +1,12 @@
 (() => {
   'use strict';
 
-  const CONFIG_KEY = 'tabaja_cloud_config_v101';
-  const ACCOUNT_KEY = 'tabaja_card_designer_account_v10';
+  const CONFIG_KEY = 'tabaja_cloud_config_dev_v101';
+const ACCOUNT_KEY = 'tabaja_card_designer_account_dev_v10';
   const ADMIN_USER_ID = '74cdabd7-4fb6-4016-bf68-cfac6bb17c14';
   const DEFAULT_CONFIG = Object.freeze({
-    url: 'https://svekgqddidlxlpfbxwtp.supabase.co',
-    anonKey: 'sb_publishable_TUaRRN6OZtxw2dsxa3Uwbg_Q7zRsxRi'
+    url: 'https://jpdpzkvddwprwrngnjyr.supabase.co',
+    anonKey: 'sb_publishable_ODDyjXOXWjdDb1Djq6HLqw_u_NB28Lz'
   });
   let client = null;
 
