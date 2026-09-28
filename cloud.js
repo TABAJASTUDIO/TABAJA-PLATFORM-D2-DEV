@@ -3,7 +3,7 @@
 
   const CONFIG_KEY = 'tabaja_cloud_config_dev_v101';
 const ACCOUNT_KEY = 'tabaja_card_designer_account_dev_v10';
-  const ADMIN_USER_ID = '74cdabd7-4fb6-4016-bf68-cfac6bb17c14';
+  const ADMIN_USER_ID = '8c9ab1ff-b7a2-4a38-a789-76a252014b4e';
   const DEFAULT_CONFIG = Object.freeze({
     url: 'https://jpdpzkvddwprwrngnjyr.supabase.co',
     anonKey: 'sb_publishable_ODDyjXOXWjdDb1Djq6HLqw_u_NB28Lz'
