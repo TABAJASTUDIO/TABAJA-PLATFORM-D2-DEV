@@ -1,12 +1,12 @@
 ﻿{
-  "id": "./",
-  "name": "Tabaja Solution",
-  "short_name": "Tabaja Solution",
-  "description": "Professional identity, card design, NFC and Zebra printing platform.",
-  "lang": "en",
-  "dir": "ltr",
-  "start_url": "./?source=pwa",
-  "scope": "./",
+  "id": "/TABAJA-PLATFORM-D2-DEV/",
+"name": "Tabaja Solution DEV",
+"short_name": "Tabaja DEV",
+"description": "Professional identity, card design, NFC and Zebra printing platform.",
+"lang": "en",
+"dir": "ltr",
+"start_url": "/TABAJA-PLATFORM-D2-DEV/?source=pwa",
+"scope": "/TABAJA-PLATFORM-D2-DEV/",
   "display": "standalone",
   "display_override": [
     "standalone"
