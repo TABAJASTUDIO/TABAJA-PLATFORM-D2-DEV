@@ -207,36 +207,61 @@
       updatedAt: new Date().toISOString()
     };
 
-    if (key) {
-      const index = employees.findIndex((item) => item.key === key);
-      if (index >= 0) employees[index] = { ...employees[index], ...record };
-    } else {
-      record.createdAt = new Date().toISOString();
-      employees.unshift(record);
-    }
-
-    try {
-      saveEmployees();
-      const account = JSON.parse(
-  localStorage.getItem('tabaja_card_designer_account_v10') || 'null'
-);
-
-const companyId = account?.companyId || account?.id;
-
-if (
-  account?.cloud &&
-  companyId &&
-  window.TabajaCloud?.saveEmployeeToCloud
-) {
-  await window.TabajaCloud.saveEmployeeToCloud(companyId, record);
+    if (!key) {
+  record.createdAt = new Date().toISOString();
 }
-      renderEmployees();
-      closeModal();
-    } catch (error) {
-      console.error(error);
-      $('employeeFormMessage').textContent = 'Storage is full. Try smaller photos or export a backup.';
+
+try {
+  const account = JSON.parse(
+    localStorage.getItem('tabaja_card_designer_account_v10') || 'null'
+  );
+
+  const companyId = account?.companyId || account?.id;
+
+  // Cloud first — Local Storage must never block the real save.
+  if (
+    account?.cloud &&
+    companyId &&
+    window.TabajaCloud?.saveEmployeeToCloud
+  ) {
+    const cloudId = await window.TabajaCloud.saveEmployeeToCloud(
+      companyId,
+      record
+    );
+
+    if (cloudId) {
+      record.id = cloudId;
+      record.key = cloudId;
     }
   }
+
+  // Update local memory only after Cloud save succeeds.
+  if (key) {
+    const index = employees.findIndex((item) => item.key === key);
+
+    if (index >= 0) {
+      employees[index] = {
+        ...employees[index],
+        ...record
+      };
+    }
+  } else {
+    employees.unshift(record);
+  }
+
+  // Lightweight local cache only.
+  saveEmployees();
+
+  renderEmployees();
+  closeModal();
+
+} catch (error) {
+  console.error('Unable to save employee:', error);
+
+  $('employeeFormMessage').textContent =
+    'Unable to save employee to Cloud. Please check your connection and try again.';
+}
+    }
 
   function useInDesigner(employee) {
     localStorage.setItem(tenantKey('tabaja-selected-employee-v11'), JSON.stringify(employee));
