@@ -31,8 +31,20 @@
   }
 
   function saveEmployees() {
-    localStorage.setItem(tenantKey(STORAGE_KEY), JSON.stringify(employees));
+  try {
+    const lightCache = employees.map((employee) => ({
+      ...employee,
+      photo: ''
+    }));
+
+    localStorage.setItem(
+      tenantKey(STORAGE_KEY),
+      JSON.stringify(lightCache)
+    );
+  } catch (error) {
+    console.warn('Unable to save employee cache:', error);
   }
+}
 
   function fullName(employee) {
     return [employee.firstName, employee.lastName].filter(Boolean).join(' ').trim() || 'Unnamed Employee';
