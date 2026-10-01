@@ -13,7 +13,8 @@
   const tenantKey = (key) => `${key}__${activeTenantId()}`;
 
   let employees = [];
-  let photoData = '';
+let photoData = '';
+let loadedCompanyId = null;
 
   const $ = (id) => document.getElementById(id);
   const safe = (value = '') => String(value).replace(/[&<>'"]/g, (char) => ({
@@ -351,6 +352,7 @@ try {
   );
 
   const companyId = account?.companyId || account?.id;
+loadedCompanyId = companyId || null;
 
   if (
     account?.cloud &&
@@ -400,15 +402,20 @@ try {
 window.addEventListener('tabaja:account-changed', async () => {
   if (!$('employeeWorkspace')) return;
 
-  // Clear the previous company's employees immediately.
-  employees = [];
-  renderEmployees();
-
   const account = JSON.parse(
     localStorage.getItem('tabaja_card_designer_account_dev_v10') || 'null'
   );
 
-  const companyId = account?.companyId || account?.id;
+  const companyId = account?.companyId || account?.id || null;
+
+  // Same company: do nothing, avoid flicker.
+  if (companyId === loadedCompanyId) return;
+
+  // Real company change.
+  loadedCompanyId = companyId;
+
+  employees = [];
+  renderEmployees();
 
   if (
     account?.cloud &&
