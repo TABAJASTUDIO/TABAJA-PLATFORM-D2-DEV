@@ -6,7 +6,7 @@
     try {
       const activeId = localStorage.getItem('tabaja_card_designer_active_account_v11');
       if (activeId) return activeId;
-      const account = JSON.parse(localStorage.getItem('tabaja_card_designer_account_v10') || 'null');
+      const account = JSON.parse(localStorage.getItem('tabaja_card_designer_account_dev_v10') || 'null');
       return String(account?.id || account?.email || account?.company || 'default').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'default';
     } catch (_) { return 'default'; }
   }
@@ -213,7 +213,7 @@
 
 try {
   const account = JSON.parse(
-    localStorage.getItem('tabaja_card_designer_account_v10') || 'null'
+    localStorage.getItem('tabaja_card_designer_account_dev_v10') || 'null'
   );
 
   const companyId = account?.companyId || account?.id;
@@ -279,7 +279,7 @@ try {
     if (button.dataset.action === 'designer') useInDesigner(employee);
     if (button.dataset.action === 'delete' && confirm(`Delete ${fullName(employee)}?`)) {
   const account = JSON.parse(
-    localStorage.getItem('tabaja_card_designer_account_v10') || 'null'
+    localStorage.getItem('tabaja_card_designer_account_dev_v10') || 'null'
   );
 
   const companyId = account?.companyId || account?.id;
@@ -347,7 +347,7 @@ try {
   if (!$('employeeWorkspace')) return;
 
   const account = JSON.parse(
-    localStorage.getItem('tabaja_card_designer_account_v10') || 'null'
+    localStorage.getItem('tabaja_card_designer_account_dev_v10') || 'null'
   );
 
   const companyId = account?.companyId || account?.id;
@@ -405,7 +405,7 @@ window.addEventListener('tabaja:account-changed', async () => {
   renderEmployees();
 
   const account = JSON.parse(
-    localStorage.getItem('tabaja_card_designer_account_v10') || 'null'
+    localStorage.getItem('tabaja_card_designer_account_dev_v10') || 'null'
   );
 
   const companyId = account?.companyId || account?.id;
