@@ -490,8 +490,15 @@
           </div>
           <div class="background-type-panel" data-bg-panel="split">
             <div class="split-preview"><i></i><i></i></div>
-            <p class="builder-note">Split Design is prepared for the next template pack. Use Gradient today for a two-colour result without changing the stable canvas engine.</p>
-            <button type="button" id="useSplitGradientBtn" class="background-full-button">Create Split with Gradient</button>
+            <label>Split Colours</label>
+            <div class="background-gradient-colors">
+              <input id="cardBgSplitLeft" type="color" value="#123e66" title="Photo-side colour" aria-label="Photo-side colour">
+              <input id="cardBgSplitRight" type="color" value="#ffffff" title="Details-side colour" aria-label="Details-side colour">
+            </div>
+            <label for="cardBgSplitPosition">Photo Area <b id="cardBgSplitPositionValue">31%</b></label>
+            <input id="cardBgSplitPosition" type="range" min="15" max="45" value="31" step="1" style="width:100%">
+            <p class="builder-note">Move the slider or drag the divider line directly on the card. Left and right colours are independent.</p>
+            <button type="button" id="useSplitGradientBtn" class="background-full-button">Apply Split</button>
           </div>
           <label class="background-sync-option"><input id="syncBackgroundBothSides" type="checkbox" checked><span>Apply the same background to Front &amp; Back</span></label>
           <p class="builder-note">Background output remains included in PNG, PDF and Zebra printing.</p>
@@ -731,7 +738,7 @@
     <button id="pwaUpdateBtn" type="button">Update now</button>
   </div>
   <script defer src="cloud.js?v=12.9.3.16-fix5.7-rpc"></script>
-  <script defer src="app.js?v=12.9.3.16-fix5.7-rpc"></script>
+  <script defer src="app.js?v=12.9.3.16-designer-split1"></script>
   <script defer src="commercial-templates.js?v=12.9.3.16-fix5?v=12.7.0-fix2"></script>
   <script defer src="v8-ui.js?v=12.9.3.16-fix5"></script>
   <script defer src="employee-manager.js?v=12.9.3.16-cloud-employees-1"></script>

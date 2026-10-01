@@ -824,6 +824,23 @@ function toHex(c) {
 canvas.on("selection:created", syncProps);
 canvas.on("selection:updated", syncProps);
 canvas.on("object:modified", syncProps);
+
+// The employee split divider is intentionally the only structural object that can be dragged.
+canvas.on("object:moving", event => {
+  const object = event.target;
+  if (!object || object.role !== "builderLine") return;
+  const landscape = orientation === "landscape";
+  const ratio = clampBuilderSplit(landscape ? object.left / W : object.top / H);
+  applyBuilderSplitGeometry(ratio, { updatePhoto: true, persist: false });
+});
+canvas.on("object:modified", event => {
+  const object = event.target;
+  if (!object || object.role !== "builderLine") return;
+  const landscape = orientation === "landscape";
+  const ratio = clampBuilderSplit(landscape ? object.left / W : object.top / H);
+  applyBuilderSplitGeometry(ratio, { updatePhoto: true, persist: true });
+  status(`Photo area adjusted to ${Math.round(ratio * 100)}% of the card.`);
+});
 $("textValue").oninput = e => { const o = canvas.getActiveObject(); if (o && (o.type === "i-text" || o.type === "text")) { o.set("text", e.target.value); canvas.requestRenderAll(); } };
 $("fontSize").oninput = e => { const o = canvas.getActiveObject(); if (o && (o.type === "i-text" || o.type === "text")) { o.set("fontSize", +e.target.value); canvas.requestRenderAll(); } };
 $("fontFamily").onchange = e => { const o = canvas.getActiveObject(); if (o && (o.type === "i-text" || o.type === "text")) { o.set("fontFamily", e.target.value); canvas.requestRenderAll(); } };
@@ -1411,6 +1428,106 @@ function builderObject(role) {
   return canvas.getObjects().find(object => object.role === role) || null;
 }
 
+// ===== Adjustable Employee Split Layout =====
+const BUILDER_SPLIT_DEFAULT = 0.31;
+const BUILDER_SPLIT_MIN = 0.15;
+const BUILDER_SPLIT_MAX = 0.45;
+
+function clampBuilderSplit(value) {
+  return Math.min(BUILDER_SPLIT_MAX, Math.max(BUILDER_SPLIT_MIN, Number(value) || BUILDER_SPLIT_DEFAULT));
+}
+
+function builderSplitRatio() {
+  const control = $("cardBgSplitPosition");
+  return clampBuilderSplit(control ? Number(control.value) / 100 : BUILDER_SPLIT_DEFAULT);
+}
+
+function builderSplitLeftColor() {
+  return $("cardBgSplitLeft")?.value || "#123e66";
+}
+
+function builderSplitRightColor() {
+  return $("cardBgSplitRight")?.value || "#ffffff";
+}
+
+function builderPhotoBoxForSplit(ratio = builderSplitRatio()) {
+  const landscape = orientation === "landscape";
+  ratio = clampBuilderSplit(ratio);
+  if (landscape) {
+    const panelWidth = W * ratio;
+    return {
+      left: panelWidth * 0.16,
+      top: H * 0.20,
+      width: Math.max(W * 0.10, panelWidth * 0.68),
+      height: H * 0.55
+    };
+  }
+  const panelHeight = H * ratio;
+  return {
+    left: W * 0.27,
+    top: panelHeight * 0.22,
+    width: W * 0.46,
+    height: Math.max(H * 0.16, panelHeight * 0.64)
+  };
+}
+
+function updateBuilderPhotoArea(ratio = builderSplitRatio()) {
+  const box = builderPhotoBoxForSplit(ratio);
+  const photo = builderObject("employeePhoto");
+  if (photo?.width && photo?.height) {
+    const scale = Math.min(box.width / photo.width, box.height / photo.height);
+    photo.set({
+      left: box.left + box.width / 2,
+      top: box.top + box.height / 2,
+      originX: "center", originY: "center",
+      scaleX: scale, scaleY: scale
+    });
+    photo.setCoords();
+  }
+  const placeholder = builderObject("employeePhotoPlaceholder");
+  if (placeholder) {
+    placeholder.set({ left: box.left, top: box.top, width: box.width, height: box.height });
+    placeholder.setCoords();
+  }
+  const label = builderObject("employeePhotoPlaceholderLabel");
+  if (label) {
+    label.set({ left: box.left + box.width / 2, top: box.top + box.height / 2 });
+    label.setCoords();
+  }
+}
+
+function syncBuilderSplitControl(ratio) {
+  const percent = Math.round(clampBuilderSplit(ratio) * 100);
+  if ($("cardBgSplitPosition")) $("cardBgSplitPosition").value = String(percent);
+  if ($("cardBgSplitPositionValue")) $("cardBgSplitPositionValue").textContent = `${percent}%`;
+}
+
+function applyBuilderSplitGeometry(ratio = builderSplitRatio(), { updatePhoto = true, persist = true } = {}) {
+  ratio = clampBuilderSplit(ratio);
+  const landscape = orientation === "landscape";
+  const accent = builderObject("builderAccent");
+  const line = builderObject("builderLine");
+
+  if (accent) {
+    accent.set(landscape
+      ? { left: 0, top: 0, width: W * ratio, height: H, fill: builderSplitLeftColor() }
+      : { left: 0, top: 0, width: W, height: H * ratio, fill: builderSplitLeftColor() });
+    accent.setCoords();
+  }
+
+  if (line) {
+    line.set(landscape
+      ? { left: W * ratio, top: 0, width: 10, height: H, lockMovementY: true, lockMovementX: false, hoverCursor: "ew-resize", moveCursor: "ew-resize" }
+      : { left: 0, top: H * ratio, width: W, height: 10, lockMovementX: true, lockMovementY: false, hoverCursor: "ns-resize", moveCursor: "ns-resize" });
+    line.setCoords();
+  }
+
+  if (updatePhoto) updateBuilderPhotoArea(ratio);
+  syncBuilderSplitControl(ratio);
+  canvas.requestRenderAll();
+  if (persist) saveCurrentSide();
+}
+
 function builderAddOrUpdateRect(role, props) {
   let object = builderObject(role);
   if (!object) {
@@ -1553,16 +1670,26 @@ const showDates = $("builderShowDates")?.checked === true;
       left: 0, top: 0, width: W, height: H, fill: "rgba(0,0,0,0)",
       selectable: false, evented: false
     });
+    const splitRatio = builderSplitRatio();
     builderAddOrUpdateRect("builderAccent", landscape
-      ? { left: 0, top: 0, width: W * 0.31, height: H, fill: "#123e66" }
-      : { left: 0, top: 0, width: W, height: H * 0.25, fill: "#123e66" });
+      ? { left: 0, top: 0, width: W * splitRatio, height: H, fill: builderSplitLeftColor() }
+      : { left: 0, top: 0, width: W, height: H * splitRatio, fill: builderSplitLeftColor() });
     builderAddOrUpdateRect("builderLine", landscape
-      ? { left: W * 0.31, top: 0, width: 10, height: H, fill: "#2f9bdd" }
-      : { left: 0, top: H * 0.25, width: W, height: 10, fill: "#2f9bdd" });
+      ? {
+          left: W * splitRatio, top: 0, width: 10, height: H, fill: "#2f9bdd",
+          selectable: true, evented: true, hasControls: false, hasBorders: true, padding: 12,
+          lockMovementY: true, lockMovementX: false, lockScalingX: true, lockScalingY: true, lockRotation: true,
+          hoverCursor: "ew-resize", moveCursor: "ew-resize"
+        }
+      : {
+          left: 0, top: H * splitRatio, width: W, height: 10, fill: "#2f9bdd",
+          selectable: true, evented: true, hasControls: false, hasBorders: true, padding: 12,
+          lockMovementX: true, lockMovementY: false, lockScalingX: true, lockScalingY: true, lockRotation: true,
+          hoverCursor: "ns-resize", moveCursor: "ns-resize"
+        });
 
-    const photoBox = landscape
-      ? { left: W * 0.055, top: H * 0.20, width: W * 0.20, height: H * 0.55 }
-      : { left: W * 0.27, top: H * 0.09, width: W * 0.46, height: H * 0.28 };
+    const photoBox = builderPhotoBoxForSplit(splitRatio);
+    syncBuilderSplitControl(splitRatio);
     const logoBox = landscape
       ? { left: W * 0.77, top: H * 0.07, width: W * 0.17, height: H * 0.15 }
       : { left: W * 0.30, top: H * 0.30, width: W * 0.40, height: H * 0.12 };
@@ -1942,6 +2069,56 @@ $("resetWhiteBackgroundBtn").addEventListener("click", () => {
   applySolidCardBackground("#ffffff");
 });
 $("cardBackgroundImageBtn").addEventListener("click", () => chooseImage("background"));
+
+function applySplitBackgroundControls() {
+  const ratio = builderSplitRatio();
+  const rightColor = builderSplitRightColor();
+  removeBackgroundImageObjects();
+  canvas.setBackgroundColor(rightColor, () => {
+    applyBuilderSplitGeometry(ratio, { updatePhoto: true, persist: false });
+    finishCardBackground(`Split background applied — photo area ${Math.round(ratio * 100)}%.`);
+  });
+}
+
+$("cardBgSplitLeft")?.addEventListener("input", event => {
+  const accent = builderObject("builderAccent");
+  if (accent) {
+    accent.set("fill", event.target.value);
+    accent.setCoords();
+    canvas.requestRenderAll();
+  }
+});
+$("cardBgSplitLeft")?.addEventListener("change", () => saveCurrentSide());
+
+$("cardBgSplitRight")?.addEventListener("input", event => {
+  const color = event.target.value;
+  if ($("cardBgSolidColor")) $("cardBgSolidColor").value = color;
+  if ($("cardColor")) $("cardColor").value = color;
+  removeBackgroundImageObjects();
+  canvas.setBackgroundColor(color, () => canvas.requestRenderAll());
+});
+$("cardBgSplitRight")?.addEventListener("change", () => {
+  saveCurrentSide();
+  syncCurrentBackgroundToOtherSide();
+});
+
+$("cardBgSplitPosition")?.addEventListener("input", event => {
+  const ratio = clampBuilderSplit(Number(event.target.value) / 100);
+  applyBuilderSplitGeometry(ratio, { updatePhoto: true, persist: false });
+});
+$("cardBgSplitPosition")?.addEventListener("change", event => {
+  const ratio = clampBuilderSplit(Number(event.target.value) / 100);
+  applyBuilderSplitGeometry(ratio, { updatePhoto: true, persist: true });
+  status(`Photo area adjusted to ${Math.round(ratio * 100)}% of the card.`);
+});
+
+// Capture phase intentionally blocks the old "send me to Gradient" placeholder behaviour.
+$("useSplitGradientBtn")?.addEventListener("click", event => {
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  applySplitBackgroundControls();
+}, true);
+
 $("syncBackgroundBothSides").addEventListener("change", event => {
   if (event.target.checked) {
     syncCurrentBackgroundToOtherSide();
@@ -1954,9 +2131,11 @@ $("syncBackgroundBothSides").addEventListener("change", event => {
 // Keep the original quick color control synchronized with the new background panel.
 $("cardBgSolidColor").addEventListener("input", event => {
   $("cardColor").value = event.target.value;
+  if ($("cardBgSplitRight")) $("cardBgSplitRight").value = event.target.value;
 });
 $("cardColor").addEventListener("input", event => {
   $("cardBgSolidColor").value = event.target.value;
+  if ($("cardBgSplitRight")) $("cardBgSplitRight").value = event.target.value;
 });
 
 status("V7.4 Professional Quality ready — media reset, logo-only mode, crisp export, pre-flight and bleed overscan.");
