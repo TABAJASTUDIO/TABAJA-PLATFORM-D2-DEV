@@ -1,31 +1,6 @@
 (() => {
   'use strict';
 
-
-  function returnToIdentityPlatform(event) {
-    if (event) event.preventDefault();
-
-    try {
-      const referrer = document.referrer ? new URL(document.referrer, window.location.href) : null;
-      const sameOriginReferrer = referrer && referrer.origin === window.location.origin;
-      const cameFromIdentity = sameOriginReferrer && !/workforce\.html$/i.test(referrer.pathname);
-
-      if (cameFromIdentity && window.history.length > 1) {
-        window.history.back();
-        return;
-      }
-    } catch (_) {}
-
-    // Safe fallback when Workforce was opened directly or after a cold PWA launch.
-    window.location.replace('index.html');
-  }
-
-  function bindIdentityReturnButtons() {
-    document.querySelectorAll('[data-wf-back-main]').forEach((control) => {
-      control.addEventListener('click', returnToIdentityPlatform);
-    });
-  }
-
   const IMPORTS = Object.freeze({
     full_company_setup: {
       label: 'Full Company Setup',
@@ -913,8 +888,6 @@
       $('wfGate').hidden = true;
       $('wfWorkspace').hidden = false;
       setMessage('Workforce is connected. Choose an Excel file to begin.', 'success');
-      bindIdentityReturnButtons();
-
       const initialSection = String(window.location.hash || '').toLowerCase() === '#import' ? 'import' : 'dashboard';
       showSection(initialSection);
       await restoreRememberedBatch();

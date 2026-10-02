@@ -1,0 +1,9 @@
+TABAJA SOLUTION D2 DEV
+V12.9.3.18.1 - WORKFORCE BACK NAVIGATION
+
+- Adds a clear Back to Identity Platform button inside the Workforce sidebar.
+- Top-bar Back to Main now uses safe in-app history return when Workforce was opened from Identity Platform.
+- Falls back to index.html only when Workforce was opened directly.
+- No Smart Identity / Card Designer / Templates / NFC / Batch Printing logic changed.
+- Workforce-only files changed: workforce.html, workforce/workforce.js, workforce/workforce.css.
+- service-worker.js cache version updated only so the PWA receives the Workforce navigation fix.
