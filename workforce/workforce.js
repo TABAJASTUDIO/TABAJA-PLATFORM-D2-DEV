@@ -2,22 +2,34 @@
   'use strict';
 
 
-  function returnToIdentityPlatform(event) {
+  const MAIN_LOGIN_KEY = 'tabaja_card_designer_login';
+
+  async function returnToIdentityPlatform(event) {
     if (event) event.preventDefault();
 
+    // Workforce is a separate page, while the frozen Identity shell still uses
+    // its legacy login marker on page boot. Confirm the real Supabase session is
+    // alive first, then bridge only this browser-tab session back to the shell.
+    // This does NOT sign in a user and does NOT change Smart Identity files.
     try {
-      const referrer = document.referrer ? new URL(document.referrer, window.location.href) : null;
-      const sameOriginReferrer = referrer && referrer.origin === window.location.origin;
-      const cameFromIdentity = sameOriginReferrer && !/workforce\.html$/i.test(referrer.pathname);
+      let liveSession = state.session || null;
 
-      if (cameFromIdentity && window.history.length > 1) {
-        window.history.back();
-        return;
+      if (state.client?.auth?.getSession) {
+        const { data, error } = await state.client.auth.getSession();
+        if (error) throw error;
+        liveSession = data?.session || liveSession;
       }
-    } catch (_) {}
 
-    // Safe fallback when Workforce was opened directly or after a cold PWA launch.
-    window.location.replace('index.html');
+      if (!liveSession?.user?.id) {
+        throw new Error('Your cloud session has expired. Please sign in again.');
+      }
+
+      window.sessionStorage.setItem(MAIN_LOGIN_KEY, '1');
+      window.location.assign('index.html');
+    } catch (error) {
+      console.error('[Workforce Return]', error);
+      setGate(error?.message || 'Unable to return to Identity Platform.', true);
+    }
   }
 
   function bindIdentityReturnButtons() {

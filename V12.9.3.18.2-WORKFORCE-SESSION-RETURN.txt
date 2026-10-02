@@ -1,0 +1,16 @@
+TABAJA SOLUTION D2 DEV — V12.9.3.18.2
+WORKFORCE SESSION RETURN FIX
+
+Purpose:
+- Fix Back to Main / Back to Identity Platform from Workforce.
+- Return to the already-authenticated Identity workspace without asking for Sign In again.
+
+Implementation:
+- Workforce verifies the active Supabase session.
+- Only after verification, it restores the frozen Identity shell's per-tab login marker in sessionStorage.
+- It then navigates directly to index.html instead of using browser history.
+
+Isolation:
+- Smart Identity application logic was not modified.
+- app.js, cloud.js, v8-ui.js, employee-manager.js, command-center.js,
+  commercial-templates.js, nfc-studio.js, activity-store.js and scripts/app.js remain unchanged.
