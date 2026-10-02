@@ -1,0 +1,36 @@
+TABAJA SOLUTION D2 — DEV
+V12.9.3.18 — WORKFORCE DASHBOARD
+
+Scope: Workforce-only UI. No Smart Identity logic/files changed.
+
+Added:
+- Live Workforce Dashboard as the default Workforce landing screen.
+- Active workforce count.
+- Active site count.
+- Today's attendance summary and attendance table.
+- Pending approval breakdown for salary, transport, attendance, leave and advances.
+- Latest payroll position with defensive read-only summary.
+- Recent import activity.
+- Dashboard refresh.
+- Navigation between Dashboard and Import Center.
+- Current import batch session restore after page refresh.
+
+Changed files only:
+- workforce.html
+- workforce/workforce.js
+- workforce/workforce.css
+- service-worker.js (cache version/assets only)
+
+Frozen files verified unchanged against V1.1:
+- index.html
+- app.js
+- cloud.js
+- v8-ui.js
+- employee-manager.js
+- nfc-studio.js
+- commercial-templates.js
+- command-center.js
+- activity-store.js
+- scripts/app.js
+
+No database schema or SQL changes are included in this package.

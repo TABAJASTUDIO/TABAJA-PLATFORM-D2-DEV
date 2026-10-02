@@ -7,11 +7,11 @@
   <title>Workforce & Payroll • Tabaja Solution DEV</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=12.9.3.16-wf1">
-  <link rel="stylesheet" href="workforce/workforce.css?v=1.1.0">
+  <link rel="stylesheet" href="workforce/workforce.css?v=1.2.0">
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="cloud.js?v=12.9.3.16-fix5.7-rpc"></script>
-  <script defer src="workforce/workforce.js?v=1.1.0"></script>
+  <script defer src="workforce/workforce.js?v=1.2.0"></script>
 </head>
 <body>
   <div class="wf-shell">
@@ -22,8 +22,8 @@
       </a>
 
       <nav class="wf-nav" aria-label="Workforce navigation">
-        <button class="active" type="button" data-section="import"><span>⇩</span><b>Import Center</b></button>
-        <button type="button" disabled title="Coming next"><span>⌂</span><b>Workforce Dashboard</b><em>Next</em></button>
+        <button class="active" type="button" data-section="dashboard"><span>⌂</span><b>Workforce Dashboard</b></button>
+        <button type="button" data-section="import"><span>⇩</span><b>Import Center</b></button>
         <button type="button" disabled title="Coming next"><span>✓</span><b>Approval Center</b><em>Next</em></button>
         <button type="button" disabled title="Coming next"><span>$</span><b>Payroll</b><em>Next</em></button>
       </nav>
@@ -38,8 +38,8 @@
       <header class="wf-topbar">
         <div>
           <span class="wf-kicker">WORKFORCE MODULE</span>
-          <h1>Excel Import Center</h1>
-          <p>Stage, validate, preview and confirm workforce data safely.</p>
+          <h1 id="wfPageTitle">Workforce Dashboard</h1>
+          <p id="wfPageSubtitle">Daily workforce, attendance, approvals and payroll visibility.</p>
         </div>
         <div class="wf-account">
           <span id="wfEntitlementBadge" class="wf-badge checking">CHECKING</span>
@@ -55,6 +55,103 @@
       </section>
 
       <section id="wfWorkspace" class="wf-workspace" hidden>
+        <section id="wfDashboardView" class="wf-section-view">
+          <div class="wf-dashboard-head">
+            <div>
+              <span class="wf-kicker">LIVE OPERATIONS</span>
+              <h2>Today at a glance</h2>
+              <p id="wfDashboardDate">Loading current workforce position…</p>
+            </div>
+            <button id="wfDashboardRefresh" class="wf-soft-btn" type="button">Refresh Dashboard</button>
+          </div>
+
+          <div class="wf-kpi-grid">
+            <article class="wf-kpi-card">
+              <span>ACTIVE WORKFORCE</span>
+              <strong id="wfKpiEmployees">—</strong>
+              <small>Active employees in this company</small>
+            </article>
+            <article class="wf-kpi-card">
+              <span>ACTIVE SITES</span>
+              <strong id="wfKpiSites">—</strong>
+              <small>Operational Workforce sites</small>
+            </article>
+            <article class="wf-kpi-card">
+              <span>PRESENT TODAY</span>
+              <strong id="wfKpiPresent">—</strong>
+              <small id="wfKpiAttendanceNote">Attendance records today</small>
+            </article>
+            <article class="wf-kpi-card attention">
+              <span>PENDING APPROVALS</span>
+              <strong id="wfKpiPending">—</strong>
+              <small>Items requiring review</small>
+            </article>
+          </div>
+
+          <div class="wf-dashboard-grid">
+            <article class="wf-card wf-ops-card">
+              <div class="wf-card-head">
+                <div><span>ATTENDANCE TODAY</span><h2>Daily operations</h2></div>
+                <span id="wfAttendanceDateBadge" class="wf-badge neutral">TODAY</span>
+              </div>
+              <div class="wf-attendance-strip">
+                <div><span>Present</span><b id="wfTodayPresent">0</b></div>
+                <div><span>Late</span><b id="wfTodayLate">0</b></div>
+                <div><span>Absent / No Show</span><b id="wfTodayAbsent">0</b></div>
+                <div><span>Pending</span><b id="wfTodayPending">0</b></div>
+              </div>
+              <div class="wf-table-wrap wf-dashboard-table">
+                <table class="wf-table">
+                  <thead><tr><th>Employee</th><th>Status</th><th>Site</th><th>Worked</th><th>OT</th><th>Approval</th></tr></thead>
+                  <tbody id="wfTodayAttendanceBody"><tr><td colspan="6" class="empty">No attendance loaded yet.</td></tr></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="wf-card wf-payroll-card">
+              <div class="wf-card-head">
+                <div><span>PAYROLL</span><h2>Latest payroll position</h2></div>
+                <span id="wfPayrollStatus" class="wf-badge neutral">NO RUN</span>
+              </div>
+              <div class="wf-payroll-summary">
+                <div><span>Employees</span><b id="wfPayrollEmployees">—</b></div>
+                <div><span>Gross</span><b id="wfPayrollGross">—</b></div>
+                <div><span>Deductions</span><b id="wfPayrollDeductions">—</b></div>
+                <div><span>Net Pay</span><b id="wfPayrollNet">—</b></div>
+              </div>
+              <div class="wf-payroll-meta">
+                <span id="wfPayrollPeriod">No payroll run available yet.</span>
+                <small id="wfPayrollUpdated">Dashboard reads existing Workforce payroll data only.</small>
+              </div>
+            </article>
+          </div>
+
+          <div class="wf-dashboard-grid lower">
+            <article class="wf-card wf-attention-card">
+              <div class="wf-card-head">
+                <div><span>ATTENTION NEEDED</span><h2>Pending approvals</h2></div>
+                <span id="wfApprovalTotalBadge" class="wf-badge neutral">0 ITEMS</span>
+              </div>
+              <div id="wfApprovalBreakdown" class="wf-approval-breakdown">
+                <div class="wf-empty-card">No approval information loaded yet.</div>
+              </div>
+            </article>
+
+            <article class="wf-card wf-activity-card">
+              <div class="wf-card-head">
+                <div><span>RECENT ACTIVITY</span><h2>Latest imports</h2></div>
+                <button id="wfDashboardOpenImport" class="wf-soft-btn" type="button">Open Import Center</button>
+              </div>
+              <div id="wfDashboardImports" class="wf-mini-list">
+                <div class="wf-empty-card">No import history loaded yet.</div>
+              </div>
+            </article>
+          </div>
+
+          <div id="wfDashboardMessage" class="wf-message info">Dashboard is connecting to Workforce data…</div>
+        </section>
+
+        <section id="wfImportView" class="wf-section-view" hidden>
         <div class="wf-hero-grid">
           <article class="wf-card wf-import-card">
             <div class="wf-card-head">
@@ -124,6 +221,7 @@
           <div class="wf-card-head"><div><span>HISTORY</span><h2>Recent import batches</h2></div><button id="wfReloadHistory" type="button">Reload</button></div>
           <div id="wfRecentBatches" class="wf-recent-list"><div class="wf-empty-card">No batches loaded yet.</div></div>
         </article>
+        </section>
       </section>
     </main>
   </div>
