@@ -52,9 +52,28 @@
     }
   }
 
+
+  function installNoFlashOpen(link) {
+    if (!link || link.dataset.wfNoFlashBound === '1') return;
+    link.dataset.wfNoFlashBound = '1';
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      try {
+        const opened = window.open(link.href, 'tabaja-workforce');
+        if (opened) {
+          opened.focus();
+          return;
+        }
+      } catch (_) {}
+      // Popup/window creation can be blocked by the host. Keep a safe fallback.
+      window.location.assign(link.href);
+    });
+  }
+
   async function sync() {
     const link = document.getElementById('workforceNavLink');
     if (!link) return;
+    installNoFlashOpen(link);
     hide(link);
 
     try {

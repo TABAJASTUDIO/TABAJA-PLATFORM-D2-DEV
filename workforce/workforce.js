@@ -7,22 +7,25 @@
   async function returnToIdentityPlatform(event) {
     if (event) event.preventDefault();
 
-    // Workforce is a separate page, while the frozen Identity shell still uses
-    // its legacy login marker on page boot. Confirm the real Supabase session is
-    // alive first, then bridge only this browser-tab session back to the shell.
-    // This does NOT sign in a user and does NOT change Smart Identity files.
+    // Preferred no-flash route: Workforce was opened from the live Identity
+    // shell in a separate same-origin window. Closing this window reveals the
+    // still-rendered Identity Platform instantly, so no Sign In screen repaints.
     try {
-      let liveSession = state.session || null;
+      if (window.opener && !window.opener.closed) {
+        try { window.opener.focus(); } catch (_) {}
+        window.close();
+        // If the host refuses window.close(), continue to the safe fallback.
+        await new Promise(resolve => setTimeout(resolve, 80));
+        if (window.closed) return;
+      }
 
+      let liveSession = state.session || null;
       if (state.client?.auth?.getSession) {
         const { data, error } = await state.client.auth.getSession();
         if (error) throw error;
         liveSession = data?.session || liveSession;
       }
-
-      if (!liveSession?.user?.id) {
-        throw new Error('Your cloud session has expired. Please sign in again.');
-      }
+      if (!liveSession?.user?.id) throw new Error('Your cloud session has expired. Please sign in again.');
 
       window.sessionStorage.setItem(MAIN_LOGIN_KEY, '1');
       window.location.assign('index.html');
@@ -91,7 +94,10 @@
     preview: [],
     busy: false,
     dashboardBusy: false,
-    currentSection: 'dashboard'
+    currentSection: 'dashboard',
+    approvals: [],
+    approvalsBusy: false,
+    makerCheckerRequired: true
   };
 
   const $ = id => document.getElementById(id);
@@ -731,6 +737,187 @@
     }
   }
 
+
+  const APPROVAL_SOURCES = Object.freeze([
+    { kind: 'salary', label: 'Salary', table: 'wf_employee_salary_history' },
+    { kind: 'transport', label: 'Transport', table: 'wf_transport_employee_overrides' },
+    { kind: 'attendance', label: 'Attendance', table: 'wf_attendance_records' },
+    { kind: 'leave', label: 'Leave', table: 'wf_leave_requests' },
+    { kind: 'advance', label: 'Advance / Loan', table: 'wf_advances' }
+  ]);
+
+  function approvalMessage(text, tone = 'info') {
+    const el = $('wfApprovalMessage');
+    if (!el) return;
+    el.className = `wf-message ${tone}`;
+    el.textContent = text;
+  }
+
+  function approvalDetail(item) {
+    const r = item.record || {};
+    if (item.kind === 'salary') return `${formatMoney(r.base_amount, r.currency_code || '')} • ${String(r.pay_basis || 'salary').replaceAll('_',' ')} • effective ${r.effective_from || '—'}`;
+    if (item.kind === 'transport') return `${String(r.method || 'transport').replaceAll('_',' ')} • ${r.amount === null || r.amount === undefined ? 'Rule-based amount' : formatMoney(r.amount)} • effective ${r.effective_from || '—'}`;
+    if (item.kind === 'attendance') return `${r.work_date || '—'} • ${String(r.attendance_status || 'attendance').replaceAll('_',' ')} • ${r.worked_minutes ?? 0} worked min • ${r.overtime_minutes ?? 0} OT min`;
+    if (item.kind === 'leave') return `${r.start_date || '—'} → ${r.end_date || '—'} • ${r.requested_units ?? '—'} unit(s)`;
+    if (item.kind === 'advance') return `${formatMoney(r.principal_amount, r.currency_code || '')} • ${String(r.advance_type || 'advance').replaceAll('_',' ')} • ${r.issue_date || '—'}`;
+    return 'Pending Workforce item';
+  }
+
+  function approvalSecondary(item) {
+    const r = item.record || {};
+    if (item.kind === 'salary') return r.notes || 'Salary change awaiting checker review.';
+    if (item.kind === 'transport') return r.reason || 'Transport override awaiting checker review.';
+    if (item.kind === 'attendance') return r.notes || 'Attendance record awaiting approval.';
+    if (item.kind === 'leave') return r.reason || 'Leave request awaiting approval.';
+    if (item.kind === 'advance') return r.purpose || r.notes || 'Advance / loan awaiting approval.';
+    return '';
+  }
+
+  function renderApprovalQueue() {
+    const host = $('wfApprovalQueue');
+    if (!host) return;
+    const filter = $('wfApprovalFilter')?.value || 'all';
+    const items = (state.approvals || []).filter(item => filter === 'all' || item.kind === filter);
+
+    if (!items.length) {
+      host.innerHTML = '<div class="wf-empty-card">No pending items in this view.</div>';
+      return;
+    }
+
+    host.innerHTML = items.map(item => {
+      const r = item.record || {};
+      const employee = item.employee || {};
+      const employeeLabel = employee.full_name || employee.employee_code || 'Company-level item';
+      const selfMade = !!(state.makerCheckerRequired && r.created_by && state.session?.user?.id && r.created_by === state.session.user.id);
+      const created = r.created_at ? new Date(r.created_at).toLocaleString() : '';
+      const disabled = selfMade ? 'disabled' : '';
+      const checkerText = selfMade ? '<span class="wf-checker-note">Maker-checker: another authorised user must review this item.</span>' : '';
+      return `<article class="wf-approval-item" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(r.id)}">
+        <div class="wf-approval-item-main">
+          <div class="wf-approval-item-top">
+            <span class="wf-type-pill ${escapeHtml(item.kind)}">${escapeHtml(item.label)}</span>
+            <span class="wf-pending-pill">PENDING</span>
+          </div>
+          <h3>${escapeHtml(employeeLabel)}</h3>
+          <p class="wf-approval-detail">${escapeHtml(approvalDetail(item))}</p>
+          <p class="wf-approval-secondary">${escapeHtml(approvalSecondary(item))}</p>
+          <div class="wf-approval-meta">${employee.employee_code ? `<span>${escapeHtml(employee.employee_code)}</span>` : ''}${created ? `<span>${escapeHtml(created)}</span>` : ''}</div>
+          ${checkerText}
+        </div>
+        <div class="wf-approval-actions">
+          <button class="approve" type="button" data-approval-action="approved" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(r.id)}" ${disabled}>Approve</button>
+          <button class="reject" type="button" data-approval-action="rejected" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(r.id)}" ${disabled}>Reject</button>
+        </div>
+      </article>`;
+    }).join('');
+  }
+
+  async function fetchApprovalSource(source) {
+    try {
+      const { data, error } = await state.client
+        .from(source.table)
+        .select('*')
+        .eq('company_id', state.workspace.companyId)
+        .eq('approval_status', 'pending')
+        .order('created_at', { ascending: true })
+        .limit(100);
+      if (error) throw error;
+      return (data || []).map(record => ({ ...source, record }));
+    } catch (error) {
+      console.warn(`[Approval Center] ${source.table} unavailable`, error?.message || error);
+      return [];
+    }
+  }
+
+  async function loadApprovalCenter() {
+    if (!state.workspace?.companyId || state.approvalsBusy) return;
+    state.approvalsBusy = true;
+    $('wfApprovalRefresh').disabled = true;
+    approvalMessage('Refreshing pending approvals…', 'info');
+    try {
+      try {
+        const { data: settings } = await state.client
+          .from('wf_company_settings')
+          .select('maker_checker_required')
+          .eq('company_id', state.workspace.companyId)
+          .maybeSingle();
+        state.makerCheckerRequired = settings?.maker_checker_required !== false;
+      } catch (_) {
+        state.makerCheckerRequired = true;
+      }
+
+      const groups = await Promise.all(APPROVAL_SOURCES.map(fetchApprovalSource));
+      const queue = groups.flat();
+      const employeeIds = [...new Set(queue.map(item => item.record?.employee_id).filter(Boolean))];
+      const employeeMap = await fetchNameMap('employees', employeeIds, 'id,employee_code,full_name');
+      queue.forEach(item => { item.employee = employeeMap.get(item.record?.employee_id) || null; });
+      state.approvals = queue;
+
+      const count = kind => queue.filter(item => item.kind === kind).length;
+      const salary = count('salary');
+      const transport = count('transport');
+      const other = count('attendance') + count('leave') + count('advance');
+      $('wfApprovalKpiTotal').textContent = String(queue.length);
+      $('wfApprovalKpiSalary').textContent = String(salary);
+      $('wfApprovalKpiTransport').textContent = String(transport);
+      $('wfApprovalKpiOther').textContent = String(other);
+      $('wfNavApprovalCount').textContent = queue.length ? String(queue.length) : '';
+      renderApprovalQueue();
+
+      if (!queue.length) approvalMessage('No pending approvals. Everything in the current scope is clear.', 'success');
+      else if (state.makerCheckerRequired && queue.some(item => item.record?.created_by === state.session?.user?.id)) approvalMessage(`${queue.length} pending item(s). Items created by this same user require another authorised checker.`, 'warning');
+      else approvalMessage(`${queue.length} pending item(s) ready for authorised review.`, 'success');
+    } catch (error) {
+      console.error('[Approval Center]', error);
+      approvalMessage(error?.message || 'Unable to load approvals.', 'error');
+    } finally {
+      state.approvalsBusy = false;
+      $('wfApprovalRefresh').disabled = false;
+    }
+  }
+
+  async function actOnApproval(kind, id, action) {
+    const item = (state.approvals || []).find(x => x.kind === kind && x.record?.id === id);
+    if (!item) return;
+    if (!['approved','rejected'].includes(action)) return;
+
+    if (state.makerCheckerRequired && item.record?.created_by && item.record.created_by === state.session?.user?.id) {
+      approvalMessage('Maker-checker is enabled. This item must be reviewed by another authorised user.', 'warning');
+      return;
+    }
+
+    const verb = action === 'approved' ? 'Approve' : 'Reject';
+    if (!window.confirm(`${verb} this ${item.label.toLowerCase()} item for ${item.employee?.full_name || item.employee?.employee_code || 'this record'}?`)) return;
+
+    approvalMessage(`${verb} in progress…`, 'info');
+    document.querySelectorAll('[data-approval-action]').forEach(btn => { btn.disabled = true; });
+    try {
+      const payload = {
+        approval_status: action,
+        reviewed_by: state.session.user.id,
+        reviewed_at: new Date().toISOString(),
+        updated_by: state.session.user.id
+      };
+      const { data, error } = await state.client
+        .from(item.table)
+        .update(payload)
+        .eq('company_id', state.workspace.companyId)
+        .eq('id', id)
+        .eq('approval_status', 'pending')
+        .select('id,approval_status')
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error('The item was not changed. It may have been reviewed already or your role may be view-only.');
+
+      approvalMessage(`${item.label} ${action === 'approved' ? 'approved' : 'rejected'} successfully.`, 'success');
+      await Promise.all([loadApprovalCenter(), loadApprovalBreakdown()]);
+    } catch (error) {
+      console.error('[Approval Center Action]', error);
+      approvalMessage(error?.message || 'Approval action failed.', 'error');
+      renderApprovalQueue();
+    }
+  }
+
   async function loadDashboard() {
     if (!state.workspace?.companyId || state.dashboardBusy) return;
     state.dashboardBusy = true;
@@ -796,12 +983,14 @@
   }
 
   function showSection(section) {
-    const target = section === 'import' ? 'import' : 'dashboard';
+    const target = ['dashboard','import','approvals'].includes(section) ? section : 'dashboard';
     state.currentSection = target;
     const dashboard = $('wfDashboardView');
     const imports = $('wfImportView');
+    const approvals = $('wfApprovalView');
     if (dashboard) dashboard.hidden = target !== 'dashboard';
     if (imports) imports.hidden = target !== 'import';
+    if (approvals) approvals.hidden = target !== 'approvals';
 
     document.querySelectorAll('.wf-nav button[data-section]').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.section === target);
@@ -812,6 +1001,11 @@
       $('wfPageSubtitle').textContent = 'Daily workforce, attendance, approvals and payroll visibility.';
       window.location.hash = 'dashboard';
       if (state.workspace?.companyId) loadDashboard();
+    } else if (target === 'approvals') {
+      $('wfPageTitle').textContent = 'Approval Center';
+      $('wfPageSubtitle').textContent = 'Review pending Workforce changes with maker-checker protection.';
+      window.location.hash = 'approvals';
+      if (state.workspace?.companyId) loadApprovalCenter();
     } else {
       $('wfPageTitle').textContent = 'Excel Import Center';
       $('wfPageSubtitle').textContent = 'Stage, validate, preview and confirm workforce data safely.';
@@ -827,6 +1021,13 @@
     });
     $('wfDashboardRefresh')?.addEventListener('click', loadDashboard);
     $('wfDashboardOpenImport')?.addEventListener('click', () => showSection('import'));
+    $('wfApprovalRefresh')?.addEventListener('click', loadApprovalCenter);
+    $('wfApprovalFilter')?.addEventListener('change', renderApprovalQueue);
+    $('wfApprovalQueue')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-approval-action]');
+      if (!button || button.disabled) return;
+      actOnApproval(button.dataset.kind, button.dataset.id, button.dataset.approvalAction);
+    });
 
     $('wfImportType').addEventListener('change', () => {
       const cfg = IMPORTS[$('wfImportType').value];
@@ -927,8 +1128,10 @@
       setMessage('Workforce is connected. Choose an Excel file to begin.', 'success');
       bindIdentityReturnButtons();
 
-      const initialSection = String(window.location.hash || '').toLowerCase() === '#import' ? 'import' : 'dashboard';
+      const hash = String(window.location.hash || '').toLowerCase();
+      const initialSection = hash === '#import' ? 'import' : (hash === '#approvals' ? 'approvals' : 'dashboard');
       showSection(initialSection);
+      loadApprovalCenter();
       await restoreRememberedBatch();
       await reloadHistory();
     } catch (error) {

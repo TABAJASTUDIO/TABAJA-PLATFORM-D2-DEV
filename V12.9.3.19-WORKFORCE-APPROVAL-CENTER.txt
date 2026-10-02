@@ -1,0 +1,9 @@
+TABAJA SOLUTION D2 DEV
+V12.9.3.19 - Workforce Approval Center + No-Flash Return
+
+- Added isolated Workforce Approval Center for pending Salary, Transport, Attendance, Leave and Advances.
+- Approve/Reject uses existing table RLS and approval guards; database remains final authority.
+- Maker-checker self-review is disabled in UI when maker_checker_required is enabled.
+- Workforce launcher opens the module in a separate same-origin window when supported. Back closes Workforce and reveals the already-open Identity Platform, avoiding Sign In flash without modifying Identity business files.
+- Safe same-tab fallback remains when the host blocks a secondary window.
+- Smart Identity business files remain unchanged.
