@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#10192c">
+  <title>Workforce & Payroll • Tabaja Solution DEV</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=12.9.3.16-wf1">
+  <link rel="stylesheet" href="workforce/workforce.css?v=1.0.0">
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="cloud.js?v=12.9.3.16-fix5.7-rpc"></script>
+  <script defer src="workforce/workforce.js?v=1.0.0"></script>
+</head>
+<body>
+  <div class="wf-shell">
+    <aside class="wf-sidebar">
+      <a class="wf-brand" href="index.html" aria-label="Back to Tabaja Solution">
+        <span class="wf-brand-mark">TS</span>
+        <span><b>Tabaja Solution</b><small>WORKFORCE & PAYROLL</small></span>
+      </a>
+
+      <nav class="wf-nav" aria-label="Workforce navigation">
+        <button class="active" type="button" data-section="import"><span>⇩</span><b>Import Center</b></button>
+        <button type="button" disabled title="Coming next"><span>⌂</span><b>Workforce Dashboard</b><em>Next</em></button>
+        <button type="button" disabled title="Coming next"><span>✓</span><b>Approval Center</b><em>Next</em></button>
+        <button type="button" disabled title="Coming next"><span>$</span><b>Payroll</b><em>Next</em></button>
+      </nav>
+
+      <div class="wf-sidebar-foot">
+        <span class="wf-dev-dot"></span>
+        <div><b>DEV Workspace</b><small>Isolated Workforce module</small></div>
+      </div>
+    </aside>
+
+    <main class="wf-main">
+      <header class="wf-topbar">
+        <div>
+          <span class="wf-kicker">WORKFORCE MODULE</span>
+          <h1>Excel Import Center</h1>
+          <p>Stage, validate, preview and confirm workforce data safely.</p>
+        </div>
+        <div class="wf-account">
+          <span id="wfEntitlementBadge" class="wf-badge checking">CHECKING</span>
+          <div class="wf-account-copy"><b id="wfCompanyName">Loading company…</b><small id="wfUserEmail">Checking session…</small></div>
+          <a class="wf-back" href="index.html">← Identity Platform</a>
+        </div>
+      </header>
+
+      <section id="wfGate" class="wf-gate">
+        <div class="wf-spinner" aria-hidden="true"></div>
+        <h2>Opening Workforce…</h2>
+        <p id="wfGateMessage">Checking your company, module entitlement and cloud session.</p>
+      </section>
+
+      <section id="wfWorkspace" class="wf-workspace" hidden>
+        <div class="wf-hero-grid">
+          <article class="wf-card wf-import-card">
+            <div class="wf-card-head">
+              <div><span>STEP 1</span><h2>Choose import type</h2></div>
+              <a class="wf-template-link" href="workforce/Tabaja_Workforce_Import_Templates.xlsx" download>↓ Excel Template</a>
+            </div>
+
+            <label class="wf-field">
+              <span>Import type</span>
+              <select id="wfImportType">
+                <option value="full_company_setup">Full Company Setup</option>
+                <option value="employees_only">Employees Only</option>
+                <option value="sites_assignments">Sites & Assignments (existing sites)</option>
+                <option value="salary_transport">Salary & Transport</option>
+                <option value="attendance">Attendance</option>
+              </select>
+              <small id="wfImportHint">Areas → Sites → Posts → Shifts → Employees → Assignments → Salary & Transport.</small>
+            </label>
+
+            <div id="wfDropZone" class="wf-dropzone" tabindex="0" role="button" aria-label="Choose Excel file">
+              <input id="wfFileInput" type="file" accept=".xlsx,.xls" hidden>
+              <span class="wf-drop-icon">XLSX</span>
+              <div><b id="wfFileLabel">Drop an Excel file here</b><small>or click to choose a file from this computer</small></div>
+              <button id="wfBrowseBtn" type="button">Choose File</button>
+            </div>
+
+            <div class="wf-actions">
+              <button id="wfStageBtn" class="primary" type="button" disabled>Upload & Validate</button>
+              <button id="wfClearBtn" type="button">Clear</button>
+            </div>
+          </article>
+
+          <article class="wf-card wf-status-card">
+            <div class="wf-card-head"><div><span>LIVE STATUS</span><h2>Current batch</h2></div><span id="wfBatchStatus" class="wf-badge neutral">NO BATCH</span></div>
+            <div class="wf-batch-file"><b id="wfBatchFile">No file staged</b><small id="wfBatchId">Upload an Excel file to begin.</small></div>
+            <div class="wf-metrics">
+              <div><span>Total</span><b id="wfTotalRows">0</b></div>
+              <div><span>Valid</span><b id="wfValidRows">0</b></div>
+              <div><span>Warnings</span><b id="wfWarningRows">0</b></div>
+              <div><span>Errors</span><b id="wfErrorRows">0</b></div>
+            </div>
+            <div class="wf-confirm-box">
+              <p id="wfConfirmHint">Validation must finish with zero errors before confirmation.</p>
+              <button id="wfConfirmBtn" class="confirm" type="button" disabled>Confirm Import</button>
+            </div>
+          </article>
+        </div>
+
+        <article class="wf-card wf-preview-card">
+          <div class="wf-card-head preview-head">
+            <div><span>STEP 2</span><h2>Validation Preview</h2><p>Nothing is written to live Workforce tables until Confirm Import succeeds.</p></div>
+            <div class="wf-preview-tools">
+              <button id="wfRefreshBtn" type="button" disabled>Refresh</button>
+              <span id="wfPreviewCount">0 rows</span>
+            </div>
+          </div>
+          <div id="wfMessage" class="wf-message info">Choose an import type and Excel file.</div>
+          <div class="wf-table-wrap">
+            <table class="wf-table">
+              <thead><tr><th>#</th><th>Status</th><th>Action</th><th>Reference</th><th>Errors</th><th>Warnings</th></tr></thead>
+              <tbody id="wfPreviewBody"><tr><td colspan="6" class="empty">No validation results yet.</td></tr></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="wf-card wf-recent-card">
+          <div class="wf-card-head"><div><span>HISTORY</span><h2>Recent import batches</h2></div><button id="wfReloadHistory" type="button">Reload</button></div>
+          <div id="wfRecentBatches" class="wf-recent-list"><div class="wf-empty-card">No batches loaded yet.</div></div>
+        </article>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

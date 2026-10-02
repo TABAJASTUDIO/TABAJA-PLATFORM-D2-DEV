@@ -1,0 +1,33 @@
+TABAJA SOLUTION DEV — V12.9.3.17 WORKFORCE IMPORT CENTER
+
+Scope
+- Adds a NEW isolated Workforce & Payroll page: workforce.html
+- Adds Workforce files only under /workforce/
+- Adds one entitlement-controlled navigation link in index.html.
+- Does NOT modify app.js, cloud.js, v8-ui.js, employee-manager.js, Card Designer, Templates, NFC, Batch Printing, printing logic, or Smart Identity database behavior.
+
+Workforce Import Center V1 UI
+- Full Company Setup
+- Employees Only
+- Sites & Assignments (existing sites)
+- Salary & Transport
+- Attendance
+- XLSX parsing in browser
+- Protected staging to wf_import_batches / wf_import_rows
+- Server-side validation RPC
+- Validation preview
+- Confirm RPC
+- Recent batch history
+- Workforce entitlement gate
+
+Template
+- workforce/Tabaja_Workforce_Import_Templates.xlsx
+
+Testing
+1. Sign into the DEV platform with a company that has Workforce entitlement enabled.
+2. Click Workforce in the left navigation.
+3. Download the Excel template.
+4. Choose an import type and upload the matching template sheet(s).
+5. Upload & Validate.
+6. Review errors/warnings.
+7. Confirm only when status is READY.
