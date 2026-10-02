@@ -432,12 +432,35 @@
   }
 
   async function checkEntitlement() {
+    // Use the protected server-side entitlement check first. This avoids
+    // depending on direct SELECT access to the entitlement table.
+    const { data: enabled, error: rpcError } = await state.client.rpc('wf_is_enabled', {
+      target_company: state.workspace.companyId
+    });
+
+    if (!rpcError) {
+      state.entitlement = { enabled: enabled === true, plan: null };
+
+      // Plan is display-only; fetch it only when table SELECT is available.
+      try {
+        const { data } = await state.client
+          .from('wf_company_entitlements')
+          .select('company_id,enabled,plan')
+          .eq('company_id', state.workspace.companyId)
+          .maybeSingle();
+        if (data) state.entitlement = data;
+      } catch (_) {}
+
+      return enabled === true;
+    }
+
+    // Compatibility fallback for older database builds.
     const { data, error } = await state.client
       .from('wf_company_entitlements')
       .select('company_id,enabled,plan')
       .eq('company_id', state.workspace.companyId)
       .maybeSingle();
-    if (error) throw error;
+    if (error) throw rpcError || error;
     state.entitlement = data || null;
     return data?.enabled === true;
   }

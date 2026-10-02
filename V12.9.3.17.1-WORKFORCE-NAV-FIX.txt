@@ -1,0 +1,9 @@
+TABAJA SOLUTION D2 DEV — V12.9.3.17.1
+WORKFORCE NAVIGATION FIX
+
+- Workforce sidebar entitlement check now uses protected wf_is_enabled RPC.
+- Added fallback entitlement read for compatibility.
+- Launcher re-syncs after login/account change, pageshow and focus.
+- Workforce page entitlement gate uses the same protected RPC.
+- PWA cache version bumped and Workforce assets added to app shell.
+- No Smart Identity engine, Card Designer, Templates, NFC or Batch logic changed.

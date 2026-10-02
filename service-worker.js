@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.16-fix5.7-pwa1';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.17-workforce-ui2';
 const APP_SHELL = [
   './',
   './index.html',
@@ -11,6 +11,10 @@ const APP_SHELL = [
   './command-center.js?v=12.9.3.5',
   './pwa.js?v=12.9.3.16',
   './nfc-studio.js?v=12.9.3-local-pwa-fix2',
+  './workforce.html',
+  './workforce/workforce.css?v=1.1.0',
+  './workforce/workforce.js?v=1.1.0',
+  './workforce/workforce-launcher.js?v=1.1.0',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
