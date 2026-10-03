@@ -94,6 +94,7 @@
     preview: [],
     busy: false,
     dashboardBusy: false,
+    dashboardLoaded: false,
     currentSection: 'dashboard',
     approvals: [],
     approvalsBusy: false,
@@ -1000,6 +1001,7 @@
         loadDashboardImports()
       ]);
 
+      state.dashboardLoaded = true;
       dashboardMessage('Dashboard refreshed from the live Workforce DEV database.', 'success');
     } catch (error) {
       console.error('[Workforce Dashboard]', error);
@@ -1184,7 +1186,9 @@
       $('wfPageTitle').textContent = 'Workforce Dashboard';
       $('wfPageSubtitle').textContent = 'Daily workforce, attendance, approvals and payroll visibility.';
       window.location.hash = 'dashboard';
-      if (state.workspace?.companyId) loadDashboard();
+      // Keep the last live values on screen when returning from another
+      // Workforce page. Refresh only on first load or via Refresh Dashboard.
+      if (state.workspace?.companyId && !state.dashboardLoaded) loadDashboard();
     } else if (target === 'approvals') {
       $('wfPageTitle').textContent = 'Approval Center';
       $('wfPageSubtitle').textContent = 'Review pending Workforce changes with maker-checker protection.';
@@ -1209,6 +1213,7 @@
       button.addEventListener('click', () => showSection(button.dataset.section));
     });
     $('wfDashboardRefresh')?.addEventListener('click', loadDashboard);
+    $('wfSidebarBackDashboard')?.addEventListener('click', () => showSection('dashboard'));
     $('wfDashboardOpenImport')?.addEventListener('click', () => showSection('import'));
     $('wfApprovalRefresh')?.addEventListener('click', loadApprovalCenter);
     $('wfPayrollRefresh')?.addEventListener('click', loadPayroll);

@@ -25,6 +25,7 @@
   }
 
   function show(link) {
+    link.dataset.wfEntitlementReady = '1';
     link.hidden = false;
     link.style.display = '';
     link.style.visibility = 'visible';
@@ -87,7 +88,14 @@
     const link = document.getElementById('workforceNavLink');
     if (!link) return;
     installNoFlashOpen(link);
-    hide(link);
+
+    // IMPORTANT: once Workforce has been proven enabled and the nav slot is
+    // visible, never hide it again during focus/pageshow/account re-checks.
+    // Hiding a live slot caused the Workforce / Print Center / Reports group
+    // to visually blink/reflow for a fraction of a second on return.
+    const alreadyVisible = link.dataset.wfEntitlementReady === '1' ||
+      (!link.hidden && link.style.display !== 'none' && link.style.visibility !== 'hidden');
+    if (!alreadyVisible) hide(link);
 
     try {
       if (!window.TabajaCloud?.getClient) return;
