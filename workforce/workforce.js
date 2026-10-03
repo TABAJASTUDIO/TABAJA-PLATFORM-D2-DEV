@@ -1115,10 +1115,10 @@
     }).join('');
   }
 
-  function renderPayrollResults(rows, currency) {
+  function renderPayrollResults(rows, currency, profileMap = {}, period = {}) {
     const host = $('wfPayrollResults');
     $('wfPayResultCount').textContent = `${rows.length} employee${rows.length === 1 ? '' : 's'}`;
-    if (!rows.length) { host.innerHTML = '<tr><td colspan="6" class="empty">No calculated payroll results yet.</td></tr>'; return; }
+    if (!rows.length) { host.innerHTML = '<tr><td colspan="7" class="empty">No calculated payroll results yet.</td></tr>'; return; }
     host.innerHTML = rows.map(r => {
       const name = firstValue(r,['employee_name_snapshot','employee_name','full_name'],'Employee');
       const code = firstValue(r,['employee_code_snapshot','employee_code'],'');
@@ -1127,7 +1127,19 @@
       const gross = firstValue(r,['gross_amount','gross_total'], Number(basic)+Number(transport));
       const ded = firstValue(r,['deduction_amount','deduction_total','total_deductions'],0);
       const net = firstValue(r,['net_amount','net_total','net_salary'], Number(gross)-Number(ded));
-      return `<tr><td><b>${escapeHtml(name)}</b>${code ? `<small class="wf-cell-sub">${escapeHtml(code)}</small>`:''}</td><td>${escapeHtml(money(basic,currency))}</td><td>${escapeHtml(money(transport,currency))}</td><td>${escapeHtml(money(gross,currency))}</td><td class="wf-money-deduct">${escapeHtml(money(ded,currency))}</td><td class="wf-money-net">${escapeHtml(money(net,currency))}</td></tr>`;
+      const profile = profileMap[r.employee_id] || {};
+      let proration = 'Full month';
+      const hire = profile.hire_date;
+      if (hire && period.period_start && period.period_end && hire > period.period_start && hire <= period.period_end) {
+        const start = new Date(`${period.period_start}T12:00:00`);
+        const end = new Date(`${period.period_end}T12:00:00`);
+        const hired = new Date(`${hire}T12:00:00`);
+        const days = Math.round((end - start) / 86400000) + 1;
+        const payable = Math.round((end - hired) / 86400000) + 1;
+        const pct = days > 0 ? ((payable / days) * 100).toFixed(2) : '0.00';
+        proration = `${payable}/${days} days • ${pct}%`;
+      }
+      return `<tr><td><b>${escapeHtml(name)}</b>${code ? `<small class="wf-cell-sub">${escapeHtml(code)}</small>`:''}</td><td>${escapeHtml(money(basic,currency))}</td><td><b>${escapeHtml(proration)}</b>${hire ? `<small class="wf-cell-sub">Hire: ${escapeHtml(formatDateDMY(hire))}</small>` : ''}</td><td>${escapeHtml(money(transport,currency))}</td><td>${escapeHtml(money(gross,currency))}</td><td class="wf-money-deduct">${escapeHtml(money(ded,currency))}</td><td class="wf-money-net">${escapeHtml(money(net,currency))}</td></tr>`;
     }).join('');
   }
 
@@ -1136,12 +1148,12 @@
     state.selectedPayrollRun = run;
     if (!run) {
       $('wfPayStatus').textContent='—'; $('wfPayPeriod').textContent='No run selected'; $('wfPayEmployees').textContent='—'; $('wfPayGross').textContent='—'; $('wfPayNet').textContent='—'; $('wfPayDeductions').textContent='—';
-      renderPayrollIssues([]); renderPayrollResults([], ''); updatePayrollActions(null); return;
+      renderPayrollIssues([]); renderPayrollResults([], '', {}, {}); updatePayrollActions(null); return;
     }
     const period = state.payrollPeriods.find(p => p.id === run.payroll_period_id) || {};
     const currency = period.currency_code || 'SLE';
     $('wfPayStatus').textContent = String(run.status || 'draft').replaceAll('_',' ').toUpperCase();
-    $('wfPayPeriod').textContent = `${period.period_code || run.run_label || 'Payroll'}${period.period_start ? ` • ${period.period_start} → ${period.period_end}` : ''}`;
+    $('wfPayPeriod').textContent = `${period.period_code || run.run_label || 'Payroll'}${period.period_start ? ` • ${formatDateDMY(period.period_start)} → ${formatDateDMY(period.period_end)}` : ''}`;
     $('wfPayCurrency').textContent = currency;
     $('wfPayGross').textContent = money(run.gross_total,currency);
     $('wfPayDeductions').textContent = money(run.deduction_total,currency);
@@ -1177,9 +1189,17 @@
       const empRes = await state.client.from('employees').select('id,employee_code,full_name').eq('company_id',state.workspace.companyId).in('id',issueEmployeeIds);
       if (!empRes.error) issueEmployeeMap = Object.fromEntries((empRes.data || []).map(e => [e.id,e]));
     }
+    const snapEmployeeIds = [...new Set(snaps.map(x => x.employee_id).filter(Boolean))];
+    let payrollProfileMap = {};
+    if (snapEmployeeIds.length) {
+      const profileRes = await state.client.from('wf_employee_profiles').select('employee_id,hire_date').eq('company_id',state.workspace.companyId).in('employee_id',snapEmployeeIds);
+      if (!profileRes.error) payrollProfileMap = Object.fromEntries((profileRes.data || []).map(p => [p.employee_id,p]));
+    }
     $('wfPayEmployees').textContent = String(snaps.length || run.employee_count || 0);
-    renderPayrollResults(snaps,currency); renderPayrollIssues(issues, issueEmployeeMap);
-    const versionNote = latestPreflightVersion == null ? '' : ` • preflight v${latestPreflightVersion}`;
+    renderPayrollResults(snaps,currency,payrollProfileMap,period); renderPayrollIssues(issues, issueEmployeeMap);
+    const runPreflightVersion = Number(firstValue(run,['preflight_version','last_preflight_version','latest_preflight_version'],0)) || null;
+    const displayPreflightVersion = runPreflightVersion || latestPreflightVersion;
+    const versionNote = displayPreflightVersion == null ? '' : ` • preflight v${displayPreflightVersion}`;
     payrollMessage(`Payroll ${String(run.status||'draft').replaceAll('_',' ')} • ${snaps.length} employee snapshot(s)${versionNote}.`, issues.some(x=>String(x.severity||x.issue_level||'').toLowerCase()==='error') ? 'warning' : 'success');
   }
 

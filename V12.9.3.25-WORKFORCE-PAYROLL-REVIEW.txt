@@ -1,0 +1,6 @@
+V12.9.3.25 - Workforce Payroll Results Review
+- Adds proration review column to Payroll Results.
+- Shows hire date and payable-days ratio for first-month monthly hires.
+- Displays payroll period dates as DD/MM/YYYY.
+- Prefers payroll run preflight version when available.
+- No Smart Identity / NFC / Batch / Templates changes.
