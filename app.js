@@ -2737,9 +2737,17 @@ window.TabajaElements = {
       status: String(c.status || 'active').toLowerCase() === 'suspended' ? 'SUSPENDED' : String(c.status || 'active').toLowerCase() === 'expired' ? 'EXPIRED' : (c.trial_expires_at ? 'TRIAL' : 'ACTIVE'),
       trialStartedAt: c.trial_started_at || null,
       trialExpiresAt: c.trial_expires_at || c.licence_expires_at || null,
-      features: { nfc: c.feature_nfc === true, batch: c.feature_batch === true, qr: c.feature_qr === true, barcode: c.feature_barcode === true, elements: c.feature_elements === true },
+      features: { nfc: c.feature_nfc === true, batch: c.feature_batch === true, qr: c.feature_qr === true, barcode: c.feature_barcode === true, elements: c.feature_elements === true, workforce: false },
       cloud: true
     }));
+
+    // Workforce is an isolated module entitlement, stored outside companies.
+    // Read it through the protected platform-admin RPC so Company Manager
+    // remains the single place where Tabaja controls module access.
+    const { data: wfRows, error: wfError } = await supabase.rpc('wf_platform_list_entitlements');
+    if (wfError) throw wfError;
+    const wfMap = new Map((wfRows || []).map(row => [String(row.company_id), row.enabled === true]));
+    cloudCompanies.forEach(a => { a.features.workforce = wfMap.get(String(a.id)) === true; });
   }
 
   const daysLeft = a => {
@@ -2758,6 +2766,7 @@ window.TabajaElements = {
     $("companyFeatureBatch").checked = a.features?.batch === true;
     $("companyFeatureQr").checked = a.features?.qr === true;
     $("companyFeatureBarcode").checked = a.features?.barcode === true;
+    $("companyFeatureWorkforce").checked = a.features?.workforce === true;
     $("companyFeatureElements").checked = a.features?.elements === true;
     const left = daysLeft(a);
     const trialDetails = a.trialStartedAt || a.trialExpiresAt
@@ -2799,13 +2808,21 @@ window.TabajaElements = {
       };
       const { data, error } = await supabase.from('companies').update(payload).eq('id', current.id).select('*').single();
       if (error) throw error;
+
+      const { error: wfError } = await supabase.rpc('wf_platform_set_entitlement', {
+        target_company: current.id,
+        target_enabled: updated.features?.workforce === true,
+        target_plan: updated.features?.workforce === true ? 'WORKFORCE' : null
+      });
+      if (wfError) throw wfError;
+
       const mapped = {
         ...updated,
         plan: data.plan || updated.plan,
         status: updated.status,
         trialStartedAt: data.trial_started_at || null,
         trialExpiresAt: data.trial_expires_at || data.licence_expires_at || null,
-        features: { nfc: data.feature_nfc === true, batch: data.feature_batch === true, qr: data.feature_qr === true, barcode: data.feature_barcode === true, elements: data.feature_elements === true }
+        features: { nfc: data.feature_nfc === true, batch: data.feature_batch === true, qr: data.feature_qr === true, barcode: data.feature_barcode === true, elements: data.feature_elements === true, workforce: updated.features?.workforce === true }
       };
       const i = cloudCompanies.findIndex(a => a.id === current.id);
       if (i >= 0) cloudCompanies[i] = mapped;
@@ -2877,5 +2894,5 @@ window.TabajaElements = {
   $("companyManagerPlus1")?.addEventListener("click",()=>extendTrial(1));
   $("companyManagerPlus2")?.addEventListener("click",()=>extendTrial(2));
   $("companyManagerActivate")?.addEventListener("click",()=>runUpdate(a=>{a.status="ACTIVE";a.plan="Standard";a.trialExpiresAt=null;}, "Paid account activated. Data preserved."));
-  $("companyManagerSave")?.addEventListener("click",()=>runUpdate(a=>{a.status=$("companyManagerStatus").value;a.features.nfc=$("companyFeatureNfc").checked;a.features.batch=$("companyFeatureBatch").checked;a.features.qr=$("companyFeatureQr").checked;a.features.barcode=$("companyFeatureBarcode").checked;a.features.elements=$("companyFeatureElements").checked;if(a.status==="ACTIVE")a.trialExpiresAt=null;}, "Company access saved."));
+  $("companyManagerSave")?.addEventListener("click",()=>runUpdate(a=>{a.status=$("companyManagerStatus").value;a.features.nfc=$("companyFeatureNfc").checked;a.features.batch=$("companyFeatureBatch").checked;a.features.qr=$("companyFeatureQr").checked;a.features.barcode=$("companyFeatureBarcode").checked;a.features.workforce=$("companyFeatureWorkforce").checked;a.features.elements=$("companyFeatureElements").checked;if(a.status==="ACTIVE")a.trialExpiresAt=null;}, "Company access saved."));
 })();
