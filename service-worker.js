@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.25.2-workforce-preflight-workflow-fix';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.25.3-workforce-reopen-preflight-fix';
 const APP_SHELL = [
   './',
   './index.html',

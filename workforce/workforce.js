@@ -1071,7 +1071,7 @@
     const status = String(run?.status || '').toLowerCase();
     const has = !!run && !state.payrollBusy;
     $('wfPayrollPreflightBtn').disabled = !has || !['draft','preflight_failed','ready','reopened','rejected'].includes(status);
-    $('wfPayrollCalculateBtn').disabled = !has || !['ready','reopened','rejected'].includes(status);
+    $('wfPayrollCalculateBtn').disabled = !has || !['ready','rejected'].includes(status);
     $('wfPayrollSubmitBtn').disabled = !has || status !== 'ready';
     $('wfPayrollApproveBtn').disabled = !has || status !== 'pending_approval';
     $('wfPayrollRejectBtn').disabled = !has || status !== 'pending_approval';
@@ -1203,7 +1203,8 @@
       'approved',
       'finalized',
       'locked',
-      'finalized_locked'
+      'finalized_locked',
+      'reopened'
     ]);
     const hasPassedPreflight = postPreflightStatuses.has(runStatus);
     const issues = hasPassedPreflight
@@ -1224,11 +1225,20 @@
       if (!profileRes.error) payrollProfileMap = Object.fromEntries((profileRes.data || []).map(p => [p.employee_id,p]));
     }
     $('wfPayEmployees').textContent = String(snaps.length || run.employee_count || 0);
-    renderPayrollResults(snaps,currency,payrollProfileMap,period,itemsBySnapshot); renderPayrollIssues(issues, issueEmployeeMap);
+    renderPayrollResults(snaps,currency,payrollProfileMap,period,itemsBySnapshot);
+    if (runStatus === 'reopened') {
+      $('wfPayrollIssues').innerHTML = '<div class="wf-empty-card"><strong>Payroll reopened.</strong><br>Run Preflight again before recalculating. Historical issues remain stored for audit only.</div>';
+    } else {
+      renderPayrollIssues(issues, issueEmployeeMap);
+    }
     const runPreflightVersion = Number(firstValue(run,['preflight_version','last_preflight_version','latest_preflight_version'],0)) || null;
     const displayPreflightVersion = runPreflightVersion || latestPreflightVersion;
     const versionNote = displayPreflightVersion == null ? '' : ` • preflight v${displayPreflightVersion}`;
-    payrollMessage(`Payroll ${String(run.status||'draft').replaceAll('_',' ')} • ${snaps.length} employee snapshot(s)${versionNote}.`, issues.some(x=>String(x.severity||x.issue_level||'').toLowerCase()==='error') ? 'warning' : 'success');
+    if (runStatus === 'reopened') {
+      payrollMessage(`Payroll reopened • ${snaps.length} employee snapshot(s). Run Preflight before recalculation.`, 'warning');
+    } else {
+      payrollMessage(`Payroll ${String(run.status||'draft').replaceAll('_',' ')} • ${snaps.length} employee snapshot(s)${versionNote}.`, issues.some(x=>String(x.severity||x.issue_level||'').toLowerCase()==='error') ? 'warning' : 'success');
+    }
   }
 
   async function loadPayroll() {
