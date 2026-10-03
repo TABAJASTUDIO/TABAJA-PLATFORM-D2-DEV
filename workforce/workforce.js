@@ -1115,18 +1115,22 @@
     }).join('');
   }
 
-  function renderPayrollResults(rows, currency, profileMap = {}, period = {}) {
+  function renderPayrollResults(rows, currency, profileMap = {}, period = {}, itemsBySnapshot = {}) {
     const host = $('wfPayrollResults');
     $('wfPayResultCount').textContent = `${rows.length} employee${rows.length === 1 ? '' : 's'}`;
     if (!rows.length) { host.innerHTML = '<tr><td colspan="7" class="empty">No calculated payroll results yet.</td></tr>'; return; }
     host.innerHTML = rows.map(r => {
       const name = firstValue(r,['employee_name_snapshot','employee_name','full_name'],'Employee');
       const code = firstValue(r,['employee_code_snapshot','employee_code'],'');
-      const basic = firstValue(r,['base_salary_amount','basic_salary','base_amount'],0);
+      // base_salary_amount is the contractual monthly rate. For review we must show
+      // the CALCULATED BASE item amount (e.g. first-month proration), not the rate.
+      const snapshotItems = itemsBySnapshot[r.id] || [];
+      const baseItem = snapshotItems.find(x => String(x.code || '').toUpperCase() === 'BASE' || String(x.category || '').toLowerCase() === 'base_salary');
+      const basic = baseItem ? Number(baseItem.amount || 0) : firstValue(r,['base_pay','calculated_base_pay','basic_pay','base_salary_amount','basic_salary','base_amount'],0);
       const transport = firstValue(r,['transport_amount','transport_total'],0);
-      const gross = firstValue(r,['gross_amount','gross_total'], Number(basic)+Number(transport));
-      const ded = firstValue(r,['deduction_amount','deduction_total','total_deductions'],0);
-      const net = firstValue(r,['net_amount','net_total','net_salary'], Number(gross)-Number(ded));
+      const gross = firstValue(r,['gross_earnings','gross_amount','gross_total'], Number(basic)+Number(transport));
+      const ded = firstValue(r,['total_deductions','deduction_amount','deduction_total'],0);
+      const net = firstValue(r,['net_pay','net_amount','net_total','net_salary'], Number(gross)-Number(ded));
       const profile = profileMap[r.employee_id] || {};
       let proration = 'Full month';
       const hire = profile.hire_date;
@@ -1161,11 +1165,19 @@
     $('wfNavPayrollStatus').textContent = String(run.status || '').replaceAll('_',' ');
     updatePayrollActions(run);
 
-    const [snapRes, issueRes] = await Promise.all([
+    const [snapRes, issueRes, itemRes] = await Promise.all([
       state.client.from('wf_payroll_employee_snapshots').select('*').eq('company_id',state.workspace.companyId).eq('payroll_run_id',run.id).order('employee_name_snapshot',{ascending:true}),
-      state.client.from('wf_payroll_preflight_issues').select('*').eq('company_id',state.workspace.companyId).eq('payroll_run_id',run.id).order('created_at',{ascending:true})
+      state.client.from('wf_payroll_preflight_issues').select('*').eq('company_id',state.workspace.companyId).eq('payroll_run_id',run.id).order('created_at',{ascending:true}),
+      state.client.from('wf_payroll_items').select('payroll_employee_id,employee_id,category,code,name,quantity,rate,amount,item_type').eq('company_id',state.workspace.companyId).eq('payroll_run_id',run.id)
     ]);
     const snaps = snapRes.error ? [] : (snapRes.data || []);
+    const payrollItems = itemRes.error ? [] : (itemRes.data || []);
+    const itemsBySnapshot = payrollItems.reduce((map, item) => {
+      const key = item.payroll_employee_id;
+      if (!key) return map;
+      (map[key] ||= []).push(item);
+      return map;
+    }, {});
     const allIssues = issueRes.error ? [] : (issueRes.data || []);
     // Preflight issues are intentionally versioned for audit history.
     // The live Payroll screen must show only the newest preflight version,
@@ -1196,7 +1208,7 @@
       if (!profileRes.error) payrollProfileMap = Object.fromEntries((profileRes.data || []).map(p => [p.employee_id,p]));
     }
     $('wfPayEmployees').textContent = String(snaps.length || run.employee_count || 0);
-    renderPayrollResults(snaps,currency,payrollProfileMap,period); renderPayrollIssues(issues, issueEmployeeMap);
+    renderPayrollResults(snaps,currency,payrollProfileMap,period,itemsBySnapshot); renderPayrollIssues(issues, issueEmployeeMap);
     const runPreflightVersion = Number(firstValue(run,['preflight_version','last_preflight_version','latest_preflight_version'],0)) || null;
     const displayPreflightVersion = runPreflightVersion || latestPreflightVersion;
     const versionNote = displayPreflightVersion == null ? '' : ` • preflight v${displayPreflightVersion}`;

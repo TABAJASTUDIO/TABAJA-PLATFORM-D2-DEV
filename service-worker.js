@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.25-workforce-payroll-review';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.25.1-workforce-payroll-review';
 const APP_SHELL = [
   './',
   './index.html',
