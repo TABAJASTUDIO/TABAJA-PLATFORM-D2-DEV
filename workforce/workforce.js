@@ -1138,9 +1138,15 @@
     const latestPreflightVersion = versionedIssues.length
       ? Math.max(...versionedIssues.map(x => Number(x.preflight_version)))
       : null;
-    const issues = latestPreflightVersion == null
-      ? allIssues
-      : allIssues.filter(x => Number(x.preflight_version) === latestPreflightVersion);
+    // A successful preflight with 0 issues creates no issue rows for its new version.
+    // In that case the run itself is READY, so historical issue rows must not be shown
+    // as if they still belong to the latest check.
+    const runIsReady = String(run.status || '').toLowerCase() === 'ready';
+    const issues = runIsReady
+      ? []
+      : (latestPreflightVersion == null
+          ? allIssues
+          : allIssues.filter(x => Number(x.preflight_version) === latestPreflightVersion));
     const issueEmployeeIds = [...new Set(issues.map(x => x.employee_id).filter(Boolean))];
     let issueEmployeeMap = {};
     if (issueEmployeeIds.length) {

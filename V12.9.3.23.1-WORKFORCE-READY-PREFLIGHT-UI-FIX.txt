@@ -1,0 +1,13 @@
+Tabaja Solution DEV - V12.9.3.23.1
+Workforce Payroll Ready Preflight UI Fix
+
+Changed files only:
+- workforce/workforce.js
+- service-worker.js
+
+Fix:
+- When the latest payroll preflight succeeds with 0 errors/warnings, the backend marks the payroll run READY but creates no issue rows for that new version.
+- The Payroll UI now treats READY as authoritative and does not display historical preflight issues from older versions.
+- Service worker cache version and Workforce JS cache-buster updated.
+
+No Identity / Card Designer / Templates / NFC / Batch Printing files changed.
