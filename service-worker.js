@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.22-workforce-entitlement-admin';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.22.1-workforce-entitlement-safe-company-list';
 const APP_SHELL = [
   './',
   './index.html',

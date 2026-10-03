@@ -2741,13 +2741,21 @@ window.TabajaElements = {
       cloud: true
     }));
 
-    // Workforce is an isolated module entitlement, stored outside companies.
-    // Read it through the protected platform-admin RPC so Company Manager
-    // remains the single place where Tabaja controls module access.
-    const { data: wfRows, error: wfError } = await supabase.rpc('wf_platform_list_entitlements');
-    if (wfError) throw wfError;
-    const wfMap = new Map((wfRows || []).map(row => [String(row.company_id), row.enabled === true]));
-    cloudCompanies.forEach(a => { a.features.workforce = wfMap.get(String(a.id)) === true; });
+    // Workforce entitlement is isolated from the companies table.
+    // IMPORTANT: entitlement lookup must NEVER hide/break the existing company list.
+    // If the RPC is unavailable or denied, companies still render normally and
+    // Workforce defaults to OFF until the entitlement can be read successfully.
+    try {
+      const { data: wfRows, error: wfError } = await supabase.rpc('wf_platform_list_entitlements');
+      if (!wfError) {
+        const wfMap = new Map((wfRows || []).map(row => [String(row.company_id), row.enabled === true]));
+        cloudCompanies.forEach(a => { a.features.workforce = wfMap.get(String(a.id)) === true; });
+      } else {
+        console.warn('Workforce entitlement lookup skipped:', wfError.message || wfError);
+      }
+    } catch (wfLookupError) {
+      console.warn('Workforce entitlement lookup skipped:', wfLookupError);
+    }
   }
 
   const daysLeft = a => {
@@ -2814,7 +2822,7 @@ window.TabajaElements = {
         target_enabled: updated.features?.workforce === true,
         target_plan: updated.features?.workforce === true ? 'WORKFORCE' : null
       });
-      if (wfError) throw wfError;
+      if (wfError) throw new Error(`Company saved, but Workforce access was not changed: ${wfError.message || wfError}`);
 
       const mapped = {
         ...updated,
