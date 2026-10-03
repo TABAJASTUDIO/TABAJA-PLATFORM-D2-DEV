@@ -1189,8 +1189,24 @@
     // A successful preflight with 0 issues creates no issue rows for its new version.
     // In that case the run itself is READY, so historical issue rows must not be shown
     // as if they still belong to the latest check.
-    const runIsReady = String(run.status || '').toLowerCase() === 'ready';
-    const issues = runIsReady
+    // Historical preflight issue rows remain in the database for audit.
+    // Once a run has successfully moved beyond preflight (READY -> submitted ->
+    // approved -> finalized), those historical rows must never reappear in the
+    // live readiness panel merely because the run status is no longer READY.
+    const runStatus = String(run.status || '').toLowerCase();
+    const postPreflightStatuses = new Set([
+      'ready',
+      'submitted',
+      'submitted_for_approval',
+      'pending_approval',
+      'under_review',
+      'approved',
+      'finalized',
+      'locked',
+      'finalized_locked'
+    ]);
+    const hasPassedPreflight = postPreflightStatuses.has(runStatus);
+    const issues = hasPassedPreflight
       ? []
       : (latestPreflightVersion == null
           ? allIssues
