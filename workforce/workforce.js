@@ -1147,6 +1147,84 @@
     }).join('');
   }
 
+  function ensurePayrollVariancePanel() {
+    let panel = document.getElementById('wfPayrollVariancePanel');
+    if (panel) return panel;
+    const results = document.getElementById('wfPayrollResults');
+    const tableWrap = results?.closest('.wf-table-wrap');
+    const card = tableWrap?.closest('.wf-card') || tableWrap?.parentElement;
+    if (!card) return null;
+    panel = document.createElement('div');
+    panel.id = 'wfPayrollVariancePanel';
+    panel.className = 'wf-variance-panel';
+    panel.style.marginTop = '18px';
+    panel.innerHTML = `
+      <div class="wf-card-head">
+        <div><span>CONTROL</span><h2>Changes since calculation</h2></div>
+        <span id="wfVarianceBadge" class="wf-badge neutral">—</span>
+      </div>
+      <div id="wfVarianceBody" class="wf-empty-card">Finalize payroll to check whether salary, attendance or transport changed after calculation.</div>`;
+    card.appendChild(panel);
+    return panel;
+  }
+
+  function varianceLabel(type) {
+    const labels = {
+      base_salary: 'Base salary',
+      present_units: 'Present units',
+      shift_count: 'Shift count',
+      worked_minutes: 'Worked minutes',
+      transport: 'Transport'
+    };
+    return labels[String(type || '').toLowerCase()] || String(type || 'Change').replaceAll('_',' ');
+  }
+
+  async function loadPayrollVariance(run, currency) {
+    const panel = ensurePayrollVariancePanel();
+    if (!panel) return;
+    const badge = document.getElementById('wfVarianceBadge');
+    const body = document.getElementById('wfVarianceBody');
+    const status = String(run?.status || '').toLowerCase();
+    if (status !== 'finalized') {
+      if (badge) { badge.textContent = '—'; badge.className = 'wf-badge neutral'; }
+      if (body) body.innerHTML = 'Finalize payroll to check whether salary, attendance or transport changed after calculation.';
+      return;
+    }
+    if (badge) { badge.textContent = 'CHECKING'; badge.className = 'wf-badge neutral'; }
+    if (body) body.textContent = 'Checking frozen payroll against current Workforce data…';
+    try {
+      const { data, error } = await state.client.rpc('wf_get_payroll_variance', {
+        target_company: state.workspace.companyId,
+        target_payroll_run: run.id,
+        target_employee: null
+      });
+      if (error) throw error;
+      const rows = data || [];
+      const changed = rows.filter(r => r.changed === true || String(r.changed).toLowerCase() === 'true');
+      if (badge) {
+        badge.textContent = changed.length ? `${changed.length} CHANGE${changed.length === 1 ? '' : 'S'}` : 'NO CHANGES';
+        badge.className = `wf-badge ${changed.length ? 'open' : 'approved'}`;
+      }
+      if (!body) return;
+      if (!changed.length) {
+        body.innerHTML = '<strong>No changes detected.</strong><br>Salary, attendance and transport still match the frozen finalized payroll.';
+        return;
+      }
+      body.className = 'wf-table-wrap';
+      body.innerHTML = `<table class="wf-table"><thead><tr><th>Employee</th><th>Change</th><th>Frozen</th><th>Current</th><th>Difference</th></tr></thead><tbody>${changed.map(r => {
+        const type = String(r.change_type || '');
+        const isMoney = ['base_salary','transport'].includes(type.toLowerCase());
+        const fmt = v => isMoney ? money(v,currency) : Number(v || 0).toLocaleString(undefined,{maximumFractionDigits:2});
+        const diff = Number(r.difference || 0);
+        return `<tr><td><b>${escapeHtml(r.employee_name || 'Employee')}</b>${r.employee_code ? `<small class="wf-cell-sub">${escapeHtml(r.employee_code)}</small>` : ''}</td><td>${escapeHtml(varianceLabel(type))}</td><td>${escapeHtml(fmt(r.previous_value))}</td><td>${escapeHtml(fmt(r.current_value))}</td><td><b>${diff > 0 ? '+' : ''}${escapeHtml(fmt(diff))}</b></td></tr>`;
+      }).join('')}</tbody></table>`;
+    } catch (error) {
+      console.error('[Payroll Variance]', error);
+      if (badge) { badge.textContent = 'UNAVAILABLE'; badge.className = 'wf-badge rejected'; }
+      if (body) { body.className = 'wf-empty-card'; body.textContent = error?.message || 'Unable to load payroll variance.'; }
+    }
+  }
+
   async function loadPayrollRunDetail() {
     const run = selectedRun();
     state.selectedPayrollRun = run;
@@ -1226,6 +1304,7 @@
     }
     $('wfPayEmployees').textContent = String(snaps.length || run.employee_count || 0);
     renderPayrollResults(snaps,currency,payrollProfileMap,period,itemsBySnapshot);
+    await loadPayrollVariance(run,currency);
     if (runStatus === 'reopened') {
       $('wfPayrollIssues').innerHTML = '<div class="wf-empty-card"><strong>Payroll reopened.</strong><br>Run Preflight again before recalculating. Historical issues remain stored for audit only.</div>';
     } else {
