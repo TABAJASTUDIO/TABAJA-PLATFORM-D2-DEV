@@ -11,7 +11,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="cloud.js?v=12.9.3.16-fix5.7-rpc"></script>
-  <script defer src="workforce/workforce.js?v=1.5.1"></script>
+  <script defer src="workforce/workforce.js?v=1.5.4"></script>
 </head>
 <body>
   <div class="wf-shell">
@@ -212,7 +212,7 @@
               <span class="wf-kicker">EMPLOYEE</span><h2>Payroll employee</h2>
               <label class="wf-field"><span>Select employee</span><select id="wfSetupEmployee"><option value="">Loading employees…</option></select></label>
               <div id="wfSetupEmployeeMeta" class="wf-setup-meta">Choose an employee to review payroll setup.</div>
-              <label class="wf-field"><span>Hire date</span><input id="wfSetupHireDate" type="date"></label>
+              <label class="wf-field"><span>Hire date</span><input id="wfSetupHireDate" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" autocomplete="off"></label>
               <button id="wfSetupHireDateSave" class="wf-setup-primary" type="button">Save Hire Date</button>
               <small>Monthly payroll prorates the first employment month from this date. Smart Identity employee data is not changed.</small>
             </article>
@@ -232,7 +232,7 @@
               <span class="wf-kicker">SALARY</span><h2>Base salary</h2>
               <label class="wf-field"><span>Pay basis</span><select id="wfSetupPayBasis"><option value="monthly">Monthly</option><option value="daily">Daily</option><option value="hourly">Hourly</option><option value="per_shift">Per Shift</option></select></label>
               <label class="wf-field"><span>Base amount</span><input id="wfSetupSalaryAmount" type="number" min="0" step="0.01" placeholder="0.00"></label>
-              <label class="wf-field"><span>Effective from</span><input id="wfSetupSalaryDate" type="date"></label>
+              <label class="wf-field"><span>Effective from</span><input id="wfSetupSalaryDate" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" autocomplete="off"></label>
               <button id="wfSetupSalarySave" class="wf-setup-primary" type="button">Submit Salary for Approval</button>
               <div id="wfSetupSalaryHistory" class="wf-setup-history">No salary history loaded.</div>
             </article>
@@ -241,14 +241,14 @@
               <span class="wf-kicker">TRANSPORT</span><h2>Employee override</h2>
               <label class="wf-field"><span>Method</span><select id="wfSetupTransportMethod"><option value="fixed_monthly">Fixed Monthly</option><option value="per_present_day">Per Present Day</option><option value="per_shift">Per Shift</option></select></label>
               <label class="wf-field"><span>Amount</span><input id="wfSetupTransportAmount" type="number" min="0" step="0.01" placeholder="0.00"></label>
-              <label class="wf-field"><span>Effective from</span><input id="wfSetupTransportDate" type="date"></label>
+              <label class="wf-field"><span>Effective from</span><input id="wfSetupTransportDate" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" autocomplete="off"></label>
               <button id="wfSetupTransportSave" class="wf-setup-primary" type="button">Submit Transport for Approval</button>
               <div id="wfSetupTransportHistory" class="wf-setup-history">No transport history loaded.</div>
             </article>
 
             <article class="wf-card wf-setup-card">
               <span class="wf-kicker">ATTENDANCE</span><h2>Daily attendance</h2>
-              <label class="wf-field"><span>Work date</span><input id="wfSetupAttendanceDate" type="date"></label>
+              <label class="wf-field"><span>Work date</span><input id="wfSetupAttendanceDate" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" autocomplete="off"></label>
               <label class="wf-field"><span>Status</span><select id="wfSetupAttendanceStatus"><option value="present">Present</option><option value="late">Late</option><option value="half_day">Half Day</option><option value="absent">Absent</option><option value="no_show">No Show</option><option value="leave">Leave</option><option value="off">Off</option><option value="holiday">Holiday</option></select></label>
               <label class="wf-field"><span>Attendance units</span><input id="wfSetupAttendanceUnits" type="number" min="0" max="1" step="0.5" value="1"></label>
               <button id="wfSetupAttendanceSave" class="wf-setup-primary" type="button">Submit Attendance for Approval</button>

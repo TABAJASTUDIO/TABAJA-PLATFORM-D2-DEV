@@ -1,0 +1,15 @@
+Tabaja Solution D2 DEV
+V12.9.3.24.1 - Workforce DD/MM/YYYY & Hire Date Save Feedback
+
+Modified only:
+- workforce.html
+- workforce/workforce.js
+- service-worker.js
+
+Changes:
+- Workforce Payroll Setup date fields now use explicit DD/MM/YYYY input/display.
+- Dates are converted safely to ISO YYYY-MM-DD before Supabase writes.
+- Hire Date save confirmation remains visible after reload and shows the saved date.
+- Payroll Setup history dates display DD/MM/YYYY.
+- Monthly salary first-of-month validation preserved.
+- Smart Identity files/data untouched.

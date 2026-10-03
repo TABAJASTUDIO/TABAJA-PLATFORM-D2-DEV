@@ -536,6 +536,30 @@
     });
   }
 
+  function formatDateDMY(value) {
+    if (!value) return '';
+    const raw = String(value).trim();
+    const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+    const dmy = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    return dmy ? raw : raw;
+  }
+
+  function parseDateDMY(value) {
+    const raw = String(value || '').trim();
+    let y, m, d;
+    let match = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (match) { d = Number(match[1]); m = Number(match[2]); y = Number(match[3]); }
+    else {
+      match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!match) return null;
+      y = Number(match[1]); m = Number(match[2]); d = Number(match[3]);
+    }
+    const check = new Date(Date.UTC(y, m - 1, d));
+    if (check.getUTCFullYear() !== y || check.getUTCMonth() !== m - 1 || check.getUTCDate() !== d) return null;
+    return `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  }
+
   function formatMoney(value, currency = '') {
     const n = Number(value);
     if (!Number.isFinite(n)) return '—';
@@ -1228,9 +1252,9 @@
   function setupHistory(rows, type) {
     if (!rows?.length) return `No ${type} records yet.`;
     return rows.slice(0,5).map(r => {
-      if (type === 'salary') return `<div class="row"><b>${escapeHtml(r.pay_basis)} • ${escapeHtml(r.base_amount)} ${escapeHtml(r.currency_code||'SLE')}</b><br>${escapeHtml(r.effective_from)} • ${escapeHtml(String(r.approval_status||'').toUpperCase())}</div>`;
-      if (type === 'transport') return `<div class="row"><b>${escapeHtml(String(r.method||'').replaceAll('_',' '))} • ${escapeHtml(r.amount ?? '—')}</b><br>${escapeHtml(r.effective_from)} • ${escapeHtml(String(r.approval_status||'').toUpperCase())}</div>`;
-      return `<div class="row"><b>${escapeHtml(r.work_date)} • ${escapeHtml(String(r.attendance_status||'').replaceAll('_',' '))}</b><br>${escapeHtml(r.attendance_units ?? 0)} unit • ${escapeHtml(String(r.approval_status||'').toUpperCase())}</div>`;
+      if (type === 'salary') return `<div class="row"><b>${escapeHtml(r.pay_basis)} • ${escapeHtml(r.base_amount)} ${escapeHtml(r.currency_code||'SLE')}</b><br>${escapeHtml(formatDateDMY(r.effective_from))} • ${escapeHtml(String(r.approval_status||'').toUpperCase())}</div>`;
+      if (type === 'transport') return `<div class="row"><b>${escapeHtml(String(r.method||'').replaceAll('_',' '))} • ${escapeHtml(r.amount ?? '—')}</b><br>${escapeHtml(formatDateDMY(r.effective_from))} • ${escapeHtml(String(r.approval_status||'').toUpperCase())}</div>`;
+      return `<div class="row"><b>${escapeHtml(formatDateDMY(r.work_date))} • ${escapeHtml(String(r.attendance_status||'').replaceAll('_',' '))}</b><br>${escapeHtml(r.attendance_units ?? 0)} unit • ${escapeHtml(String(r.approval_status||'').toUpperCase())}</div>`;
     }).join('');
   }
 
@@ -1244,7 +1268,7 @@
       const sel=$('wfSetupEmployee'); const previous=sel.value;
       sel.innerHTML=state.setupEmployees.length ? state.setupEmployees.map(e=>`<option value="${escapeHtml(e.id)}">${escapeHtml(e.employee_code||'NO CODE')} • ${escapeHtml(e.full_name||'Unnamed Employee')}</option>`).join('') : '<option value="">No active employees</option>';
       if(previous && state.setupEmployees.some(e=>e.id===previous)) sel.value=previous;
-      const today=new Date().toISOString().slice(0,10);
+      const today=formatDateDMY(new Date().toISOString().slice(0,10));
       if(!$('wfSetupSalaryDate').value) $('wfSetupSalaryDate').value=today;
       if(!$('wfSetupTransportDate').value) $('wfSetupTransportDate').value=today;
       if(!$('wfSetupAttendanceDate').value) $('wfSetupAttendanceDate').value=today;
@@ -1267,7 +1291,7 @@
       ]);
       if(profileRes.error)throw profileRes.error;if(salaryRes.error)throw salaryRes.error;if(transportRes.error)throw transportRes.error;if(attendanceRes.error)throw attendanceRes.error;
       const profile=profileRes.data||null, salaries=salaryRes.data||[], transports=transportRes.data||[], attendance=attendanceRes.data||[];
-      $('wfSetupHireDate').value=profile?.hire_date||'';
+      $('wfSetupHireDate').value=formatDateDMY(profile?.hire_date||'');
       $('wfSetupHireDateSave').disabled=!profile;
       const salApproved=salaries.find(r=>r.approval_status==='approved'), salPending=salaries.find(r=>r.approval_status==='pending');
       const trApproved=transports.find(r=>r.approval_status==='approved' && r.is_active!==false), trPending=transports.find(r=>r.approval_status==='pending');
@@ -1283,30 +1307,30 @@
   }
 
   async function saveSetupHireDate(){
-    const emp=selectedSetupEmployee(), date=$('wfSetupHireDate').value;
+    const emp=selectedSetupEmployee(), rawDate=$('wfSetupHireDate').value, date=parseDateDMY(rawDate);
     if(!emp)return setupMessage('Select an employee first.','warning');
-    if(!date)return setupMessage('Enter a valid hire date.','warning');
+    if(!date)return setupMessage('Enter hire date as DD/MM/YYYY.','warning');
     try{
       state.setupBusy=true;
       const {data,error}=await state.client.from('wf_employee_profiles').update({hire_date:date}).eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).select('hire_date').maybeSingle();
       if(error)throw error;
       if(!data)throw new Error('No Workforce profile was updated for this employee.');
-      setupMessage(`Hire date saved: ${date}. Monthly payroll will prorate the first employment month automatically.`,'success');
       await loadSelectedPayrollSetup();
+      setupMessage(`✓ Hire date saved: ${formatDateDMY(data.hire_date || date)}. Monthly payroll will prorate the first employment month automatically.`,'success');
     }catch(error){setupMessage(error?.message||'Unable to save hire date.','error');}
     finally{state.setupBusy=false;}
   }
 
   async function saveSetupSalary(){
-    const emp=selectedSetupEmployee(), amount=Number($('wfSetupSalaryAmount').value), date=$('wfSetupSalaryDate').value, basis=$('wfSetupPayBasis').value;
-    if(!emp)return setupMessage('Select an employee first.','warning'); if(!date||!Number.isFinite(amount)||amount<0)return setupMessage('Enter a valid salary amount and effective date.','warning');
+    const emp=selectedSetupEmployee(), amount=Number($('wfSetupSalaryAmount').value), date=parseDateDMY($('wfSetupSalaryDate').value), basis=$('wfSetupPayBasis').value;
+    if(!emp)return setupMessage('Select an employee first.','warning'); if(!date||!Number.isFinite(amount)||amount<0)return setupMessage('Enter a valid salary amount and date as DD/MM/YYYY.','warning');
     if(basis==='monthly' && !date.endsWith('-01'))return setupMessage('Monthly salary changes must start on the first day of a payroll month.','warning');
     try{state.setupBusy=true;const {error}=await state.client.from('wf_employee_salary_history').insert({company_id:state.workspace.companyId,employee_id:emp.id,pay_basis:basis,base_amount:amount,currency_code:'SLE',effective_from:date,effective_to:null,approval_status:'pending',notes:'Created from Workforce Payroll Setup'});if(error)throw error;$('wfSetupSalaryAmount').value='';setupMessage('Salary submitted as PENDING. Approve it from Approval Center with another authorised user when maker-checker applies.','success');await loadSelectedPayrollSetup();await loadApprovalCenter();}catch(error){setupMessage(error?.message||'Unable to submit salary.','error');}finally{state.setupBusy=false;}
   }
 
   async function saveSetupTransport(){
-    const emp=selectedSetupEmployee(), amount=Number($('wfSetupTransportAmount').value), date=$('wfSetupTransportDate').value, method=$('wfSetupTransportMethod').value;
-    if(!emp)return setupMessage('Select an employee first.','warning'); if(!date||!Number.isFinite(amount)||amount<0)return setupMessage('Enter a valid transport amount and effective date.','warning');
+    const emp=selectedSetupEmployee(), amount=Number($('wfSetupTransportAmount').value), date=parseDateDMY($('wfSetupTransportDate').value), method=$('wfSetupTransportMethod').value;
+    if(!emp)return setupMessage('Select an employee first.','warning'); if(!date||!Number.isFinite(amount)||amount<0)return setupMessage('Enter a valid transport amount and date as DD/MM/YYYY.','warning');
     try{state.setupBusy=true;const {error}=await state.client.from('wf_transport_employee_overrides').insert({company_id:state.workspace.companyId,employee_id:emp.id,method,amount,effective_from:date,effective_to:null,approval_status:'pending',is_active:true,reason:'Created from Workforce Payroll Setup'});if(error)throw error;$('wfSetupTransportAmount').value='';setupMessage('Transport submitted as PENDING for approval.','success');await loadSelectedPayrollSetup();await loadApprovalCenter();}catch(error){setupMessage(error?.message||'Unable to submit transport.','error');}finally{state.setupBusy=false;}
   }
 
@@ -1317,7 +1341,7 @@
   }
 
   async function saveSetupAttendance(){
-    const emp=selectedSetupEmployee(), date=$('wfSetupAttendanceDate').value, status=$('wfSetupAttendanceStatus').value, units=Number($('wfSetupAttendanceUnits').value);
+    const emp=selectedSetupEmployee(), date=parseDateDMY($('wfSetupAttendanceDate').value), status=$('wfSetupAttendanceStatus').value, units=Number($('wfSetupAttendanceUnits').value);
     if(!emp)return setupMessage('Select an employee first.','warning'); if(!date||!Number.isFinite(units)||units<0||units>1)return setupMessage('Enter a valid attendance date and units from 0 to 1.','warning');
     try{state.setupBusy=true;const period=await ensureAttendancePeriod(date);const {error}=await state.client.from('wf_attendance_records').insert({company_id:state.workspace.companyId,employee_id:emp.id,attendance_period_id:period.id,work_date:date,attendance_status:status,attendance_units:units,worked_minutes:0,late_minutes:0,early_leave_minutes:0,overtime_minutes:0,source:'manual',approval_status:'pending',notes:'Created from Workforce Payroll Setup'});if(error)throw error;setupMessage('Attendance submitted as PENDING for approval.','success');await loadSelectedPayrollSetup();await loadApprovalCenter();}catch(error){setupMessage(error?.message||'Unable to submit attendance.','error');}finally{state.setupBusy=false;}
   }
