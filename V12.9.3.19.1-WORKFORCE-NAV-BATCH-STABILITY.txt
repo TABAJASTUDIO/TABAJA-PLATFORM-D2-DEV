@@ -1,0 +1,12 @@
+Tabaja Solution DEV - V12.9.3.19.1
+Workforce Navigation + Batch Restore Stability
+
+Workforce-only changes:
+1. Workforce launcher intercepts the Workforce nav click in capture phase and stops host SPA propagation before opening the isolated Workforce window. This keeps the existing Command Center rendered underneath and prevents Print Center/blank-page flashes caused by competing navigation handlers.
+2. Back to Main / Back to Identity continues to close the isolated Workforce window and reveal the already-rendered Identity Command Center.
+3. Import Center restores the remembered batch after refresh. If sessionStorage is unavailable/lost, it safely restores the latest company batch from Supabase and reloads its validation rows/status.
+4. Approval Center behavior is unchanged.
+
+Frozen Identity baseline:
+No changes to index.html, app.js, cloud.js, v8-ui.js, employee-manager.js, nfc-studio.js, commercial-templates.js, command-center.js, activity-store.js, or scripts/app.js.
+No database/schema changes.

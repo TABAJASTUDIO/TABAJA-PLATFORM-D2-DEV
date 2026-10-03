@@ -310,30 +310,54 @@
     renderBatch(await getBatch(state.currentBatch.id));
   }
 
+  async function restoreBatchById(batchId, sourceLabel = 'last') {
+    if (!batchId) return false;
+    const batch = await getBatch(batchId);
+    renderBatch(batch);
+    const { data, error } = await state.client
+      .from('wf_import_rows')
+      .select('row_number,raw_data,normalized_data,validation_status,intended_action,error_codes,warning_codes,matched_employee_id')
+      .eq('company_id', state.workspace.companyId)
+      .eq('batch_id', batchId)
+      .order('row_number', { ascending: true });
+    if (error) throw error;
+    renderPreview(data || []);
+    if (batch.status === 'confirmed') setMessage(`Restored the ${sourceLabel} confirmed import batch.`, 'success');
+    else if (batch.status === 'ready') setMessage(`Restored the ${sourceLabel} validated batch. It is still ready to confirm.`, 'success');
+    else setMessage(`Restored ${sourceLabel} batch with status ${String(batch.status || '').replaceAll('_',' ')}.`, 'info');
+    return true;
+  }
+
   async function restoreRememberedBatch() {
     const key = batchStorageKey();
     if (!key) return false;
     let batchId = '';
     try { batchId = window.sessionStorage.getItem(key) || ''; } catch (_) {}
-    if (!batchId) return false;
+
+    if (batchId) {
+      try {
+        return await restoreBatchById(batchId, 'last');
+      } catch (error) {
+        console.warn('[Workforce Import] remembered batch could not be restored', error?.message || error);
+        try { window.sessionStorage.removeItem(key); } catch (_) {}
+      }
+    }
+
+    // Hard refresh/new Workforce window can lose sessionStorage context. In that case,
+    // restore the newest batch from Supabase for this company instead of showing NO BATCH.
     try {
-      const batch = await getBatch(batchId);
-      renderBatch(batch);
       const { data, error } = await state.client
-        .from('wf_import_rows')
-        .select('row_number,raw_data,normalized_data,validation_status,intended_action,error_codes,warning_codes,matched_employee_id')
+        .from('wf_import_batches')
+        .select('id')
         .eq('company_id', state.workspace.companyId)
-        .eq('batch_id', batchId)
-        .order('row_number', { ascending: true });
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
       if (error) throw error;
-      renderPreview(data || []);
-      if (batch.status === 'confirmed') setMessage('Restored the last confirmed import batch.', 'success');
-      else if (batch.status === 'ready') setMessage('Restored your validated batch. It is still ready to confirm.', 'success');
-      else setMessage(`Restored batch with status ${String(batch.status || '').replaceAll('_',' ')}.`, 'info');
-      return true;
+      if (!data?.id) return false;
+      return await restoreBatchById(data.id, 'latest');
     } catch (error) {
-      console.warn('[Workforce Import] remembered batch could not be restored', error?.message || error);
-      try { window.sessionStorage.removeItem(key); } catch (_) {}
+      console.warn('[Workforce Import] latest batch could not be restored', error?.message || error);
       return false;
     }
   }

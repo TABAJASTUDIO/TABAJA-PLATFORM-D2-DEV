@@ -56,8 +56,14 @@
   function installNoFlashOpen(link) {
     if (!link || link.dataset.wfNoFlashBound === '1') return;
     link.dataset.wfNoFlashBound = '1';
+
+    // Capture the click before the Identity shell's SPA navigation handler sees it.
+    // This keeps the already-rendered Command Center untouched underneath Workforce.
     link.addEventListener('click', (event) => {
       event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+
       try {
         const opened = window.open(link.href, 'tabaja-workforce');
         if (opened) {
@@ -65,9 +71,10 @@
           return;
         }
       } catch (_) {}
-      // Popup/window creation can be blocked by the host. Keep a safe fallback.
+
+      // Only if the host blocks a separate window do we fall back to same-window navigation.
       window.location.assign(link.href);
-    });
+    }, true);
   }
 
   async function sync() {
