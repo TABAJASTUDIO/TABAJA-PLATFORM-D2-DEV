@@ -1259,13 +1259,16 @@
     $('wfSetupEmployeeMeta').textContent=`${emp.employee_code||'NO CODE'} • ${emp.full_name||'Unnamed Employee'} • ${emp.department||'No department'} • ${emp.job_title||'No job title'}`;
     setupMessage('Reading approved and pending payroll inputs…','info');
     try {
-      const [salaryRes,transportRes,attendanceRes]=await Promise.all([
+      const [profileRes,salaryRes,transportRes,attendanceRes]=await Promise.all([
+        state.client.from('wf_employee_profiles').select('hire_date,payroll_eligible,employment_status').eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).maybeSingle(),
         state.client.from('wf_employee_salary_history').select('*').eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).order('effective_from',{ascending:false}),
         state.client.from('wf_transport_employee_overrides').select('*').eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).order('effective_from',{ascending:false}),
         state.client.from('wf_attendance_records').select('*').eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).order('work_date',{ascending:false}).limit(31)
       ]);
-      if(salaryRes.error)throw salaryRes.error;if(transportRes.error)throw transportRes.error;if(attendanceRes.error)throw attendanceRes.error;
-      const salaries=salaryRes.data||[], transports=transportRes.data||[], attendance=attendanceRes.data||[];
+      if(profileRes.error)throw profileRes.error;if(salaryRes.error)throw salaryRes.error;if(transportRes.error)throw transportRes.error;if(attendanceRes.error)throw attendanceRes.error;
+      const profile=profileRes.data||null, salaries=salaryRes.data||[], transports=transportRes.data||[], attendance=attendanceRes.data||[];
+      $('wfSetupHireDate').value=profile?.hire_date||'';
+      $('wfSetupHireDateSave').disabled=!profile;
       const salApproved=salaries.find(r=>r.approval_status==='approved'), salPending=salaries.find(r=>r.approval_status==='pending');
       const trApproved=transports.find(r=>r.approval_status==='approved' && r.is_active!==false), trPending=transports.find(r=>r.approval_status==='pending');
       const attApproved=attendance.filter(r=>r.approval_status==='approved').length, attPending=attendance.filter(r=>r.approval_status==='pending').length;
@@ -1279,9 +1282,25 @@
     } catch(error){console.error('[Payroll Setup employee]',error);setupMessage(error?.message||'Unable to read employee payroll setup.','error');}
   }
 
+  async function saveSetupHireDate(){
+    const emp=selectedSetupEmployee(), date=$('wfSetupHireDate').value;
+    if(!emp)return setupMessage('Select an employee first.','warning');
+    if(!date)return setupMessage('Enter a valid hire date.','warning');
+    try{
+      state.setupBusy=true;
+      const {data,error}=await state.client.from('wf_employee_profiles').update({hire_date:date}).eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).select('hire_date').maybeSingle();
+      if(error)throw error;
+      if(!data)throw new Error('No Workforce profile was updated for this employee.');
+      setupMessage(`Hire date saved: ${date}. Monthly payroll will prorate the first employment month automatically.`,'success');
+      await loadSelectedPayrollSetup();
+    }catch(error){setupMessage(error?.message||'Unable to save hire date.','error');}
+    finally{state.setupBusy=false;}
+  }
+
   async function saveSetupSalary(){
     const emp=selectedSetupEmployee(), amount=Number($('wfSetupSalaryAmount').value), date=$('wfSetupSalaryDate').value, basis=$('wfSetupPayBasis').value;
     if(!emp)return setupMessage('Select an employee first.','warning'); if(!date||!Number.isFinite(amount)||amount<0)return setupMessage('Enter a valid salary amount and effective date.','warning');
+    if(basis==='monthly' && !date.endsWith('-01'))return setupMessage('Monthly salary changes must start on the first day of a payroll month.','warning');
     try{state.setupBusy=true;const {error}=await state.client.from('wf_employee_salary_history').insert({company_id:state.workspace.companyId,employee_id:emp.id,pay_basis:basis,base_amount:amount,currency_code:'SLE',effective_from:date,effective_to:null,approval_status:'pending',notes:'Created from Workforce Payroll Setup'});if(error)throw error;$('wfSetupSalaryAmount').value='';setupMessage('Salary submitted as PENDING. Approve it from Approval Center with another authorised user when maker-checker applies.','success');await loadSelectedPayrollSetup();await loadApprovalCenter();}catch(error){setupMessage(error?.message||'Unable to submit salary.','error');}finally{state.setupBusy=false;}
   }
 
@@ -1362,6 +1381,7 @@
     $('wfApprovalRefresh')?.addEventListener('click', loadApprovalCenter);
     $('wfSetupRefresh')?.addEventListener('click', loadPayrollSetup);
     $('wfSetupEmployee')?.addEventListener('change', loadSelectedPayrollSetup);
+    $('wfSetupHireDateSave')?.addEventListener('click', saveSetupHireDate);
     $('wfSetupSalarySave')?.addEventListener('click', saveSetupSalary);
     $('wfSetupTransportSave')?.addEventListener('click', saveSetupTransport);
     $('wfSetupAttendanceSave')?.addEventListener('click', saveSetupAttendance);

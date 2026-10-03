@@ -1,0 +1,16 @@
+Tabaja Solution D2 DEV - V12.9.3.24
+Workforce Hire Date / New-Hire Proration UI
+
+Modified files only:
+- workforce.html
+- workforce/workforce.js
+- service-worker.js
+
+Changes:
+- Keeps V12.9.3.23.1 READY preflight display fix.
+- Adds Hire Date control to Employee Payroll Setup using wf_employee_profiles only.
+- Does not modify Smart Identity employees.
+- Enforces first-of-month effective date in UI for monthly salary changes.
+- Bumps Workforce JS service-worker cache version.
+
+Backend new-hire monthly proration function was already installed/tested separately in DEV.
