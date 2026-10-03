@@ -97,7 +97,11 @@
     currentSection: 'dashboard',
     approvals: [],
     approvalsBusy: false,
-    makerCheckerRequired: true
+    makerCheckerRequired: true,
+    payrollRuns: [],
+    payrollPeriods: [],
+    selectedPayrollRun: null,
+    payrollBusy: false
   };
 
   const $ = id => document.getElementById(id);
@@ -1006,15 +1010,171 @@
     }
   }
 
+  function payrollMessage(text, tone = 'info') {
+    const el = $('wfPayrollMessage');
+    if (!el) return;
+    el.className = `wf-message ${tone}`;
+    el.textContent = text;
+  }
+
+  function money(value, currency = '') {
+    const n = Number(value || 0);
+    return `${n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}${currency ? ` ${currency}` : ''}`;
+  }
+
+  function firstValue(obj, keys, fallback = 0) {
+    for (const key of keys) if (obj && obj[key] != null) return obj[key];
+    return fallback;
+  }
+
+  function selectedRun() {
+    const id = $('wfPayrollRunSelect')?.value;
+    return state.payrollRuns.find(r => r.id === id) || null;
+  }
+
+  function setPayrollBusy(busy) {
+    state.payrollBusy = busy;
+    ['wfPayrollRefresh','wfPayrollNewBtn','wfPayrollPreflightBtn','wfPayrollCalculateBtn','wfPayrollSubmitBtn','wfPayrollApproveBtn','wfPayrollRejectBtn','wfPayrollFinalizeBtn','wfPayrollReopenBtn'].forEach(id => {
+      const el = $(id); if (el) el.disabled = busy || el.disabled;
+    });
+  }
+
+  function updatePayrollActions(run) {
+    const status = String(run?.status || '').toLowerCase();
+    const has = !!run && !state.payrollBusy;
+    $('wfPayrollPreflightBtn').disabled = !has || !['draft','preflight_failed','ready','reopened','rejected'].includes(status);
+    $('wfPayrollCalculateBtn').disabled = !has || !['ready','reopened','rejected'].includes(status);
+    $('wfPayrollSubmitBtn').disabled = !has || status !== 'ready';
+    $('wfPayrollApproveBtn').disabled = !has || status !== 'pending_approval';
+    $('wfPayrollRejectBtn').disabled = !has || status !== 'pending_approval';
+    $('wfPayrollFinalizeBtn').disabled = !has || status !== 'approved';
+    $('wfPayrollReopenBtn').disabled = !has || status !== 'finalized';
+  }
+
+  function renderPayrollIssues(rows) {
+    const host = $('wfPayrollIssues');
+    const badge = $('wfPayIssueBadge');
+    if (!host || !badge) return;
+    const issues = rows || [];
+    badge.textContent = `${issues.length} ISSUE${issues.length === 1 ? '' : 'S'}`;
+    badge.className = `wf-badge ${issues.some(x => String(x.severity||x.issue_level||'').toLowerCase()==='error') ? 'rejected' : issues.length ? 'open' : 'approved'}`;
+    if (!issues.length) { host.innerHTML = '<div class="wf-empty-card">No preflight issues. Payroll is clear at the last check.</div>'; return; }
+    host.innerHTML = issues.map(x => {
+      const level = String(x.severity || x.issue_level || x.level || 'warning').toLowerCase();
+      const title = x.issue_code || x.code || x.issue_type || level.toUpperCase();
+      const detail = x.message || x.issue_message || x.details || x.description || 'Payroll readiness issue.';
+      return `<div class="wf-issue-row ${escapeHtml(level)}"><b>${escapeHtml(title)}</b><small>${escapeHtml(typeof detail === 'string' ? detail : JSON.stringify(detail))}</small></div>`;
+    }).join('');
+  }
+
+  function renderPayrollResults(rows, currency) {
+    const host = $('wfPayrollResults');
+    $('wfPayResultCount').textContent = `${rows.length} employee${rows.length === 1 ? '' : 's'}`;
+    if (!rows.length) { host.innerHTML = '<tr><td colspan="6" class="empty">No calculated payroll results yet.</td></tr>'; return; }
+    host.innerHTML = rows.map(r => {
+      const name = firstValue(r,['employee_name_snapshot','employee_name','full_name'],'Employee');
+      const code = firstValue(r,['employee_code_snapshot','employee_code'],'');
+      const basic = firstValue(r,['base_salary_amount','basic_salary','base_amount'],0);
+      const transport = firstValue(r,['transport_amount','transport_total'],0);
+      const gross = firstValue(r,['gross_amount','gross_total'], Number(basic)+Number(transport));
+      const ded = firstValue(r,['deduction_amount','deduction_total','total_deductions'],0);
+      const net = firstValue(r,['net_amount','net_total','net_salary'], Number(gross)-Number(ded));
+      return `<tr><td><b>${escapeHtml(name)}</b>${code ? `<small class="wf-cell-sub">${escapeHtml(code)}</small>`:''}</td><td>${escapeHtml(money(basic,currency))}</td><td>${escapeHtml(money(transport,currency))}</td><td>${escapeHtml(money(gross,currency))}</td><td class="wf-money-deduct">${escapeHtml(money(ded,currency))}</td><td class="wf-money-net">${escapeHtml(money(net,currency))}</td></tr>`;
+    }).join('');
+  }
+
+  async function loadPayrollRunDetail() {
+    const run = selectedRun();
+    state.selectedPayrollRun = run;
+    if (!run) {
+      $('wfPayStatus').textContent='—'; $('wfPayPeriod').textContent='No run selected'; $('wfPayEmployees').textContent='—'; $('wfPayGross').textContent='—'; $('wfPayNet').textContent='—'; $('wfPayDeductions').textContent='—';
+      renderPayrollIssues([]); renderPayrollResults([], ''); updatePayrollActions(null); return;
+    }
+    const period = state.payrollPeriods.find(p => p.id === run.payroll_period_id) || {};
+    const currency = period.currency_code || 'SLE';
+    $('wfPayStatus').textContent = String(run.status || 'draft').replaceAll('_',' ').toUpperCase();
+    $('wfPayPeriod').textContent = `${period.period_code || run.run_label || 'Payroll'}${period.period_start ? ` • ${period.period_start} → ${period.period_end}` : ''}`;
+    $('wfPayCurrency').textContent = currency;
+    $('wfPayGross').textContent = money(run.gross_total,currency);
+    $('wfPayDeductions').textContent = money(run.deduction_total,currency);
+    $('wfPayNet').textContent = money(run.net_total,currency);
+    $('wfNavPayrollStatus').textContent = String(run.status || '').replaceAll('_',' ');
+    updatePayrollActions(run);
+
+    const [snapRes, issueRes] = await Promise.all([
+      state.client.from('wf_payroll_employee_snapshots').select('*').eq('company_id',state.workspace.companyId).eq('payroll_run_id',run.id).order('employee_name_snapshot',{ascending:true}),
+      state.client.from('wf_payroll_preflight_issues').select('*').eq('company_id',state.workspace.companyId).eq('payroll_run_id',run.id).order('created_at',{ascending:true})
+    ]);
+    const snaps = snapRes.error ? [] : (snapRes.data || []);
+    const issues = issueRes.error ? [] : (issueRes.data || []);
+    $('wfPayEmployees').textContent = String(snaps.length || run.employee_count || 0);
+    renderPayrollResults(snaps,currency); renderPayrollIssues(issues);
+    payrollMessage(`Payroll ${String(run.status||'draft').replaceAll('_',' ')} • ${snaps.length} employee snapshot(s).`, issues.some(x=>String(x.severity||x.issue_level||'').toLowerCase()==='error') ? 'warning' : 'success');
+  }
+
+  async function loadPayroll() {
+    if (!state.workspace?.companyId || state.payrollBusy) return;
+    state.payrollBusy = true; payrollMessage('Loading payroll control…','info');
+    try {
+      const [periodRes, runRes] = await Promise.all([
+        state.client.from('wf_payroll_periods').select('*').eq('company_id',state.workspace.companyId).order('period_start',{ascending:false}),
+        state.client.from('wf_payroll_runs').select('*').eq('company_id',state.workspace.companyId).order('created_at',{ascending:false})
+      ]);
+      if (periodRes.error) throw periodRes.error; if (runRes.error) throw runRes.error;
+      state.payrollPeriods = periodRes.data || []; state.payrollRuns = runRes.data || [];
+      const sel=$('wfPayrollRunSelect'); const previous=sel.value;
+      sel.innerHTML = state.payrollRuns.length ? state.payrollRuns.map(r=>{ const p=state.payrollPeriods.find(x=>x.id===r.payroll_period_id)||{}; return `<option value="${escapeHtml(r.id)}">${escapeHtml(p.period_code||r.run_label||'Payroll')} • Run ${escapeHtml(r.run_sequence||1)} • ${escapeHtml(String(r.status||'draft').replaceAll('_',' ').toUpperCase())}</option>`; }).join('') : '<option value="">No payroll runs yet</option>';
+      if (previous && state.payrollRuns.some(r=>r.id===previous)) sel.value=previous;
+      await loadPayrollRunDetail();
+    } catch(error) { console.error('[Payroll]',error); payrollMessage(error?.message||'Unable to load payroll.','error'); }
+    finally { state.payrollBusy=false; if ($('wfPayrollRefresh')) $('wfPayrollRefresh').disabled=false; if ($('wfPayrollNewBtn')) $('wfPayrollNewBtn').disabled=false; updatePayrollActions(selectedRun()); }
+  }
+
+  async function createMonthlyPayrollRun() {
+    if (state.payrollBusy) return;
+    const now=new Date(); const y=now.getFullYear(); const m=now.getMonth()+1; const code=`${y}-${String(m).padStart(2,'0')}`;
+    const start=`${code}-01`; const end=new Date(y,m,0).toISOString().slice(0,10);
+    try {
+      state.payrollBusy=true; payrollMessage(`Preparing monthly payroll ${code}…`,'info');
+      let period=state.payrollPeriods.find(p=>p.period_code===code);
+      if (!period) {
+        const {data,error}=await state.client.from('wf_payroll_periods').insert({company_id:state.workspace.companyId,period_code:code,period_start:start,period_end:end,pay_date:end,payroll_type:'regular',currency_code:'SLE',status:'open',notes:'Created from Workforce Payroll UI'}).select('*').single();
+        if(error) throw error; period=data;
+      }
+      const existing=state.payrollRuns.filter(r=>r.payroll_period_id===period.id);
+      const seq=existing.reduce((n,r)=>Math.max(n,Number(r.run_sequence||0)),0)+1;
+      const {error}=await state.client.from('wf_payroll_runs').insert({company_id:state.workspace.companyId,payroll_period_id:period.id,run_sequence:seq,run_label:`${code} Regular Payroll`,status:'draft',notes:'Created from Workforce Payroll UI'});
+      if(error) throw error; payrollMessage(`Payroll ${code} created. Run preflight before calculation.`,'success'); state.payrollBusy=false; await loadPayroll();
+    } catch(error) { payrollMessage(error?.message||'Unable to create payroll run.','error'); }
+    finally { state.payrollBusy=false; if ($('wfPayrollRefresh')) $('wfPayrollRefresh').disabled=false; if ($('wfPayrollNewBtn')) $('wfPayrollNewBtn').disabled=false; }
+  }
+
+  async function payrollRpc(name,args,successText) {
+    const run=selectedRun(); if(!run||state.payrollBusy) return;
+    state.payrollBusy=true; updatePayrollActions(run); payrollMessage(`${successText}…`,'info');
+    try { const {data,error}=await state.client.rpc(name,args); if(error) throw error; payrollMessage(`${successText} completed successfully.`,'success'); state.payrollBusy=false; await loadPayroll(); return data; }
+    catch(error){ console.error(`[Payroll ${name}]`,error); payrollMessage(error?.message||`${successText} failed.`,'error'); }
+    finally{ state.payrollBusy=false; if ($('wfPayrollRefresh')) $('wfPayrollRefresh').disabled=false; if ($('wfPayrollNewBtn')) $('wfPayrollNewBtn').disabled=false; updatePayrollActions(selectedRun()); }
+  }
+
+  async function runPayrollPreflight(){ const r=selectedRun(); if(r) await payrollRpc('wf_run_payroll_preflight',{target_company:state.workspace.companyId,target_payroll_run:r.id},'Payroll preflight'); }
+  async function calculatePayroll(){ const r=selectedRun(); if(r) await payrollRpc('wf_calculate_payroll',{target_company:state.workspace.companyId,target_payroll_run:r.id},'Payroll calculation'); }
+  async function submitPayroll(){ const r=selectedRun(); if(r) await payrollRpc('wf_submit_payroll_for_approval',{target_company:state.workspace.companyId,target_payroll_run:r.id},'Submit for approval'); }
+  async function reviewPayroll(decision){ const r=selectedRun(); if(r) await payrollRpc('wf_review_payroll',{target_company:state.workspace.companyId,target_payroll_run:r.id,decision,review_reason:null},decision==='approved'?'Payroll approval':'Payroll rejection'); }
+  async function finalizePayroll(){ const r=selectedRun(); if(r) await payrollRpc('wf_finalize_payroll',{target_company:state.workspace.companyId,target_payroll_run:r.id},'Finalize payroll'); }
+  async function reopenPayroll(){ const r=selectedRun(); if(!r)return; const reason=window.prompt('Reason for reopening this finalized payroll:',''); if(!reason?.trim())return; await payrollRpc('wf_reopen_payroll',{target_company:state.workspace.companyId,target_payroll_run:r.id,reopen_reason:reason.trim()},'Reopen payroll'); }
+
   function showSection(section) {
-    const target = ['dashboard','import','approvals'].includes(section) ? section : 'dashboard';
+    const target = ['dashboard','import','approvals','payroll'].includes(section) ? section : 'dashboard';
     state.currentSection = target;
     const dashboard = $('wfDashboardView');
     const imports = $('wfImportView');
     const approvals = $('wfApprovalView');
+    const payroll = $('wfPayrollView');
     if (dashboard) dashboard.hidden = target !== 'dashboard';
     if (imports) imports.hidden = target !== 'import';
     if (approvals) approvals.hidden = target !== 'approvals';
+    if (payroll) payroll.hidden = target !== 'payroll';
 
     document.querySelectorAll('.wf-nav button[data-section]').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.section === target);
@@ -1030,6 +1190,11 @@
       $('wfPageSubtitle').textContent = 'Review pending Workforce changes with maker-checker protection.';
       window.location.hash = 'approvals';
       if (state.workspace?.companyId) loadApprovalCenter();
+    } else if (target === 'payroll') {
+      $('wfPageTitle').textContent = 'Payroll';
+      $('wfPageSubtitle').textContent = 'Preflight, calculate, review, approve and finalize payroll safely.';
+      window.location.hash = 'payroll';
+      if (state.workspace?.companyId) loadPayroll();
     } else {
       $('wfPageTitle').textContent = 'Excel Import Center';
       $('wfPageSubtitle').textContent = 'Stage, validate, preview and confirm workforce data safely.';
@@ -1046,6 +1211,16 @@
     $('wfDashboardRefresh')?.addEventListener('click', loadDashboard);
     $('wfDashboardOpenImport')?.addEventListener('click', () => showSection('import'));
     $('wfApprovalRefresh')?.addEventListener('click', loadApprovalCenter);
+    $('wfPayrollRefresh')?.addEventListener('click', loadPayroll);
+    $('wfPayrollRunSelect')?.addEventListener('change', loadPayrollRunDetail);
+    $('wfPayrollNewBtn')?.addEventListener('click', createMonthlyPayrollRun);
+    $('wfPayrollPreflightBtn')?.addEventListener('click', runPayrollPreflight);
+    $('wfPayrollCalculateBtn')?.addEventListener('click', calculatePayroll);
+    $('wfPayrollSubmitBtn')?.addEventListener('click', submitPayroll);
+    $('wfPayrollApproveBtn')?.addEventListener('click', () => reviewPayroll('approved'));
+    $('wfPayrollRejectBtn')?.addEventListener('click', () => reviewPayroll('rejected'));
+    $('wfPayrollFinalizeBtn')?.addEventListener('click', finalizePayroll);
+    $('wfPayrollReopenBtn')?.addEventListener('click', reopenPayroll);
     $('wfApprovalFilter')?.addEventListener('change', renderApprovalQueue);
     $('wfApprovalQueue')?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-approval-action]');
@@ -1153,7 +1328,7 @@
       bindIdentityReturnButtons();
 
       const hash = String(window.location.hash || '').toLowerCase();
-      const initialSection = hash === '#import' ? 'import' : (hash === '#approvals' ? 'approvals' : 'dashboard');
+      const initialSection = hash === '#import' ? 'import' : (hash === '#approvals' ? 'approvals' : (hash === '#payroll' ? 'payroll' : 'dashboard'));
       showSection(initialSection);
       loadApprovalCenter();
       await restoreRememberedBatch();

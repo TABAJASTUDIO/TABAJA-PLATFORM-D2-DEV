@@ -16,13 +16,19 @@
   }
 
   function hide(link) {
-    link.hidden = true;
-    link.style.display = 'none';
+    // Preserve the nav slot while entitlement is checked. This prevents
+    // Workforce / Print Center / Reports from jumping vertically on focus/back.
+    link.hidden = false;
+    link.style.display = '';
+    link.style.visibility = 'hidden';
+    link.style.pointerEvents = 'none';
   }
 
   function show(link) {
     link.hidden = false;
     link.style.display = '';
+    link.style.visibility = 'visible';
+    link.style.pointerEvents = '';
   }
 
   async function isEnabled(client, companyId) {
