@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.20.1-workforce-nav-stability';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.21-workforce-payroll-setup';
 const APP_SHELL = [
   './',
   './index.html',
@@ -12,8 +12,8 @@ const APP_SHELL = [
   './pwa.js?v=12.9.3.16',
   './nfc-studio.js?v=12.9.3-local-pwa-fix2',
   './workforce.html',
-  './workforce/workforce.css?v=1.4.1',
-  './workforce/workforce.js?v=1.4.1',
+  './workforce/workforce.css?v=1.5',
+  './workforce/workforce.js?v=1.5',
   './workforce/workforce-launcher.js?v=1.1.0',
   './manifest.webmanifest',
   './icons/icon-192.png',

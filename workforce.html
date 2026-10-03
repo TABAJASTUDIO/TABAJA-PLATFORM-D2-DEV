@@ -7,11 +7,11 @@
   <title>Workforce & Payroll • Tabaja Solution DEV</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=12.9.3.16-wf1">
-  <link rel="stylesheet" href="workforce/workforce.css?v=1.4.1">
+  <link rel="stylesheet" href="workforce/workforce.css?v=1.5">
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="cloud.js?v=12.9.3.16-fix5.7-rpc"></script>
-  <script defer src="workforce/workforce.js?v=1.4.1"></script>
+  <script defer src="workforce/workforce.js?v=1.5"></script>
 </head>
 <body>
   <div class="wf-shell">
@@ -25,6 +25,7 @@
         <button class="active" type="button" data-section="dashboard"><span>⌂</span><b>Workforce Dashboard</b></button>
         <button type="button" data-section="import"><span>⇩</span><b>Import Center</b></button>
         <button type="button" data-section="approvals"><span>✓</span><b>Approval Center</b><em id="wfNavApprovalCount"></em></button>
+        <button type="button" data-section="setup"><span>⚙</span><b>Payroll Setup</b><em id="wfNavSetupStatus"></em></button>
         <button type="button" data-section="payroll"><span>$</span><b>Payroll</b><em id="wfNavPayrollStatus"></em></button>
       </nav>
 
@@ -199,6 +200,60 @@
           </article>
         </section>
 
+
+        <section id="wfSetupView" class="wf-section-view" hidden>
+          <div class="wf-dashboard-head">
+            <div><span class="wf-kicker">EMPLOYEE PAYROLL SETUP</span><h2>Salary, transport & attendance</h2><p>Prepare payroll inputs without changing Smart Identity employee records. New changes go through the existing maker-checker approval flow.</p></div>
+            <button id="wfSetupRefresh" class="wf-soft-btn" type="button">Refresh Setup</button>
+          </div>
+
+          <div class="wf-setup-grid">
+            <article class="wf-card wf-setup-card">
+              <span class="wf-kicker">EMPLOYEE</span><h2>Payroll employee</h2>
+              <label class="wf-field"><span>Select employee</span><select id="wfSetupEmployee"><option value="">Loading employees…</option></select></label>
+              <div id="wfSetupEmployeeMeta" class="wf-setup-meta">Choose an employee to review payroll setup.</div>
+            </article>
+            <article class="wf-card wf-setup-card">
+              <span class="wf-kicker">CURRENT POSITION</span><h2>Readiness</h2>
+              <div class="wf-setup-readiness">
+                <div><span>Salary</span><b id="wfSetupSalaryState">—</b></div>
+                <div><span>Transport</span><b id="wfSetupTransportState">—</b></div>
+                <div><span>Attendance</span><b id="wfSetupAttendanceState">—</b></div>
+              </div>
+              <small id="wfSetupReadinessNote">Approved records are used by Payroll Preflight.</small>
+            </article>
+          </div>
+
+          <div class="wf-setup-grid three">
+            <article class="wf-card wf-setup-card">
+              <span class="wf-kicker">SALARY</span><h2>Base salary</h2>
+              <label class="wf-field"><span>Pay basis</span><select id="wfSetupPayBasis"><option value="monthly">Monthly</option><option value="daily">Daily</option><option value="hourly">Hourly</option><option value="per_shift">Per Shift</option></select></label>
+              <label class="wf-field"><span>Base amount</span><input id="wfSetupSalaryAmount" type="number" min="0" step="0.01" placeholder="0.00"></label>
+              <label class="wf-field"><span>Effective from</span><input id="wfSetupSalaryDate" type="date"></label>
+              <button id="wfSetupSalarySave" class="wf-setup-primary" type="button">Submit Salary for Approval</button>
+              <div id="wfSetupSalaryHistory" class="wf-setup-history">No salary history loaded.</div>
+            </article>
+
+            <article class="wf-card wf-setup-card">
+              <span class="wf-kicker">TRANSPORT</span><h2>Employee override</h2>
+              <label class="wf-field"><span>Method</span><select id="wfSetupTransportMethod"><option value="fixed_monthly">Fixed Monthly</option><option value="per_present_day">Per Present Day</option><option value="per_shift">Per Shift</option></select></label>
+              <label class="wf-field"><span>Amount</span><input id="wfSetupTransportAmount" type="number" min="0" step="0.01" placeholder="0.00"></label>
+              <label class="wf-field"><span>Effective from</span><input id="wfSetupTransportDate" type="date"></label>
+              <button id="wfSetupTransportSave" class="wf-setup-primary" type="button">Submit Transport for Approval</button>
+              <div id="wfSetupTransportHistory" class="wf-setup-history">No transport history loaded.</div>
+            </article>
+
+            <article class="wf-card wf-setup-card">
+              <span class="wf-kicker">ATTENDANCE</span><h2>Daily attendance</h2>
+              <label class="wf-field"><span>Work date</span><input id="wfSetupAttendanceDate" type="date"></label>
+              <label class="wf-field"><span>Status</span><select id="wfSetupAttendanceStatus"><option value="present">Present</option><option value="late">Late</option><option value="half_day">Half Day</option><option value="absent">Absent</option><option value="no_show">No Show</option><option value="leave">Leave</option><option value="off">Off</option><option value="holiday">Holiday</option></select></label>
+              <label class="wf-field"><span>Attendance units</span><input id="wfSetupAttendanceUnits" type="number" min="0" max="1" step="0.5" value="1"></label>
+              <button id="wfSetupAttendanceSave" class="wf-setup-primary" type="button">Submit Attendance for Approval</button>
+              <div id="wfSetupAttendanceHistory" class="wf-setup-history">No attendance history loaded.</div>
+            </article>
+          </div>
+          <div id="wfSetupMessage" class="wf-message info">Select an employee to begin payroll setup.</div>
+        </section>
 
         <section id="wfPayrollView" class="wf-section-view" hidden>
           <div class="wf-dashboard-head">

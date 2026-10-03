@@ -102,7 +102,9 @@
     payrollRuns: [],
     payrollPeriods: [],
     selectedPayrollRun: null,
-    payrollBusy: false
+    payrollBusy: false,
+    setupEmployees: [],
+    setupBusy: false
   };
 
   const $ = id => document.getElementById(id);
@@ -1166,16 +1168,110 @@
   async function finalizePayroll(){ const r=selectedRun(); if(r) await payrollRpc('wf_finalize_payroll',{target_company:state.workspace.companyId,target_payroll_run:r.id},'Finalize payroll'); }
   async function reopenPayroll(){ const r=selectedRun(); if(!r)return; const reason=window.prompt('Reason for reopening this finalized payroll:',''); if(!reason?.trim())return; await payrollRpc('wf_reopen_payroll',{target_company:state.workspace.companyId,target_payroll_run:r.id,reopen_reason:reason.trim()},'Reopen payroll'); }
 
+  function setupMessage(text, tone = 'info') {
+    const el = $('wfSetupMessage'); if (!el) return;
+    el.className = `wf-message ${tone}`; el.textContent = text;
+  }
+
+  function selectedSetupEmployee() {
+    const id = $('wfSetupEmployee')?.value || '';
+    return state.setupEmployees.find(e => e.id === id) || null;
+  }
+
+  function setupStatus(elId, text, kind) {
+    const el=$(elId); if(!el)return; el.textContent=text; el.className=kind||'';
+  }
+
+  function setupHistory(rows, type) {
+    if (!rows?.length) return `No ${type} records yet.`;
+    return rows.slice(0,5).map(r => {
+      if (type === 'salary') return `<div class="row"><b>${escapeHtml(r.pay_basis)} • ${escapeHtml(r.base_amount)} ${escapeHtml(r.currency_code||'SLE')}</b><br>${escapeHtml(r.effective_from)} • ${escapeHtml(String(r.approval_status||'').toUpperCase())}</div>`;
+      if (type === 'transport') return `<div class="row"><b>${escapeHtml(String(r.method||'').replaceAll('_',' '))} • ${escapeHtml(r.amount ?? '—')}</b><br>${escapeHtml(r.effective_from)} • ${escapeHtml(String(r.approval_status||'').toUpperCase())}</div>`;
+      return `<div class="row"><b>${escapeHtml(r.work_date)} • ${escapeHtml(String(r.attendance_status||'').replaceAll('_',' '))}</b><br>${escapeHtml(r.attendance_units ?? 0)} unit • ${escapeHtml(String(r.approval_status||'').toUpperCase())}</div>`;
+    }).join('');
+  }
+
+  async function loadPayrollSetup() {
+    if (!state.workspace?.companyId || state.setupBusy) return;
+    state.setupBusy=true; setupMessage('Loading employee payroll setup…','info');
+    try {
+      const {data,error}=await state.client.from('employees').select('id,employee_code,full_name,job_title,department,status,is_deleted').eq('company_id',state.workspace.companyId).eq('is_deleted',false).eq('status','active').order('employee_code',{ascending:true});
+      if(error) throw error;
+      state.setupEmployees=data||[];
+      const sel=$('wfSetupEmployee'); const previous=sel.value;
+      sel.innerHTML=state.setupEmployees.length ? state.setupEmployees.map(e=>`<option value="${escapeHtml(e.id)}">${escapeHtml(e.employee_code||'NO CODE')} • ${escapeHtml(e.full_name||'Unnamed Employee')}</option>`).join('') : '<option value="">No active employees</option>';
+      if(previous && state.setupEmployees.some(e=>e.id===previous)) sel.value=previous;
+      const today=new Date().toISOString().slice(0,10);
+      if(!$('wfSetupSalaryDate').value) $('wfSetupSalaryDate').value=today;
+      if(!$('wfSetupTransportDate').value) $('wfSetupTransportDate').value=today;
+      if(!$('wfSetupAttendanceDate').value) $('wfSetupAttendanceDate').value=today;
+      await loadSelectedPayrollSetup();
+    } catch(error){ console.error('[Payroll Setup]',error); setupMessage(error?.message||'Unable to load payroll setup.','error'); }
+    finally{state.setupBusy=false;}
+  }
+
+  async function loadSelectedPayrollSetup() {
+    const emp=selectedSetupEmployee();
+    if(!emp){ $('wfSetupEmployeeMeta').textContent='No active employee selected.'; return; }
+    $('wfSetupEmployeeMeta').textContent=`${emp.employee_code||'NO CODE'} • ${emp.full_name||'Unnamed Employee'} • ${emp.department||'No department'} • ${emp.job_title||'No job title'}`;
+    setupMessage('Reading approved and pending payroll inputs…','info');
+    try {
+      const [salaryRes,transportRes,attendanceRes]=await Promise.all([
+        state.client.from('wf_employee_salary_history').select('*').eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).order('effective_from',{ascending:false}),
+        state.client.from('wf_transport_employee_overrides').select('*').eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).order('effective_from',{ascending:false}),
+        state.client.from('wf_attendance_records').select('*').eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).order('work_date',{ascending:false}).limit(31)
+      ]);
+      if(salaryRes.error)throw salaryRes.error;if(transportRes.error)throw transportRes.error;if(attendanceRes.error)throw attendanceRes.error;
+      const salaries=salaryRes.data||[], transports=transportRes.data||[], attendance=attendanceRes.data||[];
+      const salApproved=salaries.find(r=>r.approval_status==='approved'), salPending=salaries.find(r=>r.approval_status==='pending');
+      const trApproved=transports.find(r=>r.approval_status==='approved' && r.is_active!==false), trPending=transports.find(r=>r.approval_status==='pending');
+      const attApproved=attendance.filter(r=>r.approval_status==='approved').length, attPending=attendance.filter(r=>r.approval_status==='pending').length;
+      setupStatus('wfSetupSalaryState',salApproved?'APPROVED':(salPending?'PENDING':'MISSING'),salApproved?'ok':(salPending?'pending':'missing'));
+      setupStatus('wfSetupTransportState',trApproved?'APPROVED':(trPending?'PENDING':'MISSING'),trApproved?'ok':(trPending?'pending':'missing'));
+      setupStatus('wfSetupAttendanceState',attApproved?`${attApproved} APPROVED`:(attPending?`${attPending} PENDING`:'MISSING'),attApproved?'ok':(attPending?'pending':'missing'));
+      $('wfSetupSalaryHistory').innerHTML=setupHistory(salaries,'salary');
+      $('wfSetupTransportHistory').innerHTML=setupHistory(transports,'transport');
+      $('wfSetupAttendanceHistory').innerHTML=setupHistory(attendance,'attendance');
+      setupMessage('Payroll setup loaded. New records are submitted as Pending for maker-checker approval.','success');
+    } catch(error){console.error('[Payroll Setup employee]',error);setupMessage(error?.message||'Unable to read employee payroll setup.','error');}
+  }
+
+  async function saveSetupSalary(){
+    const emp=selectedSetupEmployee(), amount=Number($('wfSetupSalaryAmount').value), date=$('wfSetupSalaryDate').value, basis=$('wfSetupPayBasis').value;
+    if(!emp)return setupMessage('Select an employee first.','warning'); if(!date||!Number.isFinite(amount)||amount<0)return setupMessage('Enter a valid salary amount and effective date.','warning');
+    try{state.setupBusy=true;const {error}=await state.client.from('wf_employee_salary_history').insert({company_id:state.workspace.companyId,employee_id:emp.id,pay_basis:basis,base_amount:amount,currency_code:'SLE',effective_from:date,effective_to:null,approval_status:'pending',notes:'Created from Workforce Payroll Setup'});if(error)throw error;$('wfSetupSalaryAmount').value='';setupMessage('Salary submitted as PENDING. Approve it from Approval Center with another authorised user when maker-checker applies.','success');await loadSelectedPayrollSetup();await loadApprovalCenter();}catch(error){setupMessage(error?.message||'Unable to submit salary.','error');}finally{state.setupBusy=false;}
+  }
+
+  async function saveSetupTransport(){
+    const emp=selectedSetupEmployee(), amount=Number($('wfSetupTransportAmount').value), date=$('wfSetupTransportDate').value, method=$('wfSetupTransportMethod').value;
+    if(!emp)return setupMessage('Select an employee first.','warning'); if(!date||!Number.isFinite(amount)||amount<0)return setupMessage('Enter a valid transport amount and effective date.','warning');
+    try{state.setupBusy=true;const {error}=await state.client.from('wf_transport_employee_overrides').insert({company_id:state.workspace.companyId,employee_id:emp.id,method,amount,effective_from:date,effective_to:null,approval_status:'pending',is_active:true,reason:'Created from Workforce Payroll Setup'});if(error)throw error;$('wfSetupTransportAmount').value='';setupMessage('Transport submitted as PENDING for approval.','success');await loadSelectedPayrollSetup();await loadApprovalCenter();}catch(error){setupMessage(error?.message||'Unable to submit transport.','error');}finally{state.setupBusy=false;}
+  }
+
+  async function ensureAttendancePeriod(date){
+    const d=new Date(`${date}T00:00:00`); const start=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`; const end=new Date(d.getFullYear(),d.getMonth()+1,0).toISOString().slice(0,10);
+    let {data,error}=await state.client.from('wf_attendance_periods').select('*').eq('company_id',state.workspace.companyId).eq('period_start',start).eq('period_end',end).maybeSingle(); if(error)throw error;
+    if(!data){const res=await state.client.from('wf_attendance_periods').insert({company_id:state.workspace.companyId,period_start:start,period_end:end,status:'open',notes:'Created from Workforce Payroll Setup'}).select('*').single();if(res.error)throw res.error;data=res.data;} return data;
+  }
+
+  async function saveSetupAttendance(){
+    const emp=selectedSetupEmployee(), date=$('wfSetupAttendanceDate').value, status=$('wfSetupAttendanceStatus').value, units=Number($('wfSetupAttendanceUnits').value);
+    if(!emp)return setupMessage('Select an employee first.','warning'); if(!date||!Number.isFinite(units)||units<0||units>1)return setupMessage('Enter a valid attendance date and units from 0 to 1.','warning');
+    try{state.setupBusy=true;const period=await ensureAttendancePeriod(date);const {error}=await state.client.from('wf_attendance_records').insert({company_id:state.workspace.companyId,employee_id:emp.id,attendance_period_id:period.id,work_date:date,attendance_status:status,attendance_units:units,worked_minutes:0,late_minutes:0,early_leave_minutes:0,overtime_minutes:0,source:'manual',approval_status:'pending',notes:'Created from Workforce Payroll Setup'});if(error)throw error;setupMessage('Attendance submitted as PENDING for approval.','success');await loadSelectedPayrollSetup();await loadApprovalCenter();}catch(error){setupMessage(error?.message||'Unable to submit attendance.','error');}finally{state.setupBusy=false;}
+  }
+
   function showSection(section) {
-    const target = ['dashboard','import','approvals','payroll'].includes(section) ? section : 'dashboard';
+    const target = ['dashboard','import','approvals','setup','payroll'].includes(section) ? section : 'dashboard';
     state.currentSection = target;
     const dashboard = $('wfDashboardView');
     const imports = $('wfImportView');
     const approvals = $('wfApprovalView');
+    const setup = $('wfSetupView');
     const payroll = $('wfPayrollView');
     if (dashboard) dashboard.hidden = target !== 'dashboard';
     if (imports) imports.hidden = target !== 'import';
     if (approvals) approvals.hidden = target !== 'approvals';
+    if (setup) setup.hidden = target !== 'setup';
     if (payroll) payroll.hidden = target !== 'payroll';
 
     document.querySelectorAll('.wf-nav button[data-section]').forEach(btn => {
@@ -1194,6 +1290,11 @@
       $('wfPageSubtitle').textContent = 'Review pending Workforce changes with maker-checker protection.';
       window.location.hash = 'approvals';
       if (state.workspace?.companyId) loadApprovalCenter();
+    } else if (target === 'setup') {
+      $('wfPageTitle').textContent = 'Employee Payroll Setup';
+      $('wfPageSubtitle').textContent = 'Prepare salary, transport and attendance inputs for payroll.';
+      window.location.hash = 'setup';
+      if (state.workspace?.companyId) loadPayrollSetup();
     } else if (target === 'payroll') {
       $('wfPageTitle').textContent = 'Payroll';
       $('wfPageSubtitle').textContent = 'Preflight, calculate, review, approve and finalize payroll safely.';
@@ -1216,6 +1317,11 @@
     $('wfSidebarBackDashboard')?.addEventListener('click', () => showSection('dashboard'));
     $('wfDashboardOpenImport')?.addEventListener('click', () => showSection('import'));
     $('wfApprovalRefresh')?.addEventListener('click', loadApprovalCenter);
+    $('wfSetupRefresh')?.addEventListener('click', loadPayrollSetup);
+    $('wfSetupEmployee')?.addEventListener('change', loadSelectedPayrollSetup);
+    $('wfSetupSalarySave')?.addEventListener('click', saveSetupSalary);
+    $('wfSetupTransportSave')?.addEventListener('click', saveSetupTransport);
+    $('wfSetupAttendanceSave')?.addEventListener('click', saveSetupAttendance);
     $('wfPayrollRefresh')?.addEventListener('click', loadPayroll);
     $('wfPayrollRunSelect')?.addEventListener('change', loadPayrollRunDetail);
     $('wfPayrollNewBtn')?.addEventListener('click', createMonthlyPayrollRun);
@@ -1333,7 +1439,7 @@
       bindIdentityReturnButtons();
 
       const hash = String(window.location.hash || '').toLowerCase();
-      const initialSection = hash === '#import' ? 'import' : (hash === '#approvals' ? 'approvals' : (hash === '#payroll' ? 'payroll' : 'dashboard'));
+      const initialSection = hash === '#import' ? 'import' : (hash === '#approvals' ? 'approvals' : (hash === '#setup' ? 'setup' : (hash === '#payroll' ? 'payroll' : 'dashboard')));
       showSection(initialSection);
       loadApprovalCenter();
       await restoreRememberedBatch();

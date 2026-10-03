@@ -1,0 +1,13 @@
+TABAJA SOLUTION D2 DEV — V12.9.3.21
+Workforce Employee Payroll Setup
+
+Added isolated Workforce UI for:
+- Salary setup -> pending maker-checker approval
+- Employee transport override -> pending maker-checker approval
+- Daily attendance -> pending maker-checker approval
+- Employee readiness view and recent setup history
+- Payroll Setup navigation item
+
+No Smart Identity core files were modified by this patch.
+Identity employee records are read only from this screen.
+Payroll calculation/finalization backend is unchanged.
