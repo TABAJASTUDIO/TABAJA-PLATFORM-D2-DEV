@@ -810,11 +810,11 @@
 
   function approvalDetail(item) {
     const r = item.record || {};
-    if (item.kind === 'salary') return `${formatMoney(r.base_amount, r.currency_code || '')} • ${String(r.pay_basis || 'salary').replaceAll('_',' ')} • effective ${r.effective_from || '—'}`;
-    if (item.kind === 'transport') return `${String(r.method || 'transport').replaceAll('_',' ')} • ${r.amount === null || r.amount === undefined ? 'Rule-based amount' : formatMoney(r.amount)} • effective ${r.effective_from || '—'}`;
-    if (item.kind === 'attendance') return `${r.work_date || '—'} • ${String(r.attendance_status || 'attendance').replaceAll('_',' ')} • ${r.worked_minutes ?? 0} worked min • ${r.overtime_minutes ?? 0} OT min`;
-    if (item.kind === 'leave') return `${r.start_date || '—'} → ${r.end_date || '—'} • ${r.requested_units ?? '—'} unit(s)`;
-    if (item.kind === 'advance') return `${formatMoney(r.principal_amount, r.currency_code || '')} • ${String(r.advance_type || 'advance').replaceAll('_',' ')} • ${r.issue_date || '—'}`;
+    if (item.kind === 'salary') return `${formatMoney(r.base_amount, r.currency_code || '')} • ${String(r.pay_basis || 'salary').replaceAll('_',' ')} • effective ${formatDateDMY(r.effective_from) || '—'}`;
+    if (item.kind === 'transport') return `${String(r.method || 'transport').replaceAll('_',' ')} • ${r.amount === null || r.amount === undefined ? 'Rule-based amount' : formatMoney(r.amount)} • effective ${formatDateDMY(r.effective_from) || '—'}`;
+    if (item.kind === 'attendance') return `${formatDateDMY(r.work_date) || '—'} • ${String(r.attendance_status || 'attendance').replaceAll('_',' ')} • ${r.worked_minutes ?? 0} worked min • ${r.overtime_minutes ?? 0} OT min`;
+    if (item.kind === 'leave') return `${formatDateDMY(r.start_date) || '—'} → ${formatDateDMY(r.end_date) || '—'} • ${r.requested_units ?? '—'} unit(s)`;
+    if (item.kind === 'advance') return `${formatMoney(r.principal_amount, r.currency_code || '')} • ${String(r.advance_type || 'advance').replaceAll('_',' ')} • ${formatDateDMY(r.issue_date) || '—'}`;
     return 'Pending Workforce item';
   }
 
@@ -982,7 +982,7 @@
 
     const today = companyLocalDate();
     $('wfDashboardDate').textContent = humanDate(today);
-    $('wfAttendanceDateBadge').textContent = today;
+    $('wfAttendanceDateBadge').textContent = formatDateDMY(today);
 
     try {
       const [employees, sites, attendance] = await Promise.all([
@@ -1340,21 +1340,51 @@
 
   async function createMonthlyPayrollRun() {
     if (state.payrollBusy) return;
-    const now=new Date(); const y=now.getFullYear(); const m=now.getMonth()+1; const code=`${y}-${String(m).padStart(2,'0')}`;
-    const start=`${code}-01`; const end=new Date(y,m,0).toISOString().slice(0,10);
+    state.payrollBusy = true;
+    const newBtn = $('wfPayrollNewBtn');
+    if (newBtn) newBtn.disabled = true;
     try {
-      state.payrollBusy=true; payrollMessage(`Preparing monthly payroll ${code}…`,'info');
-      let period=state.payrollPeriods.find(p=>p.period_code===code);
-      if (!period) {
-        const {data,error}=await state.client.from('wf_payroll_periods').insert({company_id:state.workspace.companyId,period_code:code,period_start:start,period_end:end,pay_date:end,payroll_type:'regular',currency_code:'SLE',status:'open',notes:'Created from Workforce Payroll UI'}).select('*').single();
-        if(error) throw error; period=data;
+      // New Month means the calendar month after the latest existing payroll period,
+      // never another run in the same month.
+      const periods = [...(state.payrollPeriods || [])].filter(p => p.period_start).sort((a,b) => String(b.period_start).localeCompare(String(a.period_start)));
+      const latest = periods[0];
+      const base = latest?.period_start ? new Date(`${latest.period_start}T12:00:00`) : new Date();
+      const y = base.getFullYear();
+      const nextMonthIndex = base.getMonth() + (latest ? 1 : 0);
+      const nextStart = new Date(y, nextMonthIndex, 1, 12, 0, 0);
+      const ny = nextStart.getFullYear();
+      const nm = nextStart.getMonth() + 1;
+      const code = `${ny}-${String(nm).padStart(2,'0')}`;
+      const start = `${code}-01`;
+      const endDay = new Date(ny, nm, 0).getDate();
+      const end = `${ny}-${String(nm).padStart(2,'0')}-${String(endDay).padStart(2,'0')}`;
+
+      payrollMessage(`Preparing new month ${formatDateDMY(start)} → ${formatDateDMY(end)}…`,'info');
+
+      // Refresh from DB before insert so stale UI state cannot create a duplicate month.
+      const {data: existingPeriods, error: periodCheckError} = await state.client.from('wf_payroll_periods')
+        .select('*').eq('company_id',state.workspace.companyId).eq('period_start',start);
+      if (periodCheckError) throw periodCheckError;
+      if ((existingPeriods || []).length) {
+        throw new Error(`Payroll month ${formatDateDMY(start)} already exists. Refresh Payroll instead of creating it again.`);
       }
-      const existing=state.payrollRuns.filter(r=>r.payroll_period_id===period.id);
-      const seq=existing.reduce((n,r)=>Math.max(n,Number(r.run_sequence||0)),0)+1;
-      const {error}=await state.client.from('wf_payroll_runs').insert({company_id:state.workspace.companyId,payroll_period_id:period.id,run_sequence:seq,run_label:`${code} Regular Payroll`,status:'draft',notes:'Created from Workforce Payroll UI'});
-      if(error) throw error; payrollMessage(`Payroll ${code} created. Run preflight before calculation.`,'success'); state.payrollBusy=false; await loadPayroll();
-    } catch(error) { payrollMessage(error?.message||'Unable to create payroll run.','error'); }
-    finally { state.payrollBusy=false; if ($('wfPayrollRefresh')) $('wfPayrollRefresh').disabled=false; if ($('wfPayrollNewBtn')) $('wfPayrollNewBtn').disabled=false; }
+
+      const {data: period,error: periodError}=await state.client.from('wf_payroll_periods').insert({company_id:state.workspace.companyId,period_code:code,period_start:start,period_end:end,pay_date:end,payroll_type:'regular',currency_code:'SLE',status:'open',notes:'Created from Workforce Payroll UI'}).select('*').single();
+      if(periodError) throw periodError;
+
+      const {error: runError}=await state.client.from('wf_payroll_runs').insert({company_id:state.workspace.companyId,payroll_period_id:period.id,run_sequence:1,run_label:`${code} Regular Payroll`,status:'draft',notes:'Created from Workforce Payroll UI'});
+      if(runError) throw runError;
+
+      payrollMessage(`New payroll month ${formatDateDMY(start)} → ${formatDateDMY(end)} created. Run Preflight before calculation.`,'success');
+      state.payrollBusy=false;
+      await loadPayroll();
+    } catch(error) {
+      payrollMessage(error?.message||'Unable to create new payroll month.','error');
+    } finally {
+      state.payrollBusy=false;
+      if ($('wfPayrollRefresh')) $('wfPayrollRefresh').disabled=false;
+      if (newBtn) newBtn.disabled=false;
+    }
   }
 
   async function payrollRpc(name,args,successText) {
@@ -1548,6 +1578,7 @@
     $('wfSetupAttendanceSave')?.addEventListener('click', saveSetupAttendance);
     $('wfPayrollRefresh')?.addEventListener('click', loadPayroll);
     $('wfPayrollRunSelect')?.addEventListener('change', loadPayrollRunDetail);
+    if ($('wfPayrollNewBtn')) $('wfPayrollNewBtn').textContent = '+ New Month';
     $('wfPayrollNewBtn')?.addEventListener('click', createMonthlyPayrollRun);
     $('wfPayrollPreflightBtn')?.addEventListener('click', runPayrollPreflight);
     $('wfPayrollCalculateBtn')?.addEventListener('click', calculatePayroll);
