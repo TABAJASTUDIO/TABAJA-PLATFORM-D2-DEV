@@ -1,0 +1,11 @@
+TABAJA SOLUTION D2 DEV - V12.9.3.23
+Priority 3: Payroll Preflight UI clarity
+
+Modified only:
+- workforce/workforce.js
+- workforce/workforce.css
+- service-worker.js
+
+Adds employee name/code, severity, issue code, explanation and action guidance.
+Reads Identity employees only for display mapping. No Identity write/change.
+No SQL or database schema changes.

@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.22.2-workforce-entitlement-schema-fix';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.23-workforce-preflight-ui';
 const APP_SHELL = [
   './',
   './index.html',

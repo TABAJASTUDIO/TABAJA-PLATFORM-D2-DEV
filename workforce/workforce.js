@@ -1055,7 +1055,18 @@
     $('wfPayrollReopenBtn').disabled = !has || status !== 'finalized';
   }
 
-  function renderPayrollIssues(rows) {
+  function payrollIssueAction(code) {
+    const key = String(code || '').toUpperCase();
+    const actions = {
+      ATTENDANCE_MISSING: 'Add and approve attendance for this payroll period.',
+      SALARY_MISSING_APPROVED: 'Add an effective salary record and have it approved.',
+      TRANSPORT_UNRESOLVED: 'Complete the employee/site transport setup and approve it.',
+      SALARY_CHANGE_WITHIN_PERIOD: 'Resolve the salary effective-date change before calculation.'
+    };
+    return actions[key] || 'Review this employee payroll setup, correct the issue, then run Preflight again.';
+  }
+
+  function renderPayrollIssues(rows, employeeMap = {}) {
     const host = $('wfPayrollIssues');
     const badge = $('wfPayIssueBadge');
     if (!host || !badge) return;
@@ -1065,9 +1076,18 @@
     if (!issues.length) { host.innerHTML = '<div class="wf-empty-card">No preflight issues. Payroll is clear at the last check.</div>'; return; }
     host.innerHTML = issues.map(x => {
       const level = String(x.severity || x.issue_level || x.level || 'warning').toLowerCase();
-      const title = x.issue_code || x.code || x.issue_type || level.toUpperCase();
+      const code = x.issue_code || x.code || x.issue_type || level.toUpperCase();
       const detail = x.message || x.issue_message || x.details || x.description || 'Payroll readiness issue.';
-      return `<div class="wf-issue-row ${escapeHtml(level)}"><b>${escapeHtml(title)}</b><small>${escapeHtml(typeof detail === 'string' ? detail : JSON.stringify(detail))}</small></div>`;
+      const emp = employeeMap[x.employee_id] || {};
+      const name = x.employee_name || x.employee_name_snapshot || emp.full_name || 'Employee';
+      const employeeCode = x.employee_code || x.employee_code_snapshot || emp.employee_code || '';
+      const severityLabel = level === 'error' ? 'ERROR' : level === 'warning' ? 'WARNING' : level.toUpperCase();
+      return `<div class="wf-issue-row ${escapeHtml(level)}">
+        <div class="wf-issue-top"><div><b>${escapeHtml(name)}</b>${employeeCode ? `<span class="wf-issue-employee-code">${escapeHtml(employeeCode)}</span>` : ''}</div><span class="wf-issue-severity ${escapeHtml(level)}">${escapeHtml(severityLabel)}</span></div>
+        <div class="wf-issue-code">${escapeHtml(code)}</div>
+        <small>${escapeHtml(typeof detail === 'string' ? detail : JSON.stringify(detail))}</small>
+        <div class="wf-issue-action"><strong>ACTION</strong><span>${escapeHtml(payrollIssueAction(code))}</span></div>
+      </div>`;
     }).join('');
   }
 
@@ -1121,8 +1141,14 @@
     const issues = latestPreflightVersion == null
       ? allIssues
       : allIssues.filter(x => Number(x.preflight_version) === latestPreflightVersion);
+    const issueEmployeeIds = [...new Set(issues.map(x => x.employee_id).filter(Boolean))];
+    let issueEmployeeMap = {};
+    if (issueEmployeeIds.length) {
+      const empRes = await state.client.from('employees').select('id,employee_code,full_name').eq('company_id',state.workspace.companyId).in('id',issueEmployeeIds);
+      if (!empRes.error) issueEmployeeMap = Object.fromEntries((empRes.data || []).map(e => [e.id,e]));
+    }
     $('wfPayEmployees').textContent = String(snaps.length || run.employee_count || 0);
-    renderPayrollResults(snaps,currency); renderPayrollIssues(issues);
+    renderPayrollResults(snaps,currency); renderPayrollIssues(issues, issueEmployeeMap);
     const versionNote = latestPreflightVersion == null ? '' : ` • preflight v${latestPreflightVersion}`;
     payrollMessage(`Payroll ${String(run.status||'draft').replaceAll('_',' ')} • ${snaps.length} employee snapshot(s)${versionNote}.`, issues.some(x=>String(x.severity||x.issue_level||'').toLowerCase()==='error') ? 'warning' : 'success');
   }
