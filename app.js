@@ -2738,18 +2738,21 @@ window.TabajaElements = {
       trialStartedAt: c.trial_started_at || null,
       trialExpiresAt: c.trial_expires_at || c.licence_expires_at || null,
       features: { nfc: c.feature_nfc === true, batch: c.feature_batch === true, qr: c.feature_qr === true, barcode: c.feature_barcode === true, elements: c.feature_elements === true, workforce: false },
+      workforcePlan: null,
       cloud: true
     }));
 
     // Workforce entitlement is isolated from the companies table.
-    // IMPORTANT: entitlement lookup must NEVER hide/break the existing company list.
-    // If the RPC is unavailable or denied, companies still render normally and
-    // Workforce defaults to OFF until the entitlement can be read successfully.
+    // A Workforce lookup failure must never hide or break the existing company list.
     try {
       const { data: wfRows, error: wfError } = await supabase.rpc('wf_platform_list_entitlements');
       if (!wfError) {
-        const wfMap = new Map((wfRows || []).map(row => [String(row.company_id), row.enabled === true]));
-        cloudCompanies.forEach(a => { a.features.workforce = wfMap.get(String(a.id)) === true; });
+        const wfMap = new Map((wfRows || []).map(row => [String(row.company_id), row]));
+        cloudCompanies.forEach(a => {
+          const row = wfMap.get(String(a.id));
+          a.features.workforce = row?.workforce_enabled === true;
+          a.workforcePlan = row?.workforce_plan || null;
+        });
       } else {
         console.warn('Workforce entitlement lookup skipped:', wfError.message || wfError);
       }
@@ -2817,10 +2820,11 @@ window.TabajaElements = {
       const { data, error } = await supabase.from('companies').update(payload).eq('id', current.id).select('*').single();
       if (error) throw error;
 
+      // Save Workforce separately. Existing company features remain independent.
       const { error: wfError } = await supabase.rpc('wf_platform_set_entitlement', {
         target_company: current.id,
         target_enabled: updated.features?.workforce === true,
-        target_plan: updated.features?.workforce === true ? 'WORKFORCE' : null
+        target_plan: updated.features?.workforce === true ? (current.workforcePlan || 'WORKFORCE') : null
       });
       if (wfError) throw new Error(`Company saved, but Workforce access was not changed: ${wfError.message || wfError}`);
 
@@ -2830,7 +2834,8 @@ window.TabajaElements = {
         status: updated.status,
         trialStartedAt: data.trial_started_at || null,
         trialExpiresAt: data.trial_expires_at || data.licence_expires_at || null,
-        features: { nfc: data.feature_nfc === true, batch: data.feature_batch === true, qr: data.feature_qr === true, barcode: data.feature_barcode === true, elements: data.feature_elements === true, workforce: updated.features?.workforce === true }
+        features: { nfc: data.feature_nfc === true, batch: data.feature_batch === true, qr: data.feature_qr === true, barcode: data.feature_barcode === true, elements: data.feature_elements === true, workforce: updated.features?.workforce === true },
+        workforcePlan: updated.features?.workforce === true ? (current.workforcePlan || 'WORKFORCE') : null
       };
       const i = cloudCompanies.findIndex(a => a.id === current.id);
       if (i >= 0) cloudCompanies[i] = mapped;

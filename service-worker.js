@@ -1,9 +1,9 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.22.1-workforce-entitlement-safe-company-list';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.22.2-workforce-entitlement-schema-fix';
 const APP_SHELL = [
   './',
   './index.html',
   './style.css?v=12.9.3.14',
-  './app.js?v=12.9.3.16-fix5.3-confirm-flow1',
+  './app.js?v=12.9.3.22.2-workforce-entitlement',
   './cloud.js?v=12.9.3.16-fix5.7-rpc',
   './v8-ui.js?v=12.9.3.16-fix5',
   './employee-manager.js?v=12.9.3.2',
