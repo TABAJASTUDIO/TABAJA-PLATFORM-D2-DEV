@@ -1,0 +1,13 @@
+Tabaja Solution D2 DEV — Workforce V12.9.3.21.1
+PATCH ONLY
+
+Changed files only:
+- service-worker.js
+- workforce.html
+- workforce/workforce.js
+
+Fix:
+- Payroll UI now displays only the latest preflight_version for the selected payroll run.
+- Older preflight versions remain in Supabase as audit history.
+- No database changes.
+- No Smart Identity core files included in this patch.

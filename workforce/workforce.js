@@ -1110,10 +1110,21 @@
       state.client.from('wf_payroll_preflight_issues').select('*').eq('company_id',state.workspace.companyId).eq('payroll_run_id',run.id).order('created_at',{ascending:true})
     ]);
     const snaps = snapRes.error ? [] : (snapRes.data || []);
-    const issues = issueRes.error ? [] : (issueRes.data || []);
+    const allIssues = issueRes.error ? [] : (issueRes.data || []);
+    // Preflight issues are intentionally versioned for audit history.
+    // The live Payroll screen must show only the newest preflight version,
+    // otherwise repeated checks incorrectly stack historical issues together.
+    const versionedIssues = allIssues.filter(x => Number.isFinite(Number(x.preflight_version)));
+    const latestPreflightVersion = versionedIssues.length
+      ? Math.max(...versionedIssues.map(x => Number(x.preflight_version)))
+      : null;
+    const issues = latestPreflightVersion == null
+      ? allIssues
+      : allIssues.filter(x => Number(x.preflight_version) === latestPreflightVersion);
     $('wfPayEmployees').textContent = String(snaps.length || run.employee_count || 0);
     renderPayrollResults(snaps,currency); renderPayrollIssues(issues);
-    payrollMessage(`Payroll ${String(run.status||'draft').replaceAll('_',' ')} • ${snaps.length} employee snapshot(s).`, issues.some(x=>String(x.severity||x.issue_level||'').toLowerCase()==='error') ? 'warning' : 'success');
+    const versionNote = latestPreflightVersion == null ? '' : ` • preflight v${latestPreflightVersion}`;
+    payrollMessage(`Payroll ${String(run.status||'draft').replaceAll('_',' ')} • ${snaps.length} employee snapshot(s)${versionNote}.`, issues.some(x=>String(x.severity||x.issue_level||'').toLowerCase()==='error') ? 'warning' : 'success');
   }
 
   async function loadPayroll() {
