@@ -82,6 +82,9 @@
         shell.appendChild(frame);
         document.body.appendChild(shell);
       }
+      // Workforce is a top-level module. Its parent is ALWAYS Command Center,
+      // never whichever Identity child view happened to be open before it.
+      if (typeof window.TabajaSetView === 'function') window.TabajaSetView('dashboard');
       shell.style.display = 'block';
       document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
@@ -94,6 +97,7 @@
     if (shell) shell.style.display = 'none';
     document.documentElement.style.overflow = '';
     document.body.style.overflow = '';
+    if (typeof window.TabajaSetView === 'function') window.TabajaSetView('dashboard');
   });
 
 
@@ -118,10 +122,20 @@
         document.body.appendChild(modal);
         modal.querySelector('[data-exit-cancel]').addEventListener('click', closeExitModal);
         modal.addEventListener('click', (e) => { if (e.target === modal) closeExitModal(); });
-        modal.querySelector('[data-exit-yes]').addEventListener('click', () => {
+        modal.querySelector('[data-exit-yes]').addEventListener('click', async () => {
           closeExitModal();
-          // Installed PWAs may reject script-driven window.close(). Never leave a blocking overlay behind.
-          try { window.close(); } catch (_) {}
+          // "Exit" means a real application sign-out, not window.close().
+          // Reuse the platform's existing logout flow so Supabase session + local app state
+          // are cleared exactly the same way as the normal Logout button.
+          const logout = document.getElementById('logoutBtn');
+          if (logout) {
+            logout.click();
+            return;
+          }
+          try { await window.TabajaCloud?.signOut?.(); } catch (_) {}
+          localStorage.removeItem('tabaja_card_designer_login');
+          sessionStorage.removeItem('tabaja_card_designer_login');
+          window.location.reload();
         });
       }
       modal.style.display = 'grid';

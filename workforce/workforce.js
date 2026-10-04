@@ -38,7 +38,7 @@
     if (!document.documentElement.dataset.wfEscapeBound) {
       document.documentElement.dataset.wfEscapeBound = '1';
       window.addEventListener('keydown', (event) => {
-        if (event.key !== 'Escape' || event.defaultPrevented) return;
+        if (event.key !== 'Escape') return;
         event.preventDefault();
         event.stopPropagation();
         // Workforce has its own Back level: any child section returns to its dashboard first.
@@ -48,7 +48,7 @@
         }
         // Only the Workforce Dashboard exits the embedded Workforce shell to Command Center.
         returnToIdentityPlatform(event);
-      });
+      }, true);
     }
   }
 
