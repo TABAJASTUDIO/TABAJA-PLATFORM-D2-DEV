@@ -86,3 +86,12 @@ button,select,input{font:inherit}.wf-shell{min-height:100vh}.wf-sidebar{position
 /* V12.9.3.36.11 — Workforce Users & Access: in-place role change only. */
 .wf-access-role-inline{width:100%;min-width:150px;border:1px solid var(--wf-line);border-radius:9px;background:#fff;padding:7px 9px;font:inherit;font-size:10px;color:var(--wf-ink)}
 .wf-access-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+
+/* V12.9.3.36.12 — Workforce Scope Management */
+.wf-mini-action.scope{color:#52633e;border-color:#cfd9bf;background:#f8fbf4}
+.wf-scope-editor{grid-column:1/-1;border:1px solid #d6dfc8;background:#fbfcf8}
+.wf-scope-editor .wf-field{margin-top:14px}
+.wf-scope-editor select[multiple]{min-height:170px;padding:8px}
+.wf-scope-editor select[multiple] option{padding:7px 8px;border-radius:6px}
+.wf-scope-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:14px}
+.wf-scope-actions button{min-width:110px}

@@ -129,7 +129,9 @@
     overtimeBusy: false,
     overtimeEmployees: [],
     overtimePermissions: { view: false, manage: false, approve: false },
-    accessProfile: { roleCodes: [], isDirector: false }
+    accessProfile: { roleCodes: [], isDirector: false },
+    accessScopeData: { scopes: [], options: {}, can_manage: false },
+    scopeEditorUserId: null
   };
 
   const $ = id => document.getElementById(id);
@@ -1954,6 +1956,89 @@
       .forEach(id => { const el = $(id); if (el) { el.disabled = true; el.hidden = true; } });
   }
 
+  function scopeTypeLabel(type) {
+    return ({ company:'Company', area:'Area', site:'Site', post:'Post', department:'Department', employee:'Employee' })[type] || type || 'Scope';
+  }
+
+  function scopeSummaryForUser(userId, fallback) {
+    const rows = (state.accessScopeData?.scopes || []).filter(row => String(row.user_id) === String(userId) && row.is_active !== false);
+    if (!rows.length || rows.some(row => row.scope_type === 'company')) return 'Company scope';
+    const grouped = {};
+    rows.forEach(row => { grouped[row.scope_type] = (grouped[row.scope_type] || 0) + 1; });
+    const parts = Object.entries(grouped).map(([type,count]) => `${count} ${scopeTypeLabel(type)}${count > 1 ? 's' : ''}`);
+    return parts.join(' • ') || fallback || 'Scoped access';
+  }
+
+  function closeScopeEditor() {
+    state.scopeEditorUserId = null;
+    const editor = $('wfScopeEditor');
+    if (editor) editor.hidden = true;
+  }
+
+  function populateScopeTargets(type, selectedIds = []) {
+    const wrap = $('wfScopeTargetsWrap');
+    const select = $('wfScopeTargets');
+    if (!wrap || !select) return;
+    if (type === 'company') {
+      wrap.hidden = true;
+      select.innerHTML = '';
+      return;
+    }
+    wrap.hidden = false;
+    const options = Array.isArray(state.accessScopeData?.options?.[type]) ? state.accessScopeData.options[type] : [];
+    const chosen = new Set(selectedIds.map(String));
+    select.innerHTML = options.map(item => `<option value="${escapeHtml(item.id)}" ${chosen.has(String(item.id)) ? 'selected' : ''}>${escapeHtml(item.label || item.name || item.id)}</option>`).join('');
+    if (!options.length) select.innerHTML = '<option value="" disabled>No active records available</option>';
+  }
+
+  function openScopeEditor(userId) {
+    const editor = $('wfScopeEditor');
+    if (!editor) return;
+    const accessUsers = Array.isArray(state.accessScopeData?.users) ? state.accessScopeData.users : [];
+    const user = accessUsers.find(row => String(row.user_id) === String(userId));
+    const rows = (state.accessScopeData?.scopes || []).filter(row => String(row.user_id) === String(userId) && row.is_active !== false);
+    state.scopeEditorUserId = userId;
+    $('wfScopeEditorUser').textContent = user?.email || userId;
+    const type = !rows.length || rows.some(row => row.scope_type === 'company') ? 'company' : (rows[0]?.scope_type || 'site');
+    $('wfScopeType').value = type;
+    populateScopeTargets(type, rows.filter(row => row.scope_type === type).map(row => row.scope_id));
+    $('wfScopeEditorMessage').className = 'wf-message info';
+    $('wfScopeEditorMessage').textContent = type === 'company' ? 'Company scope gives access across the company, subject to the user’s role permissions.' : 'Choose one or more records. Role permissions still control what the user can do.';
+    editor.hidden = false;
+    editor.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+
+  async function saveWorkforceScope() {
+    const userId = state.scopeEditorUserId;
+    const type = $('wfScopeType')?.value || 'company';
+    const ids = type === 'company' ? [state.workspace.companyId] : Array.from($('wfScopeTargets')?.selectedOptions || []).map(option => option.value).filter(Boolean);
+    if (!userId) return;
+    if (type !== 'company' && !ids.length) {
+      $('wfScopeEditorMessage').className = 'wf-message error';
+      $('wfScopeEditorMessage').textContent = `Select at least one ${scopeTypeLabel(type).toLowerCase()}.`;
+      return;
+    }
+    const button = $('wfScopeSave');
+    try {
+      if (button) { button.disabled = true; button.textContent = 'Saving…'; }
+      const { error } = await state.client.rpc('wf_set_user_scopes', {
+        target_company: state.workspace.companyId,
+        target_user: userId,
+        target_scope_type: type,
+        target_scope_ids: ids
+      });
+      if (error) throw error;
+      closeScopeEditor();
+      await loadAccessFoundation();
+    } catch (error) {
+      console.error('[Workforce Scope Save]', error);
+      $('wfScopeEditorMessage').className = 'wf-message error';
+      $('wfScopeEditorMessage').textContent = error?.message || 'Unable to save Workforce scope.';
+    } finally {
+      if (button) { button.disabled = false; button.textContent = 'Save Scope'; }
+    }
+  }
+
   function renderAccessUsers(payload) {
     const body = $('wfAccessUsers');
     if (!body) return;
@@ -1970,12 +2055,12 @@
       const active = user.has_workforce_access === true;
       const currentRoleId = roles[0]?.role_id || '';
       const roleText = roles.length ? roles.map(accessRoleLabel).join(', ') : 'No Workforce role';
-      const scope = user.scope_summary || (active ? 'Company / configured scope' : '—');
+      const scope = active ? scopeSummaryForUser(user.user_id, user.scope_summary) : '—';
       const roleCell = active && canManage
         ? `<select class="wf-access-role-inline" data-access-role-user="${escapeHtml(user.user_id)}" aria-label="Workforce role for ${escapeHtml(user.email || 'user')}">${roleRows.map(r => `<option value="${escapeHtml(r.role_id)}" ${String(r.role_id) === String(currentRoleId) ? 'selected' : ''}>${escapeHtml(accessRoleLabel(r))}</option>`).join('')}</select><small>${escapeHtml(roleText)}</small>`
         : escapeHtml(roleText);
       const action = active && canManage
-        ? `<div class="wf-access-actions"><button class="wf-mini-action" data-access-save-role="${escapeHtml(user.user_id)}" data-current-role="${escapeHtml(currentRoleId)}">Save Role</button><button class="wf-mini-action danger" data-access-revoke="${escapeHtml(user.user_id)}">Remove Access</button></div>`
+        ? `<div class="wf-access-actions"><button class="wf-mini-action" data-access-save-role="${escapeHtml(user.user_id)}" data-current-role="${escapeHtml(currentRoleId)}">Save Role</button><button class="wf-mini-action scope" data-access-edit-scope="${escapeHtml(user.user_id)}">Edit Scope</button><button class="wf-mini-action danger" data-access-revoke="${escapeHtml(user.user_id)}">Remove Access</button></div>`
         : active ? '<span class="wf-muted-small">View only</span>' : '<span class="wf-muted-small">Not assigned</span>';
       return `<tr><td><b>${escapeHtml(user.email || 'User')}</b><small>${escapeHtml(user.core_role || 'company member')}</small></td><td>${roleCell}</td><td>${escapeHtml(scope)}</td><td><span class="wf-badge ${active ? 'enabled' : 'neutral'}">${active ? 'ACTIVE' : 'NO ACCESS'}</span></td><td>${action}</td></tr>`;
     }).join('');
@@ -2004,12 +2089,15 @@
     const msg = $('wfAccessMessage');
     try {
       if (msg) { msg.className = 'wf-message info'; msg.textContent = 'Loading Workforce users, roles and seat allocation…'; }
-      const [{ data: seatData, error: seatError }, { data: accessData, error: accessError }] = await Promise.all([
+      const [{ data: seatData, error: seatError }, { data: accessData, error: accessError }, { data: scopeData, error: scopeError }] = await Promise.all([
         state.client.rpc('wf_get_seat_summary', { target_company: state.workspace.companyId }),
-        state.client.rpc('wf_get_access_management', { target_company: state.workspace.companyId })
+        state.client.rpc('wf_get_access_management', { target_company: state.workspace.companyId }),
+        state.client.rpc('wf_get_scope_management', { target_company: state.workspace.companyId })
       ]);
       if (seatError) throw seatError;
       if (accessError) throw accessError;
+      if (scopeError) throw scopeError;
+      state.accessScopeData = { ...(scopeData || {}), users: Array.isArray(accessData?.users) ? accessData.users : [] };
       const row = Array.isArray(seatData) ? seatData[0] : seatData;
       const limit = Number(row?.seat_limit ?? 1);
       const assigned = Number(row?.assigned_users ?? 0);
@@ -2023,7 +2111,7 @@
       if (msg) {
         const canManage = accessData?.can_manage === true;
         msg.className = `wf-message ${available > 0 ? 'success' : 'info'}`;
-        msg.textContent = `${assigned} of ${limit} Workforce seats assigned • ${available} available${canManage ? ' • Role changes enabled.' : ' • View only.'}`;
+        msg.textContent = `${assigned} of ${limit} Workforce seats assigned • ${available} available${canManage ? ' • Role + Scope changes enabled.' : ' • View only.'}`;
       }
     } catch (error) {
       console.error('[Workforce Access]', error);
@@ -2164,9 +2252,14 @@
     $('wfDashboardRefresh')?.addEventListener('click', loadDashboard);
     $('wfAccessRefresh')?.addEventListener('click', loadAccessFoundation);
     $('wfAccessAssignBtn')?.addEventListener('click', assignWorkforceAccess);
+    $('wfScopeType')?.addEventListener('change', event => { populateScopeTargets(event.target.value, []); $('wfScopeEditorMessage').className='wf-message info'; $('wfScopeEditorMessage').textContent = event.target.value === 'company' ? 'Company scope gives access across the company, subject to the user’s role permissions.' : 'Choose one or more records. Role permissions still control what the user can do.'; });
+    $('wfScopeSave')?.addEventListener('click', saveWorkforceScope);
+    $('wfScopeCancel')?.addEventListener('click', closeScopeEditor);
     $('wfAccessUsers')?.addEventListener('click', event => {
       const save = event.target.closest('[data-access-save-role]');
       if (save) return changeWorkforceRole(save.dataset.accessSaveRole, save);
+      const scope = event.target.closest('[data-access-edit-scope]');
+      if (scope) return openScopeEditor(scope.dataset.accessEditScope);
       const revoke = event.target.closest('[data-access-revoke]');
       if (revoke) revokeWorkforceAccess(revoke.dataset.accessRevoke);
     });
