@@ -109,7 +109,8 @@
     leaveBusy: false,
     overtimeBusy: false,
     overtimeEmployees: [],
-    overtimePermissions: { view: false, manage: false, approve: false }
+    overtimePermissions: { view: false, manage: false, approve: false },
+    accessProfile: { roleCodes: [], isDirector: false }
   };
 
   const $ = id => document.getElementById(id);
@@ -852,6 +853,9 @@
       const created = r.created_at ? new Date(r.created_at).toLocaleString() : '';
       const disabled = selfMade ? 'disabled' : '';
       const checkerText = selfMade ? '<span class="wf-checker-note">Maker-checker: another authorised user must review this item.</span>' : '';
+      const approvalActions = state.accessProfile?.isDirector
+        ? '<div class="wf-approval-actions"><span class="wf-checker-note">VIEW ONLY</span></div>'
+        : `<div class="wf-approval-actions"><button class="approve" type="button" data-approval-action="approved" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(r.id)}" ${disabled}>Approve</button><button class="reject" type="button" data-approval-action="rejected" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(r.id)}" ${disabled}>Reject</button></div>`;
       return `<article class="wf-approval-item" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(r.id)}">
         <div class="wf-approval-item-main">
           <div class="wf-approval-item-top">
@@ -864,10 +868,7 @@
           <div class="wf-approval-meta">${employee.employee_code ? `<span>${escapeHtml(employee.employee_code)}</span>` : ''}${created ? `<span>${escapeHtml(created)}</span>` : ''}</div>
           ${checkerText}
         </div>
-        <div class="wf-approval-actions">
-          <button class="approve" type="button" data-approval-action="approved" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(r.id)}" ${disabled}>Approve</button>
-          <button class="reject" type="button" data-approval-action="rejected" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(r.id)}" ${disabled}>Reject</button>
-        </div>
+        ${approvalActions}
       </article>`;
     }).join('');
   }
@@ -937,6 +938,7 @@
   }
 
   async function actOnApproval(kind, id, action) {
+    if (state.accessProfile?.isDirector) return approvalMessage('Company Director is view only.', 'info');
     const item = (state.approvals || []).find(x => x.kind === kind && x.record?.id === id);
     if (!item) return;
     if (!['approved','rejected'].includes(action)) return;
@@ -1073,6 +1075,10 @@
   }
 
   function updatePayrollActions(run) {
+    if (state.accessProfile?.isDirector) {
+      ['wfPayrollPreflightBtn','wfPayrollCalculateBtn','wfPayrollSubmitBtn','wfPayrollApproveBtn','wfPayrollRejectBtn','wfPayrollFinalizeBtn','wfPayrollReopenBtn'].forEach(id => { const el=$(id); if(el) el.disabled=true; });
+      return;
+    }
     const status = String(run?.status || '').toLowerCase();
     const has = !!run && !state.payrollBusy;
     $('wfPayrollPreflightBtn').disabled = !has || !['draft','preflight_failed','ready','reopened','rejected'].includes(status);
@@ -1892,6 +1898,35 @@
     return role?.role_name || role?.role_code || role?.role_id || 'Workforce role';
   }
 
+
+  async function loadCurrentAccessProfile() {
+    const profile = { roleCodes: [], isDirector: false };
+    try {
+      const { data, error } = await state.client.rpc('wf_get_access_management', { target_company: state.workspace.companyId });
+      if (error) throw error;
+      const users = Array.isArray(data?.users) ? data.users : [];
+      const me = users.find(user => String(user.user_id || '') === String(state.session?.user?.id || ''));
+      profile.roleCodes = Array.isArray(me?.roles) ? me.roles.map(role => String(role?.role_code || '').toLowerCase()).filter(Boolean) : [];
+      profile.isDirector = profile.roleCodes.includes('director');
+    } catch (error) {
+      console.warn('[Workforce Access Profile]', error?.message || error);
+    }
+    state.accessProfile = profile;
+    return profile;
+  }
+
+  function applyDirectorViewMode() {
+    if (!state.accessProfile?.isDirector) return;
+    document.documentElement.classList.add('wf-director-view');
+    ['import','setup','access'].forEach(section => {
+      const nav = document.querySelector(`.wf-nav button[data-section="${section}"]`);
+      if (nav) nav.hidden = true;
+    });
+    if ($('wfDashboardOpenImport')) $('wfDashboardOpenImport').hidden = true;
+    ['wfPayrollNewBtn','wfPayrollPreflightBtn','wfPayrollCalculateBtn','wfPayrollSubmitBtn','wfPayrollApproveBtn','wfPayrollRejectBtn','wfPayrollFinalizeBtn','wfPayrollReopenBtn']
+      .forEach(id => { const el = $(id); if (el) { el.disabled = true; el.hidden = true; } });
+  }
+
   function renderAccessUsers(payload) {
     const body = $('wfAccessUsers');
     if (!body) return;
@@ -1992,7 +2027,8 @@
   }
 
   function showSection(section) {
-    const target = ['dashboard','import','approvals','leave','overtime','setup','payroll','access'].includes(section) ? section : 'dashboard';
+    let target = ['dashboard','import','approvals','leave','overtime','setup','payroll','access'].includes(section) ? section : 'dashboard';
+    if (state.accessProfile?.isDirector && ['import','setup','access'].includes(target)) target = 'dashboard';
     state.currentSection = target;
     const dashboard = $('wfDashboardView');
     const imports = $('wfImportView');
@@ -2204,6 +2240,8 @@
       $('wfWorkspace').hidden = false;
       setMessage('Workforce is connected. Choose an Excel file to begin.', 'success');
       bindIdentityReturnButtons();
+      await loadCurrentAccessProfile();
+      applyDirectorViewMode();
 
       const hash = String(window.location.hash || '').toLowerCase();
       const initialSection = hash === '#import' ? 'import' : (hash === '#approvals' ? 'approvals' : (hash === '#leave' ? 'leave' : (hash === '#overtime' ? 'overtime' : (hash === '#setup' ? 'setup' : (hash === '#payroll' ? 'payroll' : 'dashboard')))));
