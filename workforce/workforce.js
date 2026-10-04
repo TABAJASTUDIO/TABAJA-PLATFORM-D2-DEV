@@ -1920,9 +1920,17 @@
     document.documentElement.classList.add('wf-director-view');
     ['import','setup','access'].forEach(section => {
       const nav = document.querySelector(`.wf-nav button[data-section="${section}"]`);
-      if (nav) nav.hidden = true;
+      if (nav) {
+        nav.hidden = true;
+        nav.setAttribute('aria-hidden', 'true');
+        nav.style.setProperty('display', 'none', 'important');
+        nav.tabIndex = -1;
+      }
     });
-    if ($('wfDashboardOpenImport')) $('wfDashboardOpenImport').hidden = true;
+    if ($('wfDashboardOpenImport')) {
+      $('wfDashboardOpenImport').hidden = true;
+      $('wfDashboardOpenImport').style.setProperty('display', 'none', 'important');
+    }
     ['wfPayrollNewBtn','wfPayrollPreflightBtn','wfPayrollCalculateBtn','wfPayrollSubmitBtn','wfPayrollApproveBtn','wfPayrollRejectBtn','wfPayrollFinalizeBtn','wfPayrollReopenBtn']
       .forEach(id => { const el = $(id); if (el) { el.disabled = true; el.hidden = true; } });
   }
