@@ -25,6 +25,7 @@
         <button class="active" type="button" data-section="dashboard"><span>⌂</span><b>Workforce Dashboard</b></button>
         <button type="button" data-section="import"><span>⇩</span><b>Import Center</b></button>
         <button type="button" data-section="approvals"><span>✓</span><b>Approval Center</b><em id="wfNavApprovalCount"></em></button>
+        <button type="button" data-section="leave"><span>▦</span><b>Leave Calendar</b><em>HR</em></button>
         <button type="button" data-section="setup"><span>⚙</span><b>Payroll Setup</b><em id="wfNavSetupStatus"></em></button>
         <button type="button" data-section="payroll"><span>$</span><b>Payroll</b><em id="wfNavPayrollStatus"></em></button>
       </nav>
@@ -256,6 +257,34 @@
             </article>
           </div>
           <div id="wfSetupMessage" class="wf-message info">Select an employee to begin payroll setup.</div>
+        </section>
+
+        <section id="wfLeaveView" class="wf-section-view" hidden>
+          <div class="wf-dashboard-head">
+            <div><span class="wf-kicker">TIME OFF CONTROL</span><h2>Leave Calendar</h2><p>One operational view of approved, pending and historical employee leave.</p></div>
+            <button id="wfLeaveRefresh" class="wf-soft-btn" type="button">Refresh Leave</button>
+          </div>
+          <div class="wf-kpi-grid wf-leave-kpis">
+            <article class="wf-kpi-card"><span>ON LEAVE THIS MONTH</span><strong id="wfLeavePeopleCount">—</strong><small>Unique employees with leave records</small></article>
+            <article class="wf-kpi-card"><span>APPROVED</span><strong id="wfLeaveApprovedCount">—</strong><small>Approved leave requests</small></article>
+            <article class="wf-kpi-card attention"><span>PENDING</span><strong id="wfLeavePendingCount">—</strong><small>Waiting for approval</small></article>
+            <article class="wf-kpi-card"><span>UNPAID LEAVE</span><strong id="wfLeaveUnpaidCount">—</strong><small>Requests identified as unpaid</small></article>
+          </div>
+          <article class="wf-card wf-leave-control-card">
+            <div class="wf-leave-toolbar">
+              <button id="wfLeavePrev" type="button">← Previous</button>
+              <div><span class="wf-kicker">CALENDAR MONTH</span><h2 id="wfLeaveMonthLabel">—</h2></div>
+              <button id="wfLeaveNext" type="button">Next →</button>
+            </div>
+            <div id="wfLeaveMessage" class="wf-message info">Loading leave calendar…</div>
+            <div class="wf-leave-legend"><span><i class="approved"></i>Approved</span><span><i class="pending"></i>Pending</span><span><i class="rejected"></i>Rejected / Cancelled</span><span><i class="unpaid"></i>Unpaid leave</span></div>
+            <div class="wf-calendar-head"><b>MON</b><b>TUE</b><b>WED</b><b>THU</b><b>FRI</b><b>SAT</b><b>SUN</b></div>
+            <div id="wfLeaveCalendar" class="wf-leave-calendar"></div>
+          </article>
+          <article class="wf-card wf-leave-list-card">
+            <div class="wf-card-head"><div><span>AUDITABLE HISTORY</span><h2>Leave requests in this month</h2><p>Dates remain visible for HR follow-up and payroll review.</p></div><span id="wfLeaveRequestCount" class="wf-badge neutral">0 REQUESTS</span></div>
+            <div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>Employee</th><th>Leave Type</th><th>From</th><th>To</th><th>Units</th><th>Status</th><th>Reason</th></tr></thead><tbody id="wfLeaveRows"><tr><td colspan="7" class="empty">No leave loaded yet.</td></tr></tbody></table></div>
+          </article>
         </section>
 
         <section id="wfPayrollView" class="wf-section-view" hidden>

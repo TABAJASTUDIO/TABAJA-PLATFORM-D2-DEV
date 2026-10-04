@@ -1,0 +1,13 @@
+Tabaja Solution DEV V12.9.3.29
+Workforce Leave Calendar
+
+Modified only Workforce/PWA files:
+- workforce.html
+- workforce/workforce.js
+- workforce/workforce.css
+- service-worker.js
+
+Adds a professional Leave Calendar using the existing Workforce leave backend.
+No Smart Identity files, Identity database behavior, Card Designer, Templates, NFC, Batch Printing or printing workflows were changed.
+
+This release intentionally does not change payroll calculation formulas or database schema.

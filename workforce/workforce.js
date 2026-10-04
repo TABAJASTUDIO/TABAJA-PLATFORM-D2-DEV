@@ -104,7 +104,9 @@
     selectedPayrollRun: null,
     payrollBusy: false,
     setupEmployees: [],
-    setupBusy: false
+    setupBusy: false,
+    leaveMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    leaveBusy: false
   };
 
   const $ = id => document.getElementById(id);
@@ -1611,17 +1613,92 @@
     try{state.setupBusy=true;const period=await ensureAttendancePeriod(date);const {error}=await state.client.from('wf_attendance_records').insert({company_id:state.workspace.companyId,employee_id:emp.id,attendance_period_id:period.id,work_date:date,attendance_status:status,attendance_units:units,worked_minutes:0,late_minutes:0,early_leave_minutes:0,overtime_minutes:0,source:'manual',approval_status:'pending',notes:'Created from Workforce Payroll Setup'});if(error)throw error;setupMessage('Attendance submitted as PENDING for approval.','success');await loadSelectedPayrollSetup();await loadApprovalCenter();}catch(error){setupMessage(error?.message||'Unable to submit attendance.','error');}finally{state.setupBusy=false;}
   }
 
+
+  function leaveMessage(text, tone = 'info') {
+    const el = $('wfLeaveMessage'); if (!el) return;
+    el.className = `wf-message ${tone}`; el.textContent = text;
+  }
+
+  function leaveStatus(row) { return String(row.approval_status || row.status || 'pending').toLowerCase(); }
+  function leaveTypeName(row, typeMap) {
+    const t = typeMap[row.leave_type_id] || {};
+    return t.name || t.leave_type_name || t.code || t.leave_code || row.leave_type || 'Leave';
+  }
+  function isUnpaidLeave(row, typeMap) {
+    const t = typeMap[row.leave_type_id] || {};
+    const text = `${t.name||''} ${t.leave_type_name||''} ${t.code||''} ${row.leave_type||''}`.toLowerCase();
+    return t.is_paid === false || t.paid === false || text.includes('unpaid');
+  }
+  function monthBounds(d) {
+    const y=d.getFullYear(), m=d.getMonth();
+    const start=`${y}-${String(m+1).padStart(2,'0')}-01`;
+    const last=new Date(y,m+1,0).getDate();
+    const end=`${y}-${String(m+1).padStart(2,'0')}-${String(last).padStart(2,'0')}`;
+    return {y,m,start,end,last};
+  }
+  function dateInRange(day, row) {
+    const s=String(row.start_date||row.leave_start||'').slice(0,10), e=String(row.end_date||row.leave_end||s).slice(0,10);
+    return s && day >= s && day <= e;
+  }
+  function renderLeaveCalendar(rows, employeeMap, typeMap) {
+    const host=$('wfLeaveCalendar'); if(!host) return;
+    const {y,m,last}=monthBounds(state.leaveMonth);
+    $('wfLeaveMonthLabel').textContent = state.leaveMonth.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+    const firstMondayIndex=(new Date(y,m,1).getDay()+6)%7;
+    const cells=[];
+    for(let i=0;i<firstMondayIndex;i++) cells.push('<div class="wf-cal-day outside"></div>');
+    for(let n=1;n<=last;n++){
+      const day=`${y}-${String(m+1).padStart(2,'0')}-${String(n).padStart(2,'0')}`;
+      const hits=rows.filter(r=>dateInRange(day,r));
+      const items=hits.slice(0,3).map(r=>{
+        const emp=employeeMap[r.employee_id]||{}; const status=leaveStatus(r); const unpaid=isUnpaidLeave(r,typeMap);
+        const cls=unpaid?'unpaid':(status==='approved'?'approved':(status==='rejected'||status==='cancelled'?'rejected':'pending'));
+        return `<div class="wf-cal-leave ${cls}" title="${escapeHtml((emp.full_name||emp.employee_code||'Employee')+' • '+leaveTypeName(r,typeMap))}"><b>${escapeHtml(emp.full_name||emp.employee_code||'Employee')}</b><small>${escapeHtml(leaveTypeName(r,typeMap))}</small></div>`;
+      }).join('');
+      const more=hits.length>3?`<span class="wf-cal-more">+${hits.length-3} more</span>`:'';
+      cells.push(`<div class="wf-cal-day"><span class="wf-cal-date">${n}</span>${items}${more}</div>`);
+    }
+    while(cells.length%7) cells.push('<div class="wf-cal-day outside"></div>');
+    host.innerHTML=cells.join('');
+  }
+  async function loadLeaveCalendar() {
+    if(!state.workspace?.companyId || state.leaveBusy) return;
+    state.leaveBusy=true; leaveMessage('Loading leave records…','info');
+    try{
+      const {start,end}=monthBounds(state.leaveMonth);
+      const [leaveRes,typeRes,empRes]=await Promise.all([
+        state.client.from('wf_leave_requests').select('*').eq('company_id',state.workspace.companyId).lte('start_date',end).gte('end_date',start).order('start_date',{ascending:true}),
+        state.client.from('wf_leave_types').select('*').eq('company_id',state.workspace.companyId),
+        state.client.from('employees').select('id,employee_code,full_name').eq('company_id',state.workspace.companyId).eq('is_deleted',false)
+      ]);
+      if(leaveRes.error) throw leaveRes.error;
+      const rows=leaveRes.data||[], types=typeRes.error?[]:(typeRes.data||[]), employees=empRes.error?[]:(empRes.data||[]);
+      const employeeMap=Object.fromEntries(employees.map(x=>[x.id,x])); const typeMap=Object.fromEntries(types.map(x=>[x.id,x]));
+      const approved=rows.filter(r=>leaveStatus(r)==='approved').length, pending=rows.filter(r=>leaveStatus(r)==='pending').length, unpaid=rows.filter(r=>isUnpaidLeave(r,typeMap)).length;
+      $('wfLeavePeopleCount').textContent=String(new Set(rows.map(r=>r.employee_id).filter(Boolean)).size);
+      $('wfLeaveApprovedCount').textContent=String(approved); $('wfLeavePendingCount').textContent=String(pending); $('wfLeaveUnpaidCount').textContent=String(unpaid);
+      $('wfLeaveRequestCount').textContent=`${rows.length} REQUEST${rows.length===1?'':'S'}`;
+      renderLeaveCalendar(rows,employeeMap,typeMap);
+      $('wfLeaveRows').innerHTML=rows.length?rows.map(r=>{const emp=employeeMap[r.employee_id]||{}; const st=leaveStatus(r); return `<tr><td><b>${escapeHtml(emp.full_name||'Employee')}</b><small>${escapeHtml(emp.employee_code||'')}</small></td><td>${escapeHtml(leaveTypeName(r,typeMap))}${isUnpaidLeave(r,typeMap)?'<br><span class="wf-unpaid-tag">UNPAID</span>':''}</td><td>${escapeHtml(formatDateDMY(r.start_date)||'—')}</td><td>${escapeHtml(formatDateDMY(r.end_date)||'—')}</td><td>${escapeHtml(r.requested_units??r.units??'—')}</td><td><span class="wf-status-pill ${escapeHtml(st)}">${escapeHtml(st.toUpperCase())}</span></td><td>${escapeHtml(r.reason||r.notes||'—')}</td></tr>`}).join(''):'<tr><td colspan="7" class="empty">No leave requests overlap this month.</td></tr>';
+      leaveMessage(rows.length?`${rows.length} leave request(s) loaded. Calendar dates use DD/MM/YYYY.`:'No leave requests overlap this month.','success');
+    }catch(error){console.error('[Leave Calendar]',error);leaveMessage(error?.message||'Unable to load leave calendar.','error');$('wfLeaveCalendar').innerHTML='<div class="wf-empty-card">Leave calendar unavailable.</div>';}
+    finally{state.leaveBusy=false;}
+  }
+  function moveLeaveMonth(delta){ state.leaveMonth=new Date(state.leaveMonth.getFullYear(),state.leaveMonth.getMonth()+delta,1); loadLeaveCalendar(); }
+
   function showSection(section) {
-    const target = ['dashboard','import','approvals','setup','payroll'].includes(section) ? section : 'dashboard';
+    const target = ['dashboard','import','approvals','leave','setup','payroll'].includes(section) ? section : 'dashboard';
     state.currentSection = target;
     const dashboard = $('wfDashboardView');
     const imports = $('wfImportView');
     const approvals = $('wfApprovalView');
+    const leave = $('wfLeaveView');
     const setup = $('wfSetupView');
     const payroll = $('wfPayrollView');
     if (dashboard) dashboard.hidden = target !== 'dashboard';
     if (imports) imports.hidden = target !== 'import';
     if (approvals) approvals.hidden = target !== 'approvals';
+    if (leave) leave.hidden = target !== 'leave';
     if (setup) setup.hidden = target !== 'setup';
     if (payroll) payroll.hidden = target !== 'payroll';
 
@@ -1641,6 +1718,11 @@
       $('wfPageSubtitle').textContent = 'Review pending Workforce changes with maker-checker protection.';
       window.location.hash = 'approvals';
       if (state.workspace?.companyId) loadApprovalCenter();
+    } else if (target === 'leave') {
+      $('wfPageTitle').textContent = 'Leave Calendar';
+      $('wfPageSubtitle').textContent = 'Employee leave visibility, approval status and auditable dates.';
+      window.location.hash = 'leave';
+      if (state.workspace?.companyId) loadLeaveCalendar();
     } else if (target === 'setup') {
       $('wfPageTitle').textContent = 'Employee Payroll Setup';
       $('wfPageSubtitle').textContent = 'Prepare salary, transport and attendance inputs for payroll.';
@@ -1668,6 +1750,9 @@
     $('wfSidebarBackDashboard')?.addEventListener('click', () => showSection('dashboard'));
     $('wfDashboardOpenImport')?.addEventListener('click', () => showSection('import'));
     $('wfApprovalRefresh')?.addEventListener('click', loadApprovalCenter);
+    $('wfLeaveRefresh')?.addEventListener('click', loadLeaveCalendar);
+    $('wfLeavePrev')?.addEventListener('click', () => moveLeaveMonth(-1));
+    $('wfLeaveNext')?.addEventListener('click', () => moveLeaveMonth(1));
     $('wfSetupRefresh')?.addEventListener('click', loadPayrollSetup);
     $('wfSetupEmployee')?.addEventListener('change', loadSelectedPayrollSetup);
     $('wfSetupHireDateSave')?.addEventListener('click', saveSetupHireDate);
@@ -1792,7 +1877,7 @@
       bindIdentityReturnButtons();
 
       const hash = String(window.location.hash || '').toLowerCase();
-      const initialSection = hash === '#import' ? 'import' : (hash === '#approvals' ? 'approvals' : (hash === '#setup' ? 'setup' : (hash === '#payroll' ? 'payroll' : 'dashboard')));
+      const initialSection = hash === '#import' ? 'import' : (hash === '#approvals' ? 'approvals' : (hash === '#leave' ? 'leave' : (hash === '#setup' ? 'setup' : (hash === '#payroll' ? 'payroll' : 'dashboard'))));
       showSection(initialSection);
       loadApprovalCenter();
       await restoreRememberedBatch();
