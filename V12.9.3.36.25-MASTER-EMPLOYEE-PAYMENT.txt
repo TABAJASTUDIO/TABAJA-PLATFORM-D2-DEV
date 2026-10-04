@@ -1,0 +1,15 @@
+V12.9.3.36.25 - Master Employee Payment Destination
+
+Adds real Cloud payment destination to Master Employee Profile:
+- Afrimoney: number + account name
+- Bank: bank name + account number + account name
+- Cash
+
+Salary and Transport remain exclusively in Workforce > Payroll Setup.
+No Identity/Card Designer/NFC/Batch/Templates/Workforce payroll calculation changes.
+
+DEPLOY ORDER:
+1. Run V12.9.3.36.25-MASTER-EMPLOYEE-PAYMENT.sql once in DEV Supabase SQL Editor.
+2. Upload index.html, style.css, employee-manager.js, cloud.js, service-worker.js.
+3. Hard refresh.
+4. Employee Center > MASTER-TEST-0001 > Edit > Payment & Payroll.

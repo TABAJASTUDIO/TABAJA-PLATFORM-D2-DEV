@@ -707,9 +707,15 @@
             </div>
           </section>
           <section class="employee-profile-section employee-payment-foundation">
-            <div class="employee-section-head"><div><span>PAYMENT &amp; PAYROLL</span><h3>Payment destination</h3></div><small>Foundation reserved</small></div>
-            <div class="employee-payment-preview"><b>Afrimoney</b><span>Cash</span><span>Bank</span></div>
-            <p>Afrimoney number, account name and payment method will be stored in the payroll profile in the next controlled database step. No temporary or fake data is saved here.</p>
+            <div class="employee-section-head"><div><span>PAYMENT &amp; PAYROLL</span><h3>Payment destination</h3></div><small>Cloud payroll profile</small></div>
+            <div class="employee-form-grid">
+              <div><label for="employeePaymentMethodInput">Payment Method</label><select id="employeePaymentMethodInput"><option value="">Not set</option><option value="afrimoney">Afrimoney</option><option value="bank">Bank</option><option value="cash">Cash</option></select></div>
+              <div><label for="employeePaymentAccountNameInput">Account Name</label><input id="employeePaymentAccountNameInput" maxlength="120" placeholder="Account holder name"></div>
+              <div id="employeeAfrimoneyField"><label for="employeeAfrimoneyNumberInput">Afrimoney Number</label><input id="employeeAfrimoneyNumberInput" type="tel" maxlength="40" placeholder="e.g. 088 000000"></div>
+              <div id="employeeBankNameField"><label for="employeeBankNameInput">Bank Name</label><input id="employeeBankNameInput" maxlength="120"></div>
+              <div id="employeeBankAccountField" class="employee-span-2"><label for="employeeBankAccountInput">Bank Account Number</label><input id="employeeBankAccountInput" maxlength="80"></div>
+            </div>
+            <p class="employee-payment-note">Salary and transport amounts stay in Workforce → Payroll Setup. This section stores only where the employee is paid.</p>
           </section>
         </div>
       </div>

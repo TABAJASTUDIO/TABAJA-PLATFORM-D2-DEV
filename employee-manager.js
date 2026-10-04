@@ -127,6 +127,37 @@ let loadedCompanyId = null;
     $('employeePhotoPreview').innerHTML = photoData ? `<img src="${photoData}" alt="Employee photo preview">` : '<span>Photo</span>';
   }
 
+  function paymentFields() {
+    return {
+      method: $('employeePaymentMethodInput'), accountName: $('employeePaymentAccountNameInput'),
+      afrimoney: $('employeeAfrimoneyNumberInput'), bankName: $('employeeBankNameInput'), bankAccount: $('employeeBankAccountInput')
+    };
+  }
+
+  function syncPaymentFields() {
+    const f = paymentFields(); if (!f.method) return;
+    const method = f.method.value;
+    $('employeeAfrimoneyField').style.display = method === 'afrimoney' ? '' : 'none';
+    $('employeeBankNameField').style.display = method === 'bank' ? '' : 'none';
+    $('employeeBankAccountField').style.display = method === 'bank' ? '' : 'none';
+  }
+
+  async function loadPaymentProfile(employee) {
+    const f = paymentFields(); if (!f.method) return;
+    f.method.value=''; f.accountName.value=''; f.afrimoney.value=''; f.bankName.value=''; f.bankAccount.value=''; syncPaymentFields();
+    const account = JSON.parse(localStorage.getItem('tabaja_card_designer_account_dev_v10') || 'null');
+    const companyId = account?.companyId || account?.id;
+    const employeeId = employee?.id || employee?.key;
+    if (!account?.cloud || !companyId || !employeeId || !window.TabajaCloud?.loadEmployeePaymentProfile) return;
+    try {
+      const row = await window.TabajaCloud.loadEmployeePaymentProfile(companyId, employeeId);
+      if (!row) return;
+      f.method.value=row.payment_method || ''; f.accountName.value=row.account_name || '';
+      f.afrimoney.value=row.afrimoney_number || ''; f.bankName.value=row.bank_name || ''; f.bankAccount.value=row.bank_account_number || '';
+      syncPaymentFields();
+    } catch (e) { console.warn('Unable to load payment profile:', e); }
+  }
+
   function openModal(employee = null) {
     resetForm();
     if (employee) {
@@ -146,7 +177,8 @@ let loadedCompanyId = null;
       $('employeeNotesInput').value = employee.notes || '';
       photoData = employee.photo || '';
       renderPhotoPreview();
-    }
+      loadPaymentProfile(employee);
+    } else { syncPaymentFields(); }
     $('employeeModal').classList.remove('hidden');
     setTimeout(() => $('employeeIdInput').focus(), 50);
   }
@@ -233,6 +265,13 @@ try {
     if (cloudId) {
       record.id = cloudId;
       record.key = cloudId;
+      if (window.TabajaCloud?.saveEmployeePaymentProfile) {
+        const f = paymentFields();
+        await window.TabajaCloud.saveEmployeePaymentProfile(companyId, cloudId, {
+          paymentMethod: f.method?.value || '', accountName: f.accountName?.value || '',
+          afrimoneyNumber: f.afrimoney?.value || '', bankName: f.bankName?.value || '', bankAccountNumber: f.bankAccount?.value || ''
+        });
+      }
     }
   }
 
@@ -381,6 +420,7 @@ loadedCompanyId = companyId || null;
     $('cancelEmployeeBtn').addEventListener('click', closeModal);
     $('employeeModal').addEventListener('click', (event) => { if (event.target === $('employeeModal')) closeModal(); });
     $('employeeForm').addEventListener('submit', saveForm);
+    $('employeePaymentMethodInput')?.addEventListener('change', syncPaymentFields);
     $('employeeSearch').addEventListener('input', renderEmployees);
     $('employeeStatusFilter').addEventListener('change', renderEmployees);
     $('employeeTableBody').addEventListener('click', handleTableClick);

@@ -499,6 +499,41 @@ async function loadTemplateFromCloud(companyId, name = 'Identity Card') {
 
   return data.id;
 }
+  async function loadEmployeePaymentProfile(companyId, employeeId) {
+  const supabase = getClient();
+  if (!supabase || !companyId || !employeeId) return null;
+  const { data, error } = await supabase
+    .from('employee_payment_profiles')
+    .select('payment_method,account_name,afrimoney_number,bank_name,bank_account_number,updated_at')
+    .eq('company_id', companyId)
+    .eq('employee_id', employeeId)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
+async function saveEmployeePaymentProfile(companyId, employeeId, profile) {
+  const supabase = getClient();
+  if (!supabase) throw new Error('Cloud is not configured.');
+  if (!companyId || !employeeId) throw new Error('Company ID and Employee ID are required.');
+  const method = String(profile?.paymentMethod || '').trim().toLowerCase() || null;
+  if (method && !['afrimoney','bank','cash'].includes(method)) throw new Error('Invalid payment method.');
+  const payload = {
+    company_id: companyId,
+    employee_id: employeeId,
+    payment_method: method,
+    account_name: String(profile?.accountName || '').trim() || null,
+    afrimoney_number: method === 'afrimoney' ? (String(profile?.afrimoneyNumber || '').trim() || null) : null,
+    bank_name: method === 'bank' ? (String(profile?.bankName || '').trim() || null) : null,
+    bank_account_number: method === 'bank' ? (String(profile?.bankAccountNumber || '').trim() || null) : null,
+    updated_by: (await supabase.auth.getUser()).data?.user?.id || null,
+    updated_at: new Date().toISOString()
+  };
+  const { error } = await supabase.from('employee_payment_profiles').upsert(payload, { onConflict: 'company_id,employee_id' });
+  if (error) throw error;
+  return true;
+}
+
   async function archiveEmployeeInCloud(companyId, employeeId) {
   const supabase = getClient();
 
@@ -587,6 +622,8 @@ async function loadTemplateFromCloud(companyId, name = 'Identity Card') {
     updatePassword,
     connectionTest,
     saveEmployeeToCloud,
+    loadEmployeePaymentProfile,
+    saveEmployeePaymentProfile,
     archiveEmployeeInCloud,
     loadEmployeesFromCloud,
 saveTemplateToCloud,
