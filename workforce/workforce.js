@@ -918,12 +918,12 @@
     approvalMessage('Refreshing pending approvals…', 'info');
     try {
       try {
-        const { data: settings } = await state.client
-          .from('wf_company_settings')
-          .select('maker_checker_required')
-          .eq('company_id', state.workspace.companyId)
-          .maybeSingle();
-        state.makerCheckerRequired = settings?.maker_checker_required !== false;
+        const { data: settings, error: policyError } = await state.client.rpc('wf_get_approval_policy', {
+          target_company: state.workspace.companyId
+        });
+        if (policyError) throw policyError;
+        const policy = Array.isArray(settings) ? settings[0] : settings;
+        state.makerCheckerRequired = policy?.maker_checker_required !== false;
       } catch (_) {
         state.makerCheckerRequired = true;
       }
@@ -2122,13 +2122,12 @@
     const msg = $('wfApprovalPolicyMessage');
     if (!select || !save) return;
     try {
-      const { data, error } = await state.client
-        .from('wf_company_settings')
-        .select('maker_checker_required')
-        .eq('company_id', state.workspace.companyId)
-        .maybeSingle();
+      const { data, error } = await state.client.rpc('wf_get_approval_policy', {
+        target_company: state.workspace.companyId
+      });
       if (error) throw error;
-      state.makerCheckerRequired = data?.maker_checker_required !== false;
+      const policy = Array.isArray(data) ? data[0] : data;
+      state.makerCheckerRequired = policy?.maker_checker_required !== false;
       select.value = state.makerCheckerRequired ? 'maker_checker' : 'single_admin';
       select.disabled = !canManage;
       save.disabled = !canManage;

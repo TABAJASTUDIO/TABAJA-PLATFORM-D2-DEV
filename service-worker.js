@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.21-approval-policy-rpc';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.22-approval-policy-rpc';
 const APP_SHELL = [
   './',
   './index.html',
@@ -13,7 +13,7 @@ const APP_SHELL = [
   './nfc-studio.js?v=12.9.3-local-pwa-fix2',
   './workforce.html',
   './workforce/workforce.css?v=2.2.0-premium-dashboard',
-  './workforce/workforce.js?v=12.9.3.36.21-approval-policy-rpc',
+  './workforce/workforce.js?v=12.9.3.36.22-approval-policy-rpc',
   './workforce/workforce-launcher.js?v=2.3.0-initial-focus-fix',
   './manifest.webmanifest',
   './icons/icon-192.png',
