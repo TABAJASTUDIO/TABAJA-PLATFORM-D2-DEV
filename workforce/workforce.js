@@ -1225,6 +1225,103 @@
     }
   }
 
+
+  function ensurePayrollMonthComparisonPanel() {
+    let panel = document.getElementById('wfPayrollMonthComparisonPanel');
+    if (panel) return panel;
+    const variance = ensurePayrollVariancePanel();
+    const parent = variance?.parentElement;
+    if (!parent) return null;
+    panel = document.createElement('div');
+    panel.id = 'wfPayrollMonthComparisonPanel';
+    panel.className = 'wf-variance-panel';
+    panel.style.marginTop = '18px';
+    panel.innerHTML = `
+      <div class="wf-card-head">
+        <div><span>CONTROL</span><h2>Month-to-Month Comparison</h2></div>
+        <span id="wfMonthCompareBadge" class="wf-badge neutral">—</span>
+      </div>
+      <div id="wfMonthCompareBody" class="wf-empty-card">Select a finalized payroll month to compare it with the previous finalized month.</div>`;
+    parent.appendChild(panel);
+    return panel;
+  }
+
+  function payrollRunPeriod(run) {
+    return state.payrollPeriods.find(p => p.id === run?.payroll_period_id) || {};
+  }
+
+  function previousFinalizedPayrollRun(run) {
+    if (!run || String(run.status || '').toLowerCase() !== 'finalized') return null;
+    const currentPeriod = payrollRunPeriod(run);
+    const currentStart = currentPeriod.period_start || '';
+    return (state.payrollRuns || [])
+      .filter(r => r.id !== run.id && String(r.status || '').toLowerCase() === 'finalized')
+      .map(r => ({ run: r, period: payrollRunPeriod(r) }))
+      .filter(x => x.period.period_start && x.period.period_start < currentStart)
+      .sort((a,b) => String(b.period.period_start).localeCompare(String(a.period.period_start)) || Number(b.run.run_sequence || 0) - Number(a.run.run_sequence || 0))[0] || null;
+  }
+
+  async function loadPayrollMonthComparison(run, currency) {
+    const panel = ensurePayrollMonthComparisonPanel();
+    if (!panel) return;
+    const badge = document.getElementById('wfMonthCompareBadge');
+    const body = document.getElementById('wfMonthCompareBody');
+    if (body) body.className = 'wf-empty-card';
+    if (String(run?.status || '').toLowerCase() !== 'finalized') {
+      if (badge) { badge.textContent = '—'; badge.className = 'wf-badge neutral'; }
+      if (body) body.textContent = 'Finalize payroll to compare it with the previous finalized month.';
+      return;
+    }
+    const previous = previousFinalizedPayrollRun(run);
+    if (!previous) {
+      if (badge) { badge.textContent = 'FIRST MONTH'; badge.className = 'wf-badge neutral'; }
+      if (body) body.textContent = 'No earlier finalized payroll month is available for comparison.';
+      return;
+    }
+    const currentPeriod = payrollRunPeriod(run);
+    if (badge) { badge.textContent = 'COMPARING'; badge.className = 'wf-badge neutral'; }
+    if (body) body.textContent = `Comparing ${formatDateDMY(previous.period.period_start)} → ${formatDateDMY(previous.period.period_end)} with ${formatDateDMY(currentPeriod.period_start)} → ${formatDateDMY(currentPeriod.period_end)}…`;
+    try {
+      const { data, error } = await state.client.rpc('wf_get_payroll_month_comparison', {
+        target_company: state.workspace.companyId,
+        base_run_id: previous.run.id,
+        compare_run_id: run.id
+      });
+      if (error) throw error;
+      const rows = data || [];
+      const changed = rows.filter(r => String(r.comparison_status || '').toUpperCase() !== 'NO_CHANGE');
+      if (badge) {
+        badge.textContent = changed.length ? `${changed.length} CHANGED` : 'NO CHANGES';
+        badge.className = `wf-badge ${changed.length ? 'open' : 'approved'}`;
+      }
+      if (!body) return;
+      if (!rows.length) {
+        body.innerHTML = '<strong>No employees to compare.</strong>';
+        return;
+      }
+      const diffMoney = v => {
+        const n = Number(v || 0);
+        return `${n > 0 ? '+' : ''}${money(n,currency)}`;
+      };
+      body.className = 'wf-table-wrap';
+      body.innerHTML = `
+        <div class="wf-empty-card" style="margin-bottom:12px"><strong>${escapeHtml(formatDateDMY(previous.period.period_start))} → ${escapeHtml(formatDateDMY(previous.period.period_end))}</strong> compared with <strong>${escapeHtml(formatDateDMY(currentPeriod.period_start))} → ${escapeHtml(formatDateDMY(currentPeriod.period_end))}</strong><br><small>Frozen finalized payroll vs frozen finalized payroll. Differences are not automatically classified as salary increases.</small></div>
+        <table class="wf-table"><thead><tr><th>Employee</th><th>Basic Rate</th><th>Transport</th><th>Gross</th><th>Net</th><th>Status</th></tr></thead><tbody>${rows.map(r => {
+          const salaryDiff = Number(r.salary_rate_difference || 0);
+          const transportDiff = Number(r.transport_difference || 0);
+          const grossDiff = Number(r.gross_difference || 0);
+          const netDiff = Number(r.net_difference || 0);
+          const status = String(r.comparison_status || 'NO_CHANGE').replaceAll('_',' ');
+          const pair = (a,b,d) => `${escapeHtml(money(a,currency))} → ${escapeHtml(money(b,currency))}<small class="wf-cell-sub">${escapeHtml(diffMoney(d))}</small>`;
+          return `<tr><td><b>${escapeHtml(r.employee_name || 'Employee')}</b>${r.employee_code ? `<small class="wf-cell-sub">${escapeHtml(r.employee_code)}</small>` : ''}</td><td>${pair(r.base_salary_rate,r.compare_salary_rate,salaryDiff)}</td><td>${pair(r.base_transport,r.compare_transport,transportDiff)}</td><td>${pair(r.base_gross,r.compare_gross,grossDiff)}</td><td>${pair(r.base_net,r.compare_net,netDiff)}</td><td><span class="wf-badge ${String(r.comparison_status||'').toUpperCase()==='NO_CHANGE'?'approved':'open'}">${escapeHtml(status)}</span></td></tr>`;
+        }).join('')}</tbody></table>`;
+    } catch (error) {
+      console.error('[Payroll Month Comparison]', error);
+      if (badge) { badge.textContent = 'UNAVAILABLE'; badge.className = 'wf-badge rejected'; }
+      if (body) { body.className = 'wf-empty-card'; body.textContent = error?.message || 'Unable to load month-to-month payroll comparison.'; }
+    }
+  }
+
   async function loadPayrollRunDetail() {
     const run = selectedRun();
     state.selectedPayrollRun = run;
@@ -1305,6 +1402,7 @@
     $('wfPayEmployees').textContent = String(snaps.length || run.employee_count || 0);
     renderPayrollResults(snaps,currency,payrollProfileMap,period,itemsBySnapshot);
     await loadPayrollVariance(run,currency);
+    await loadPayrollMonthComparison(run,currency);
     if (runStatus === 'reopened') {
       $('wfPayrollIssues').innerHTML = '<div class="wf-empty-card"><strong>Payroll reopened.</strong><br>Run Preflight again before recalculating. Historical issues remain stored for audit only.</div>';
     } else {
