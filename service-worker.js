@@ -1,11 +1,11 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.35.3-director-clean-view';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.1-single-window';
 const APP_SHELL = [
   './',
   './index.html',
   './style.css?v=12.9.3.14',
   './app.js?v=12.9.3.22.2-workforce-entitlement',
   './cloud.js?v=12.9.3.16-fix5.7-rpc',
-  './v8-ui.js?v=12.9.3.16-fix5',
+  './v8-ui.js?v=12.9.3.36.1-single-window',
   './employee-manager.js?v=12.9.3.2',
   './activity-store.js?v=12.9.3.2',
   './command-center.js?v=12.9.3.5',
@@ -13,8 +13,8 @@ const APP_SHELL = [
   './nfc-studio.js?v=12.9.3-local-pwa-fix2',
   './workforce.html',
   './workforce/workforce.css?v=1.7.0',
-  './workforce/workforce.js?v=1.7.2-director-clean-view',
-  './workforce/workforce-launcher.js?v=1.1.0',
+  './workforce/workforce.js?v=1.8.1-single-window',
+  './workforce/workforce-launcher.js?v=2.0.0-single-window',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',

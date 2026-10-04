@@ -7,18 +7,14 @@
   async function returnToIdentityPlatform(event) {
     if (event) event.preventDefault();
 
-    // Preferred no-flash route: Workforce was opened from the live Identity
-    // shell in a separate same-origin window. Closing this window reveals the
-    // still-rendered Identity Platform instantly, so no Sign In screen repaints.
-    try {
-      if (window.opener && !window.opener.closed) {
-        try { window.opener.focus(); } catch (_) {}
-        window.close();
-        // If the host refuses window.close(), continue to the safe fallback.
-        await new Promise(resolve => setTimeout(resolve, 80));
-        if (window.closed) return;
-      }
+    // When Workforce is hosted inside the Identity PWA shell, close only the embedded view.
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'tabaja:workforce:close' }, window.location.origin);
+      return;
+    }
 
+    // Workforce is part of the same PWA window. Never use opener/close here.
+    try {
       let liveSession = state.session || null;
       if (state.client?.auth?.getSession) {
         const { data, error } = await state.client.auth.getSession();

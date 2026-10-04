@@ -72,7 +72,7 @@
     const host = document.getElementById('qualityToolsHost');
     if (qualityTools && host) host.appendChild(qualityTools);
 
-    document.querySelectorAll('.v8-nav-btn').forEach(btn => btn.addEventListener('click', () => setView(btn.dataset.view)));
+    document.querySelectorAll('.v8-nav-btn[data-view]').forEach(btn => btn.addEventListener('click', () => setView(btn.dataset.view)));
     document.querySelectorAll('[data-go]').forEach(btn => btn.addEventListener('click', () => setView(btn.dataset.go)));
 
     const modes = document.querySelectorAll('[data-quality-mode]');

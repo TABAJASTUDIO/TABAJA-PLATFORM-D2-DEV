@@ -60,34 +60,46 @@
   }
 
 
-  function installNoFlashOpen(link) {
-    if (!link || link.dataset.wfNoFlashBound === '1') return;
-    link.dataset.wfNoFlashBound = '1';
 
-    // Capture the click before the Identity shell's SPA navigation handler sees it.
-    // This keeps the already-rendered Command Center untouched underneath Workforce.
+
+  function installSingleWindowShell(link) {
+    if (!link || link.dataset.wfShellBound === '1') return;
+    link.dataset.wfShellBound = '1';
     link.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
-
-      try {
-        const opened = window.open(link.href, 'tabaja-workforce');
-        if (opened) {
-          opened.focus();
-          return;
-        }
-      } catch (_) {}
-
-      // Only if the host blocks a separate window do we fall back to same-window navigation.
-      window.location.assign(link.href);
+      if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+      let shell = document.getElementById('tabajaWorkforceShell');
+      if (!shell) {
+        shell = document.createElement('div');
+        shell.id = 'tabajaWorkforceShell';
+        shell.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:#f7f8fb;display:none';
+        const frame = document.createElement('iframe');
+        frame.id = 'tabajaWorkforceFrame';
+        frame.title = 'Workforce & Payroll';
+        frame.src = 'workforce.html?embedded=1';
+        frame.style.cssText = 'width:100%;height:100%;border:0;display:block;background:#f7f8fb';
+        shell.appendChild(frame);
+        document.body.appendChild(shell);
+      }
+      shell.style.display = 'block';
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
     }, true);
   }
+
+  window.addEventListener('message', (event) => {
+    if (event.origin !== window.location.origin || event.data?.type !== 'tabaja:workforce:close') return;
+    const shell = document.getElementById('tabajaWorkforceShell');
+    if (shell) shell.style.display = 'none';
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
+  });
 
   async function sync() {
     const link = document.getElementById('workforceNavLink');
     if (!link) return;
-    installNoFlashOpen(link);
+    installSingleWindowShell(link);
 
     // IMPORTANT: once Workforce has been proven enabled and the nav slot is
     // visible, never hide it again during focus/pageshow/account re-checks.
