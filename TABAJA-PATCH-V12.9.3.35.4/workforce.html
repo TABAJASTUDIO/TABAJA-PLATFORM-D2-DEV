@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#10192c">
+  <title>Workforce & Payroll • Tabaja Solution DEV</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=12.9.3.16-wf1">
+  <link rel="stylesheet" href="workforce/workforce.css?v=1.8.1">
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="cloud.js?v=12.9.3.16-fix5.7-rpc"></script>
+  <script defer src="workforce/workforce.js?v=1.8.1"></script>
+</head>
+<body>
+  <div class="wf-shell">
+    <aside class="wf-sidebar">
+      <a class="wf-brand" href="index.html" data-wf-back-main aria-label="Back to Tabaja Solution">
+        <span class="wf-brand-mark">TS</span>
+        <span><b>Tabaja Solution</b><small>WORKFORCE & PAYROLL</small></span>
+      </a>
+
+      <nav class="wf-nav" aria-label="Workforce navigation">
+        <button class="active" type="button" data-section="dashboard"><span>⌂</span><b>Workforce Dashboard</b></button>
+        <button type="button" data-section="import"><span>⇩</span><b>Import Center</b></button>
+        <button type="button" data-section="approvals"><span>✓</span><b>Approval Center</b><em id="wfNavApprovalCount"></em></button>
+        <button type="button" data-section="leave"><span>▦</span><b>Leave Calendar</b><em>HR</em></button>
+        <button type="button" data-section="overtime"><span>◷</span><b>Overtime</b><em id="wfNavOvertimeCount"></em></button>
+        <button type="button" data-section="setup"><span>⚙</span><b>Payroll Setup</b><em id="wfNavSetupStatus"></em></button>
+        <button type="button" data-section="payroll"><span>$</span><b>Payroll</b><em id="wfNavPayrollStatus"></em></button>
+        <button type="button" data-section="access"><span>♙</span><b>Users & Access</b><em id="wfNavSeatStatus"></em></button>
+      </nav>
+
+      <div class="wf-sidebar-return">
+        <button id="wfSidebarBackDashboard" class="wf-return-main" type="button" data-wf-back-dashboard>
+          <span>←</span><b>Back to Workforce Dashboard</b>
+        </button>
+      </div>
+
+      <div class="wf-sidebar-foot">
+        <span class="wf-dev-dot"></span>
+        <div><b>DEV Workspace</b><small>Isolated Workforce module</small></div>
+      </div>
+    </aside>
+
+    <main class="wf-main">
+      <header class="wf-topbar">
+        <div>
+          <span class="wf-kicker">WORKFORCE MODULE</span>
+          <h1 id="wfPageTitle">Workforce Dashboard</h1>
+          <p id="wfPageSubtitle">Daily workforce, attendance, approvals and payroll visibility.</p>
+        </div>
+        <div class="wf-account">
+          <span id="wfEntitlementBadge" class="wf-badge checking">CHECKING</span>
+          <div class="wf-account-copy"><b id="wfCompanyName">Loading company…</b><small id="wfUserEmail">Checking session…</small></div>
+          <button class="wf-back" type="button" data-wf-back-main>← Back to Main</button>
+        </div>
+      </header>
+
+      <section id="wfGate" class="wf-gate">
+        <div class="wf-spinner" aria-hidden="true"></div>
+        <h2>Opening Workforce…</h2>
+        <p id="wfGateMessage">Checking your company, module entitlement and cloud session.</p>
+      </section>
+
+      <section id="wfWorkspace" class="wf-workspace" hidden>
+        <section id="wfDashboardView" class="wf-section-view">
+          <div class="wf-dashboard-head">
+            <div>
+              <span class="wf-kicker">LIVE OPERATIONS</span>
+              <h2>Today at a glance</h2>
+              <p id="wfDashboardDate">Loading current workforce position…</p>
+            </div>
+            <button id="wfDashboardRefresh" class="wf-soft-btn" type="button">Refresh Dashboard</button>
+          </div>
+
+          <div class="wf-kpi-grid">
+            <article class="wf-kpi-card">
+              <span>ACTIVE WORKFORCE</span>
+              <strong id="wfKpiEmployees">—</strong>
+              <small>Active employees in this company</small>
+            </article>
+            <article class="wf-kpi-card">
+              <span>ACTIVE SITES</span>
+              <strong id="wfKpiSites">—</strong>
+              <small>Operational Workforce sites</small>
+            </article>
+            <article class="wf-kpi-card">
+              <span>PRESENT TODAY</span>
+              <strong id="wfKpiPresent">—</strong>
+              <small id="wfKpiAttendanceNote">Attendance records today</small>
+            </article>
+            <article class="wf-kpi-card attention">
+              <span>PENDING APPROVALS</span>
+              <strong id="wfKpiPending">—</strong>
+              <small>Items requiring review</small>
+            </article>
+          </div>
+
+          <div class="wf-dashboard-grid">
+            <article class="wf-card wf-ops-card">
+              <div class="wf-card-head">
+                <div><span>ATTENDANCE TODAY</span><h2>Daily operations</h2></div>
+                <span id="wfAttendanceDateBadge" class="wf-badge neutral">TODAY</span>
+              </div>
+              <div class="wf-attendance-strip">
+                <div><span>Present</span><b id="wfTodayPresent">0</b></div>
+                <div><span>Late</span><b id="wfTodayLate">0</b></div>
+                <div><span>Absent / No Show</span><b id="wfTodayAbsent">0</b></div>
+                <div><span>Pending</span><b id="wfTodayPending">0</b></div>
+              </div>
+              <div class="wf-table-wrap wf-dashboard-table">
+                <table class="wf-table">
+                  <thead><tr><th>Employee</th><th>Status</th><th>Site</th><th>Worked</th><th>OT</th><th>Approval</th></tr></thead>
+                  <tbody id="wfTodayAttendanceBody"><tr><td colspan="6" class="empty">No attendance loaded yet.</td></tr></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="wf-card wf-payroll-card">
+              <div class="wf-card-head">
+                <div><span>PAYROLL</span><h2>Latest payroll position</h2></div>
+                <span id="wfPayrollStatus" class="wf-badge neutral">NO RUN</span>
+              </div>
+              <div class="wf-payroll-summary">
+                <div><span>Employees</span><b id="wfPayrollEmployees">—</b></div>
+                <div><span>Gross</span><b id="wfPayrollGross">—</b></div>
+                <div><span>Deductions</span><b id="wfPayrollDeductions">—</b></div>
+                <div><span>Net Pay</span><b id="wfPayrollNet">—</b></div>
+              </div>
+              <div class="wf-payroll-meta">
+                <span id="wfPayrollPeriod">No payroll run available yet.</span>
+                <small id="wfPayrollUpdated">Dashboard reads existing Workforce payroll data only.</small>
+              </div>
+            </article>
+          </div>
+
+          <div class="wf-dashboard-grid lower">
+            <article class="wf-card wf-attention-card">
+              <div class="wf-card-head">
+                <div><span>ATTENTION NEEDED</span><h2>Pending approvals</h2></div>
+                <span id="wfApprovalTotalBadge" class="wf-badge neutral">0 ITEMS</span>
+              </div>
+              <div id="wfApprovalBreakdown" class="wf-approval-breakdown">
+                <div class="wf-empty-card">No approval information loaded yet.</div>
+              </div>
+            </article>
+
+            <article class="wf-card wf-activity-card">
+              <div class="wf-card-head">
+                <div><span>RECENT ACTIVITY</span><h2>Latest imports</h2></div>
+                <button id="wfDashboardOpenImport" class="wf-soft-btn" type="button">Open Import Center</button>
+              </div>
+              <div id="wfDashboardImports" class="wf-mini-list">
+                <div class="wf-empty-card">No import history loaded yet.</div>
+              </div>
+            </article>
+          </div>
+
+          <div id="wfDashboardMessage" class="wf-message info">Dashboard is connecting to Workforce data…</div>
+        </section>
+
+
+        <section id="wfApprovalView" class="wf-section-view" hidden>
+          <div class="wf-dashboard-head">
+            <div>
+              <span class="wf-kicker">MAKER → CHECKER</span>
+              <h2>Approval Center</h2>
+              <p>Review pending Workforce changes in one place. Database permissions and maker-checker rules remain the final authority.</p>
+            </div>
+            <button id="wfApprovalRefresh" class="wf-soft-btn" type="button">Refresh Approvals</button>
+          </div>
+
+          <div class="wf-kpi-grid wf-approval-kpis">
+            <article class="wf-kpi-card"><span>TOTAL PENDING</span><strong id="wfApprovalKpiTotal">—</strong><small>Items waiting for review</small></article>
+            <article class="wf-kpi-card"><span>SALARY</span><strong id="wfApprovalKpiSalary">—</strong><small>Pending salary changes</small></article>
+            <article class="wf-kpi-card"><span>TRANSPORT</span><strong id="wfApprovalKpiTransport">—</strong><small>Pending transport overrides</small></article>
+            <article class="wf-kpi-card attention"><span>ATTENDANCE + OTHER</span><strong id="wfApprovalKpiOther">—</strong><small>Attendance, leave and advances</small></article>
+          </div>
+
+          <article class="wf-card wf-approval-center-card">
+            <div class="wf-approval-toolbar">
+              <div>
+                <span class="wf-kicker">PENDING QUEUE</span>
+                <h2>Items requiring a decision</h2>
+              </div>
+              <label class="wf-inline-filter">Show
+                <select id="wfApprovalFilter">
+                  <option value="all">All pending</option>
+                  <option value="salary">Salary</option>
+                  <option value="transport">Transport</option>
+                  <option value="attendance">Attendance</option>
+                  <option value="leave">Leave</option>
+                  <option value="advance">Advances / Loans</option>
+                </select>
+              </label>
+            </div>
+            <div id="wfApprovalMessage" class="wf-message info">Loading pending approvals…</div>
+            <div id="wfApprovalQueue" class="wf-approval-queue">
+              <div class="wf-empty-card">No approval items loaded yet.</div>
+            </div>
+          </article>
+        </section>
+
+
+        <section id="wfSetupView" class="wf-section-view" hidden>
+          <div class="wf-dashboard-head">
+            <div><span class="wf-kicker">EMPLOYEE PAYROLL SETUP</span><h2>Salary, transport & attendance</h2><p>Prepare payroll inputs without changing Smart Identity employee records. New changes go through the existing maker-checker approval flow.</p></div>
+            <button id="wfSetupRefresh" class="wf-soft-btn" type="button">Refresh Setup</button>
+          </div>
+
+          <div class="wf-setup-grid">
+            <article class="wf-card wf-setup-card">
+              <span class="wf-kicker">EMPLOYEE</span><h2>Payroll employee</h2>
+              <label class="wf-field"><span>Select employee</span><select id="wfSetupEmployee"><option value="">Loading employees…</option></select></label>
+              <div id="wfSetupEmployeeMeta" class="wf-setup-meta">Choose an employee to review payroll setup.</div>
+              <label class="wf-field"><span>Hire date</span><input id="wfSetupHireDate" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" autocomplete="off"></label>
+              <button id="wfSetupHireDateSave" class="wf-setup-primary" type="button">Save Hire Date</button>
+              <small>Monthly payroll prorates the first employment month from this date. Smart Identity employee data is not changed.</small>
+            </article>
+            <article class="wf-card wf-setup-card">
+              <span class="wf-kicker">CURRENT POSITION</span><h2>Readiness</h2>
+              <div class="wf-setup-readiness">
+                <div><span>Salary</span><b id="wfSetupSalaryState">—</b></div>
+                <div><span>Transport</span><b id="wfSetupTransportState">—</b></div>
+                <div><span>Attendance</span><b id="wfSetupAttendanceState">—</b></div>
+              </div>
+              <small id="wfSetupReadinessNote">Approved records are used by Payroll Preflight.</small>
+            </article>
+          </div>
+
+          <div class="wf-setup-grid three">
+            <article class="wf-card wf-setup-card">
+              <span class="wf-kicker">SALARY</span><h2>Base salary</h2>
+              <label class="wf-field"><span>Pay basis</span><select id="wfSetupPayBasis"><option value="monthly">Monthly</option><option value="daily">Daily</option><option value="hourly">Hourly</option><option value="per_shift">Per Shift</option></select></label>
+              <label class="wf-field"><span>Base amount</span><input id="wfSetupSalaryAmount" type="number" min="0" step="0.01" placeholder="0.00"></label>
+              <label class="wf-field"><span>Effective from</span><input id="wfSetupSalaryDate" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" autocomplete="off"></label>
+              <button id="wfSetupSalarySave" class="wf-setup-primary" type="button">Submit Salary for Approval</button>
+              <div id="wfSetupSalaryHistory" class="wf-setup-history">No salary history loaded.</div>
+            </article>
+
+            <article class="wf-card wf-setup-card">
+              <span class="wf-kicker">TRANSPORT</span><h2>Employee override</h2>
+              <label class="wf-field"><span>Method</span><select id="wfSetupTransportMethod"><option value="fixed_monthly">Fixed Monthly</option><option value="per_present_day">Per Present Day</option><option value="per_shift">Per Shift</option></select></label>
+              <label class="wf-field"><span>Amount</span><input id="wfSetupTransportAmount" type="number" min="0" step="0.01" placeholder="0.00"></label>
+              <label class="wf-field"><span>Effective from</span><input id="wfSetupTransportDate" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" autocomplete="off"></label>
+              <button id="wfSetupTransportSave" class="wf-setup-primary" type="button">Submit Transport for Approval</button>
+              <div id="wfSetupTransportHistory" class="wf-setup-history">No transport history loaded.</div>
+            </article>
+
+            <article class="wf-card wf-setup-card">
+              <span class="wf-kicker">ATTENDANCE</span><h2>Daily attendance</h2>
+              <label class="wf-field"><span>Work date</span><input id="wfSetupAttendanceDate" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" autocomplete="off"></label>
+              <label class="wf-field"><span>Status</span><select id="wfSetupAttendanceStatus"><option value="present">Present</option><option value="late">Late</option><option value="half_day">Half Day</option><option value="absent">Absent</option><option value="no_show">No Show</option><option value="leave">Leave</option><option value="off">Off</option><option value="holiday">Holiday</option></select></label>
+              <label class="wf-field"><span>Attendance units</span><input id="wfSetupAttendanceUnits" type="number" min="0" max="1" step="0.5" value="1"></label>
+              <button id="wfSetupAttendanceSave" class="wf-setup-primary" type="button">Submit Attendance for Approval</button>
+              <div id="wfSetupAttendanceHistory" class="wf-setup-history">No attendance history loaded.</div>
+            </article>
+          </div>
+          <div id="wfSetupMessage" class="wf-message info">Select an employee to begin payroll setup.</div>
+        </section>
+
+        <section id="wfLeaveView" class="wf-section-view" hidden>
+          <div class="wf-dashboard-head">
+            <div><span class="wf-kicker">TIME OFF CONTROL</span><h2>Leave Calendar</h2><p>One operational view of approved, pending and historical employee leave.</p></div>
+            <button id="wfLeaveRefresh" class="wf-soft-btn" type="button">Refresh Leave</button>
+          </div>
+          <div class="wf-kpi-grid wf-leave-kpis">
+            <article class="wf-kpi-card"><span>ON LEAVE THIS MONTH</span><strong id="wfLeavePeopleCount">—</strong><small>Unique employees with leave records</small></article>
+            <article class="wf-kpi-card"><span>APPROVED</span><strong id="wfLeaveApprovedCount">—</strong><small>Approved leave requests</small></article>
+            <article class="wf-kpi-card attention"><span>PENDING</span><strong id="wfLeavePendingCount">—</strong><small>Waiting for approval</small></article>
+            <article class="wf-kpi-card"><span>UNPAID LEAVE</span><strong id="wfLeaveUnpaidCount">—</strong><small>Requests identified as unpaid</small></article>
+          </div>
+          <article class="wf-card wf-leave-control-card">
+            <div class="wf-leave-toolbar">
+              <button id="wfLeavePrev" type="button">← Previous</button>
+              <div><span class="wf-kicker">CALENDAR MONTH</span><h2 id="wfLeaveMonthLabel">—</h2></div>
+              <button id="wfLeaveNext" type="button">Next →</button>
+            </div>
+            <div id="wfLeaveMessage" class="wf-message info">Loading leave calendar…</div>
+            <div class="wf-leave-legend"><span><i class="approved"></i>Approved</span><span><i class="pending"></i>Pending</span><span><i class="rejected"></i>Rejected / Cancelled</span><span><i class="unpaid"></i>Unpaid leave</span></div>
+            <div class="wf-calendar-head"><b>MON</b><b>TUE</b><b>WED</b><b>THU</b><b>FRI</b><b>SAT</b><b>SUN</b></div>
+            <div id="wfLeaveCalendar" class="wf-leave-calendar"></div>
+          </article>
+          <article class="wf-card wf-leave-impact-card">
+            <div class="wf-card-head"><div><span>PAYROLL IMPACT PREVIEW</span><h2>Unpaid Leave Impact</h2><p>Approved unpaid leave is reviewed against the employee’s approved monthly salary. This preview is advisory until the payroll engine freezes the final calculation.</p></div><span id="wfLeaveImpactTotal" class="wf-badge neutral">0.00 SLE</span></div>
+            <div class="wf-leave-policy-strip"><div><span>POLICY</span><b>Calendar Days</b><small>Monthly salary ÷ actual days in payroll month × approved unpaid leave units</small></div><div><span>CONTROL</span><b>Approved Only</b><small>Pending, rejected and cancelled requests never affect this preview.</small></div><div><span>AUDIT</span><b>DD/MM/YYYY</b><small>Employee, leave dates, units, rate and estimated deduction remain visible together.</small></div></div>
+            <div id="wfLeaveImpactRows" class="wf-leave-impact-list"><div class="wf-empty-card">No approved unpaid leave impact in this month.</div></div>
+          </article>
+          <article class="wf-card wf-leave-list-card">
+            <div class="wf-card-head"><div><span>AUDITABLE HISTORY</span><h2>Leave requests in this month</h2><p>Dates remain visible for HR follow-up and payroll review.</p></div><span id="wfLeaveRequestCount" class="wf-badge neutral">0 REQUESTS</span></div>
+            <div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>Employee</th><th>Leave Type</th><th>From</th><th>To</th><th>Units</th><th>Status</th><th>Payroll Impact</th><th>Reason</th></tr></thead><tbody id="wfLeaveRows"><tr><td colspan="8" class="empty">No leave loaded yet.</td></tr></tbody></table></div>
+          </article>
+        </section>
+
+        <section id="wfOvertimeView" class="wf-section-view" hidden>
+          <div class="wf-dashboard-head">
+            <div><span class="wf-kicker">OVERTIME CONTROL</span><h2>Overtime</h2><p>Enter overtime once. Workforce resolves the approved rate automatically from employee, position, department, site or company policy.</p></div>
+            <button id="wfOvertimeRefresh" class="wf-soft-btn" type="button">Refresh Overtime</button>
+          </div>
+
+          <div class="wf-kpi-grid wf-overtime-kpis">
+            <article class="wf-kpi-card"><span>THIS MONTH</span><strong id="wfOtMonthCount">—</strong><small>Overtime entries</small></article>
+            <article class="wf-kpi-card attention"><span>PENDING</span><strong id="wfOtPendingCount">—</strong><small>Waiting for approval</small></article>
+            <article class="wf-kpi-card"><span>APPROVED HOURS</span><strong id="wfOtApprovedHours">—</strong><small>Approved payable hours</small></article>
+            <article class="wf-kpi-card"><span>APPROVED VALUE</span><strong id="wfOtApprovedValue">—</strong><small id="wfOtCurrency">SLE</small></article>
+          </div>
+
+          <div class="wf-overtime-grid">
+            <article id="wfOvertimeEntryCard" class="wf-card wf-overtime-entry-card">
+              <div class="wf-card-head"><div><span>NEW ENTRY</span><h2>Record Overtime</h2><p>The policy and rate are resolved automatically. They are not typed manually.</p></div><span id="wfOtAccessBadge" class="wf-badge neutral">CHECKING</span></div>
+              <div class="wf-overtime-form">
+                <label class="wf-field"><span>Employee</span><select id="wfOtEmployee"><option value="">Loading employees…</option></select></label>
+                <label class="wf-field"><span>Work date</span><input id="wfOtDate" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" autocomplete="off"></label>
+                <label class="wf-field"><span>Overtime type</span><select id="wfOtType"><option value="normal">Normal</option><option value="extra_shift">Extra Shift</option><option value="rest_day">Rest Day</option><option value="public_holiday">Public Holiday</option></select></label>
+                <label class="wf-field"><span>Hours</span><input id="wfOtHours" type="number" min="0" step="1" value="1"></label>
+                <label class="wf-field"><span>Minutes</span><input id="wfOtMinutes" type="number" min="0" max="59" step="1" value="0"></label>
+                <label class="wf-field wf-ot-reason"><span>Reason</span><input id="wfOtReason" type="text" maxlength="250" placeholder="Reason for overtime"></label>
+              </div>
+              <div id="wfOtResolvedPolicy" class="wf-ot-policy-preview"><span>AUTOMATIC RATE</span><b>Select employee and date</b><small>Workforce will show the policy before submission.</small></div>
+              <button id="wfOtSubmit" class="wf-setup-primary" type="button">Submit Overtime</button>
+              <div id="wfOtMessage" class="wf-message info">Select an employee and work date.</div>
+            </article>
+
+            <article class="wf-card wf-overtime-info-card">
+              <span class="wf-kicker">RATE PRIORITY</span><h2>Automatic policy</h2>
+              <div class="wf-ot-priority"><b>1</b><span>Employee Override</span><b>2</b><span>Position</span><b>3</b><span>Department</span><b>4</b><span>Site</span><b>5</b><span>Company Default</span></div>
+              <small>The selected policy is stored on the overtime entry. Payroll continues to use the approved frozen entry; the successful payroll engine is unchanged.</small>
+            </article>
+          </div>
+
+          <article class="wf-card wf-overtime-history-card">
+            <div class="wf-card-head"><div><span>AUDITABLE HISTORY</span><h2>Overtime History</h2><p>Dates use DD/MM/YYYY. Pending entries do not affect payroll.</p></div><span id="wfOtHistoryCount" class="wf-badge neutral">0 ENTRIES</span></div>
+            <div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>Employee</th><th>Date</th><th>Time</th><th>Policy / Scope</th><th>Rate</th><th>Amount</th><th>Status</th><th>Reason</th><th>Action</th></tr></thead><tbody id="wfOtRows"><tr><td colspan="9" class="empty">No overtime loaded yet.</td></tr></tbody></table></div>
+          </article>
+        </section>
+
+        <section id="wfPayrollView" class="wf-section-view" hidden>
+          <div class="wf-dashboard-head">
+            <div><span class="wf-kicker">PAYROLL CONTROL</span><h2>Payroll</h2><p>Preflight → Calculate → Review → Approve → Finalize. Finalized results remain frozen snapshots.</p></div>
+            <button id="wfPayrollRefresh" class="wf-soft-btn" type="button">Refresh Payroll</button>
+          </div>
+
+          <article class="wf-card wf-payroll-control-card">
+            <div class="wf-payroll-toolbar">
+              <label class="wf-field"><span>Payroll run</span><select id="wfPayrollRunSelect"><option value="">Loading payroll runs…</option></select></label>
+              <div class="wf-payroll-toolbar-actions">
+                <button id="wfPayrollNewBtn" class="wf-soft-btn" type="button">+ New Monthly Run</button>
+                <button id="wfPayrollPreflightBtn" class="wf-soft-btn" type="button" disabled>Run Preflight</button>
+                <button id="wfPayrollCalculateBtn" class="primary" type="button" disabled>Calculate Payroll</button>
+              </div>
+            </div>
+            <div id="wfPayrollMessage" class="wf-message info">Select a payroll run.</div>
+          </article>
+
+          <div class="wf-kpi-grid wf-payroll-kpis">
+            <article class="wf-kpi-card"><span>STATUS</span><strong id="wfPayStatus">—</strong><small id="wfPayPeriod">No run selected</small></article>
+            <article class="wf-kpi-card"><span>EMPLOYEES</span><strong id="wfPayEmployees">—</strong><small>Frozen payroll snapshots</small></article>
+            <article class="wf-kpi-card"><span>GROSS</span><strong id="wfPayGross">—</strong><small id="wfPayCurrency">Company payroll currency</small></article>
+            <article class="wf-kpi-card attention"><span>NET PAY</span><strong id="wfPayNet">—</strong><small><span id="wfPayDeductions">—</span> deductions</small></article>
+          </div>
+
+          <div class="wf-payroll-grid">
+            <article class="wf-card wf-payroll-issues-card">
+              <div class="wf-card-head"><div><span>READINESS</span><h2>Preflight issues</h2></div><span id="wfPayIssueBadge" class="wf-badge neutral">0 ISSUES</span></div>
+              <div id="wfPayrollIssues" class="wf-mini-list"><div class="wf-empty-card">Run preflight to check payroll readiness.</div></div>
+            </article>
+            <article class="wf-card wf-payroll-actions-card">
+              <div class="wf-card-head"><div><span>CONTROL</span><h2>Review & finalization</h2></div></div>
+              <div class="wf-payroll-action-stack">
+                <button id="wfPayrollSubmitBtn" type="button" disabled>Submit for Approval</button>
+                <button id="wfPayrollApproveBtn" class="approve" type="button" disabled>Approve Payroll</button>
+                <button id="wfPayrollRejectBtn" class="reject" type="button" disabled>Reject</button>
+                <button id="wfPayrollFinalizeBtn" class="finalize" type="button" disabled>Finalize & Lock</button>
+                <button id="wfPayrollReopenBtn" type="button" disabled>Reopen with Reason</button>
+              </div>
+              <small class="wf-control-note">Database permissions and maker-checker remain the final authority. Reopen always requires a reason.</small>
+            </article>
+          </div>
+
+          <article class="wf-card wf-payroll-results-card">
+            <div class="wf-card-head"><div><span>PAYROLL RESULTS</span><h2>Employee breakdown</h2></div><span id="wfPayResultCount">0 employees</span></div>
+            <div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>Employee</th><th>Basic</th><th>Proration</th><th>Transport</th><th>Gross</th><th>Deductions</th><th>Net Salary</th></tr></thead><tbody id="wfPayrollResults"><tr><td colspan="7" class="empty">No calculated payroll results yet.</td></tr></tbody></table></div>
+          </article>
+        </section>
+
+        <section id="wfAccessView" class="wf-section-view" hidden>
+          <div class="wf-dashboard-head">
+            <div><span class="wf-kicker">MULTI-USER CONTROL</span><h2>Users & Access</h2><p>Seat capacity and Workforce access foundation for this company.</p></div>
+            <button id="wfAccessRefresh" class="wf-soft-btn" type="button">Refresh Access</button>
+          </div>
+          <div class="wf-access-kpis">
+            <article class="wf-kpi-card"><span>PURCHASED SEATS</span><strong id="wfSeatLimit">—</strong><small>Workforce user capacity</small></article>
+            <article class="wf-kpi-card"><span>ASSIGNED USERS</span><strong id="wfSeatAssigned">—</strong><small>Users with Workforce roles</small></article>
+            <article class="wf-kpi-card"><span>AVAILABLE SEATS</span><strong id="wfSeatAvailable">—</strong><small>Capacity remaining</small></article>
+            <article class="wf-kpi-card"><span>ACCESS MODEL</span><strong class="wf-access-model">ROLE + SCOPE</strong><small>What + where / who</small></article>
+          </div>
+          <div id="wfAccessMessage" class="wf-message info">Loading Workforce seat allocation…</div>
+          <div class="wf-access-grid wf-access-grid-manage">
+            <article class="wf-card wf-access-card">
+              <div class="wf-card-head"><div><span>TEAM ACCESS</span><h2>Workforce users</h2></div><span id="wfAccessUserCount" class="wf-badge neutral">0 USERS</span></div>
+              <p>Manage Workforce access for users already connected to this company. Seat limits are enforced by the database.</p>
+              <div class="wf-access-add-row">
+                <label class="wf-field"><span>Company user</span><select id="wfAccessMemberSelect"><option value="">Select company user…</option></select></label>
+                <label class="wf-field"><span>Workforce role</span><select id="wfAccessRoleSelect"><option value="">Select role…</option></select></label>
+                <button id="wfAccessAssignBtn" class="primary" type="button">Assign Access</button>
+              </div>
+              <div class="wf-table-wrap wf-access-table-wrap"><table class="wf-table"><thead><tr><th>User</th><th>Role</th><th>Scope</th><th>Status</th><th>Action</th></tr></thead><tbody id="wfAccessUsers"><tr><td colspan="5" class="empty">Loading company users…</td></tr></tbody></table></div>
+            </article>
+            <article class="wf-card wf-access-card">
+              <span class="wf-kicker">ACCESS LAW</span><h2>Permission + Scope</h2>
+              <div class="wf-access-law"><b>PERMISSION</b><span>WHAT the user can do</span></div>
+              <div class="wf-access-law"><b>SCOPE</b><span>WHERE / WHO the user can do it for</span></div>
+              <div class="wf-access-law"><b>SEAT</b><span>One active Workforce user = one seat</span></div>
+              <small>V12.9.3.34 manages real Workforce role access for existing company users. New account invitation and advanced scope editing remain isolated follow-up layers.</small>
+            </article>
+          </div>
+        </section>
+
+        <section id="wfImportView" class="wf-section-view" hidden>
+        <div class="wf-hero-grid">
+          <article class="wf-card wf-import-card">
+            <div class="wf-card-head">
+              <div><span>STEP 1</span><h2>Choose import type</h2></div>
+              <a class="wf-template-link" href="workforce/Tabaja_Workforce_Import_Templates.xlsx" download>↓ Excel Template</a>
+            </div>
+
+            <label class="wf-field">
+              <span>Import type</span>
+              <select id="wfImportType">
+                <option value="full_company_setup">Full Company Setup</option>
+                <option value="employees_only">Employees Only</option>
+                <option value="sites_assignments">Sites & Assignments (existing sites)</option>
+                <option value="salary_transport">Salary & Transport</option>
+                <option value="attendance">Attendance</option>
+              </select>
+              <small id="wfImportHint">Areas → Sites → Posts → Shifts → Employees → Assignments → Salary & Transport.</small>
+            </label>
+
+            <div id="wfDropZone" class="wf-dropzone" tabindex="0" role="button" aria-label="Choose Excel file">
+              <input id="wfFileInput" type="file" accept=".xlsx,.xls" hidden>
+              <span class="wf-drop-icon">XLSX</span>
+              <div><b id="wfFileLabel">Drop an Excel file here</b><small>or click to choose a file from this computer</small></div>
+              <button id="wfBrowseBtn" type="button">Choose File</button>
+            </div>
+
+            <div class="wf-actions">
+              <button id="wfStageBtn" class="primary" type="button" disabled>Upload & Validate</button>
+              <button id="wfClearBtn" type="button">Clear</button>
+            </div>
+          </article>
+
+          <article class="wf-card wf-status-card">
+            <div class="wf-card-head"><div><span>LIVE STATUS</span><h2>Current batch</h2></div><span id="wfBatchStatus" class="wf-badge neutral">NO BATCH</span></div>
+            <div class="wf-batch-file"><b id="wfBatchFile">No file staged</b><small id="wfBatchId">Upload an Excel file to begin.</small></div>
+            <div class="wf-metrics">
+              <div><span>Total</span><b id="wfTotalRows">0</b></div>
+              <div><span>Valid</span><b id="wfValidRows">0</b></div>
+              <div><span>Warnings</span><b id="wfWarningRows">0</b></div>
+              <div><span>Errors</span><b id="wfErrorRows">0</b></div>
+            </div>
+            <div class="wf-confirm-box">
+              <p id="wfConfirmHint">Validation must finish with zero errors before confirmation.</p>
+              <button id="wfConfirmBtn" class="confirm" type="button" disabled>Confirm Import</button>
+            </div>
+          </article>
+        </div>
+
+        <article class="wf-card wf-preview-card">
+          <div class="wf-card-head preview-head">
+            <div><span>STEP 2</span><h2>Validation Preview</h2><p>Nothing is written to live Workforce tables until Confirm Import succeeds.</p></div>
+            <div class="wf-preview-tools">
+              <button id="wfRefreshBtn" type="button" disabled>Refresh</button>
+              <span id="wfPreviewCount">0 rows</span>
+            </div>
+          </div>
+          <div id="wfMessage" class="wf-message info">Choose an import type and Excel file.</div>
+          <div class="wf-table-wrap">
+            <table class="wf-table">
+              <thead><tr><th>#</th><th>Status</th><th>Action</th><th>Reference</th><th>Errors</th><th>Warnings</th></tr></thead>
+              <tbody id="wfPreviewBody"><tr><td colspan="6" class="empty">No validation results yet.</td></tr></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="wf-card wf-recent-card">
+          <div class="wf-card-head"><div><span>HISTORY</span><h2>Recent import batches</h2></div><button id="wfReloadHistory" type="button">Reload</button></div>
+          <div id="wfRecentBatches" class="wf-recent-list"><div class="wf-empty-card">No batches loaded yet.</div></div>
+        </article>
+        </section>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
