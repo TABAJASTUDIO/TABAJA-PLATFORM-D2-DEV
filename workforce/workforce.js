@@ -885,6 +885,9 @@
     const visibleIds = new Set(approvalVisibleItems().map(x => `${x.kind}:${x.record?.id}`));
     const count = [...state.approvalSelected].filter(x => visibleIds.has(x)).length;
     if ($('wfApprovalSelectedCount')) $('wfApprovalSelectedCount').textContent = `${count} selected`;
+    const canBulkAct = count > 0 && !state.accessProfile?.isDirector;
+    if ($('wfApprovalApproveSelected')) $('wfApprovalApproveSelected').disabled = !canBulkAct;
+    if ($('wfApprovalRejectSelected')) $('wfApprovalRejectSelected').disabled = !canBulkAct;
   }
 
   function renderApprovalQueue() {

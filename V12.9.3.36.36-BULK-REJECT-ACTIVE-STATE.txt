@@ -1,0 +1,4 @@
+V12.9.3.36.36
+- Bulk Approve/Reject buttons are enabled only when visible records are selected.
+- Reject Selected gets a clear active red treatment when clickable.
+- Existing bulk action logic, maker-checker, database and Identity remain unchanged.
