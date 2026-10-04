@@ -208,6 +208,26 @@ let assignmentFoundation = null;
     fillSelect('employeePostInput',posts,posts.some(x=>x.id===currentPost)?currentPost:'');
   }
 
+  function assignmentTargetChanged() {
+    const a=assignmentFoundation?.assignment; if(!a) return false;
+    return (a.area_id||'')!==($('employeeAreaInput')?.value||'') || (a.site_id||'')!==($('employeeSiteInput')?.value||'') || (a.post_id||'')!==($('employeePostInput')?.value||'');
+  }
+
+  function updateTransferDateVisibility() {
+    const wrap=$('employeeTransferDateWrap'); if(!wrap) return;
+    wrap.classList.toggle('hidden', !assignmentTargetChanged());
+  }
+
+  function renderAssignmentHistory(f) {
+    const box=$('employeeAssignmentHistory'); if(!box) return;
+    const rows=f?.history||[]; if(!rows.length){ box.classList.add('hidden'); box.innerHTML=''; return; }
+    const areaName=id=>(f.areas||[]).find(x=>x.id===id)?.name||'No area';
+    const siteName=id=>(f.sites||[]).find(x=>x.id===id)?.name||'No site';
+    const postName=id=>(f.posts||[]).find(x=>x.id===id)?.name||'No post';
+    box.innerHTML='<h4>Assignment History</h4><div class="employee-assignment-history-list">'+rows.map(r=>`<div class="employee-assignment-history-row"><b>${safe(areaName(r.area_id))} → ${safe(siteName(r.site_id))}</b><span>${safe(String(r.status||'').toUpperCase())}</span><small>${safe(r.start_date||'—')} → ${safe(r.end_date||'Current')} · ${safe(postName(r.post_id))}</small></div>`).join('')+'</div>';
+    box.classList.remove('hidden');
+  }
+
   async function loadAssignmentFoundation(employee) {
     assignmentFoundation=null;
     $('employeeAssignmentState').textContent='Loading…';
@@ -221,6 +241,8 @@ let assignmentFoundation = null;
       fillSelect('employeeSiteInput',(f?.sites||[]).filter(x=>!a?.area_id||x.area_id===a.area_id),a?.site_id||'');
       fillSelect('employeePostInput',(f?.posts||[]).filter(x=>!a?.site_id||x.site_id===a.site_id),a?.post_id||'');
       $('employeeHireDateInput').value=a?.start_date||'';
+      $('employeeTransferDateInput').value='';
+      renderAssignmentHistory(f); updateTransferDateVisibility();
       $('employeeAssignmentState').textContent=a ? 'ACTIVE' : 'NOT ASSIGNED';
       $('employeeAssignmentHint').textContent=a ? 'Live Workforce assignment loaded.' : 'Choose Site and Hire Date to create the Workforce assignment.';
     } catch(e){ console.warn('Unable to load assignment foundation:',e); $('employeeAssignmentState').textContent='UNAVAILABLE'; $('employeeAssignmentHint').textContent='Workforce assignment could not be loaded.'; }
@@ -231,7 +253,9 @@ let assignmentFoundation = null;
     const siteId=$('employeeSiteInput')?.value||'', startDate=$('employeeHireDateInput')?.value||'';
     if(!siteId && !startDate) return;
     if(!siteId || !startDate) throw new Error('Site and Hire Date must both be selected.');
-    await window.TabajaCloud.saveEmployeeAssignment(companyId,employeeId,{ assignmentId:assignmentFoundation?.assignment?.id||null, areaId:$('employeeAreaInput')?.value||null, siteId, postId:$('employeePostInput')?.value||null, startDate });
+    const transferDate=$('employeeTransferDateInput')?.value||'';
+    if(assignmentTargetChanged() && !transferDate) throw new Error('Transfer Effective Date is required when Area, Site or Post changes.');
+    await window.TabajaCloud.saveEmployeeAssignment(companyId,employeeId,{ assignmentId:assignmentFoundation?.assignment?.id||null, areaId:$('employeeAreaInput')?.value||null, siteId, postId:$('employeePostInput')?.value||null, startDate, transferDate });
   }
 
   function openModal(employee = null) {
@@ -256,7 +280,7 @@ let assignmentFoundation = null;
       loadPaymentProfile(employee);
       loadPayrollReadiness(employee);
       loadAssignmentFoundation(employee);
-    } else { syncPaymentFields(); fillSelect('employeeAreaInput',[]); fillSelect('employeeSiteInput',[]); fillSelect('employeePostInput',[]); $('employeeAssignmentState').textContent='Save employee first'; $('employeeAssignmentHint').textContent='Workforce assignment becomes available after the master employee is created.'; }
+    } else { syncPaymentFields(); fillSelect('employeeAreaInput',[]); fillSelect('employeeSiteInput',[]); fillSelect('employeePostInput',[]); $('employeeTransferDateWrap')?.classList.add('hidden'); $('employeeAssignmentHistory')?.classList.add('hidden'); $('employeeAssignmentState').textContent='Save employee first'; $('employeeAssignmentHint').textContent='Workforce assignment becomes available after the master employee is created.'; }
     $('employeeModal').classList.remove('hidden');
     setTimeout(() => $('employeeIdInput').focus(), 50);
   }
@@ -500,8 +524,9 @@ loadedCompanyId = companyId || null;
     $('employeeModal').addEventListener('click', (event) => { if (event.target === $('employeeModal')) closeModal(); });
     $('employeeForm').addEventListener('submit', saveForm);
     $('employeePaymentMethodInput')?.addEventListener('change', syncPaymentFields);
-    $('employeeAreaInput')?.addEventListener('change', syncAssignmentOptions);
-    $('employeeSiteInput')?.addEventListener('change', () => { if(!assignmentFoundation)return; const sid=$('employeeSiteInput').value; const site=(assignmentFoundation.sites||[]).find(x=>x.id===sid); if(site?.area_id) $('employeeAreaInput').value=site.area_id; const posts=(assignmentFoundation.posts||[]).filter(x=>!sid||x.site_id===sid); fillSelect('employeePostInput',posts,''); });
+    $('employeeAreaInput')?.addEventListener('change', () => { syncAssignmentOptions(); updateTransferDateVisibility(); });
+    $('employeeSiteInput')?.addEventListener('change', () => { if(!assignmentFoundation)return; const sid=$('employeeSiteInput').value; const site=(assignmentFoundation.sites||[]).find(x=>x.id===sid); if(site?.area_id) $('employeeAreaInput').value=site.area_id; const posts=(assignmentFoundation.posts||[]).filter(x=>!sid||x.site_id===sid); fillSelect('employeePostInput',posts,''); updateTransferDateVisibility(); });
+    $('employeePostInput')?.addEventListener('change', updateTransferDateVisibility);
     $('employeeSearch').addEventListener('input', renderEmployees);
     $('employeeStatusFilter').addEventListener('change', renderEmployees);
     $('employeeTableBody').addEventListener('click', handleTableClick);

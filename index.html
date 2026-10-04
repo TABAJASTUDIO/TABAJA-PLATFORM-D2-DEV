@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=12.7.0">
   <link rel="shortcut icon" href="icons/tabaja-solution.ico?v=12.7.0">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="style.css?v=12.9.3.36.24-master-profile">
+  <link rel="stylesheet" href="style.css?v=12.9.3.36.28-assignment-history">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
@@ -700,7 +700,9 @@
               <div><label for="employeeSiteInput">Site</label><select id="employeeSiteInput"><option value="">Not assigned</option></select></div>
               <div><label for="employeePostInput">Post</label><select id="employeePostInput"><option value="">Not assigned</option></select></div>
               <div><label for="employeeHireDateInput">Hire Date</label><input id="employeeHireDateInput" type="date"></div>
+              <div id="employeeTransferDateWrap" class="employee-span-2 hidden"><label for="employeeTransferDateInput">Transfer Effective Date</label><input id="employeeTransferDateInput" type="date"><small>Required only when moving this employee to a different Area, Site or Post.</small></div>
               <div class="employee-span-2 employee-assignment-status"><span>WORKFORCE ASSIGNMENT</span><b id="employeeAssignmentState">Not assigned</b><small id="employeeAssignmentHint">Area, Site, Post and Hire Date are linked live to Workforce.</small></div>
+              <div id="employeeAssignmentHistory" class="employee-span-2 employee-assignment-history hidden"></div>
             </div>
           </section>
           <section class="employee-profile-section">
@@ -785,12 +787,12 @@
     <span>A new version is ready.</span>
     <button id="pwaUpdateBtn" type="button">Update now</button>
   </div>
-  <script defer src="cloud.js?v=12.9.3.36.27-master-assignment"></script>
+  <script defer src="cloud.js?v=12.9.3.36.28-assignment-history"></script>
   <script defer src="workforce/workforce-launcher.js?v=2.3.1-initial-focus-fix"></script>
   <script defer src="app.js?v=12.9.3.36.4-refresh-session"></script>
   <script defer src="commercial-templates.js?v=12.9.3.16-fix5?v=12.7.0-fix2"></script>
   <script defer src="v8-ui.js?v=12.9.3.36.6-fixed-parent-nav"></script>
-  <script defer src="employee-manager.js?v=12.9.3.36.27-master-assignment"></script>
+  <script defer src="employee-manager.js?v=12.9.3.36.28-assignment-history"></script>
   <script defer src="activity-store.js?v=12.9.3.2"></script>
   <script defer src="command-center.js?v=12.9.3.16-cloud-templates-1"></script>
   

@@ -1,0 +1,9 @@
+V12.9.3.36.28 — Employee Assignment History
+
+- Employee Center remains the master employee record.
+- Existing active assignment is never overwritten when Area/Site/Post changes.
+- Transfer requires an explicit Transfer Effective Date.
+- Old assignment is ended the day before the transfer date.
+- New assignment is inserted as ACTIVE with the same employee UUID.
+- Assignment History is shown read-only in Employee Center.
+- No Identity Designer, Payroll calculation, navigation, permissions, or Smart Identity logic changed.

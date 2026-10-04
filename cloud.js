@@ -566,7 +566,9 @@ async function loadEmployeeAssignmentFoundation(companyId, employeeId) {
     supabase.from('wf_employee_assignments').select('id,area_id,site_id,post_id,start_date,end_date,status').eq('company_id', companyId).eq('employee_id', employeeId).in('status',['active','planned']).order('start_date',{ascending:false}).limit(1)
   ]);
   for (const r of [areasR,sitesR,postsR,assignmentR]) if (r.error) throw r.error;
-  return { areas: areasR.data||[], sites: sitesR.data||[], posts: postsR.data||[], assignment: assignmentR.data?.[0]||null };
+  const historyR = await supabase.from('wf_employee_assignments').select('id,area_id,site_id,post_id,start_date,end_date,status,source').eq('company_id', companyId).eq('employee_id', employeeId).order('start_date',{ascending:false});
+  if (historyR.error) throw historyR.error;
+  return { areas: areasR.data||[], sites: sitesR.data||[], posts: postsR.data||[], assignment: assignmentR.data?.[0]||null, history: historyR.data||[] };
 }
 
 async function saveEmployeeAssignment(companyId, employeeId, input) {
@@ -576,17 +578,38 @@ async function saveEmployeeAssignment(companyId, employeeId, input) {
   const siteId = input?.siteId || null;
   const startDate = input?.startDate || null;
   if (!siteId || !startDate) throw new Error('Site and Hire Date are required for a Workforce assignment.');
-  const payload = { company_id: companyId, employee_id: employeeId, area_id: input?.areaId||null, site_id: siteId, post_id: input?.postId||null, start_date:startDate, end_date:null, status:'active', source:'employee_center', updated_at:new Date().toISOString() };
+  const user=(await supabase.auth.getUser()).data?.user?.id||null;
+  const payload = { company_id: companyId, employee_id: employeeId, area_id: input?.areaId||null, site_id: siteId, post_id: input?.postId||null, start_date:startDate, end_date:null, status:'active', source:'employee_center', updated_by:user, updated_at:new Date().toISOString() };
+
   if (input?.assignmentId) {
-    const { error } = await supabase.from('wf_employee_assignments').update(payload).eq('id', input.assignmentId).eq('company_id',companyId).eq('employee_id',employeeId);
-    if (error) throw error;
-  } else {
-    const user=(await supabase.auth.getUser()).data?.user?.id||null;
-    payload.created_by=user; payload.updated_by=user;
-    const { error } = await supabase.from('wf_employee_assignments').insert(payload);
-    if (error) throw error;
+    const { data: current, error: currentError } = await supabase.from('wf_employee_assignments').select('id,area_id,site_id,post_id,start_date,end_date,status').eq('id',input.assignmentId).eq('company_id',companyId).eq('employee_id',employeeId).single();
+    if (currentError) throw currentError;
+    const changedTarget = (current.area_id||null)!==(payload.area_id||null) || (current.site_id||null)!==(payload.site_id||null) || (current.post_id||null)!==(payload.post_id||null);
+    if (!changedTarget) {
+      const { error } = await supabase.from('wf_employee_assignments').update(payload).eq('id', input.assignmentId).eq('company_id',companyId).eq('employee_id',employeeId);
+      if (error) throw error;
+      return { mode:'updated' };
+    }
+
+    const transferDate = input?.transferDate || null;
+    if (!transferDate) throw new Error('Transfer Effective Date is required when Area, Site or Post changes.');
+    if (transferDate <= current.start_date) throw new Error('Transfer Effective Date must be after the current assignment start date.');
+    const d=new Date(`${transferDate}T00:00:00Z`); d.setUTCDate(d.getUTCDate()-1); const oldEnd=d.toISOString().slice(0,10);
+    const { error:endError } = await supabase.from('wf_employee_assignments').update({status:'ended',end_date:oldEnd,updated_by:user,updated_at:new Date().toISOString()}).eq('id',current.id).eq('company_id',companyId).eq('employee_id',employeeId);
+    if (endError) throw endError;
+    const next={...payload,start_date:transferDate,created_by:user};
+    const { error:insertError } = await supabase.from('wf_employee_assignments').insert(next);
+    if (insertError) {
+      await supabase.from('wf_employee_assignments').update({status:current.status||'active',end_date:current.end_date||null,updated_by:user,updated_at:new Date().toISOString()}).eq('id',current.id).eq('company_id',companyId).eq('employee_id',employeeId);
+      throw insertError;
+    }
+    return { mode:'transferred' };
   }
-  return true;
+
+  payload.created_by=user;
+  const { error } = await supabase.from('wf_employee_assignments').insert(payload);
+  if (error) throw error;
+  return { mode:'created' };
 }
 
   async function archiveEmployeeInCloud(companyId, employeeId) {
