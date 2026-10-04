@@ -1,0 +1,6 @@
+V12.9.3.36.32 - Attendance Bulk Source Fix
+- Bulk Attendance now uses the existing approved attendance source: manual.
+- No database/schema/SQL changes.
+- Existing duplicate protection preserved.
+- Friendly source error fallback added.
+- Identity and locked modules untouched.
