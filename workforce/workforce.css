@@ -247,3 +247,51 @@ body{background:var(--wf-bg);color:var(--wf-ink)}
 /* Access: keep role/scope data untouched */
 #wfAccessView .wf-access-layout{gap:14px}#wfAccessView .wf-access-card{border-top:3px solid #146fd4}
 @media(max-width:980px){.wf-workspace{padding:18px}.wf-topbar{padding:10px 16px}}
+
+/* ============================================================
+   V12.9.3.36.19 — SAFE PREMIUM ARCHITECTURE LAYER
+   CSS-only architectural composition on the locked .36.15 DOM.
+   No IDs, sections, data bindings or application logic changed.
+   ============================================================ */
+@media (min-width:1100px){
+  .wf-sidebar{width:258px;padding:18px 12px 16px;display:flex;flex-direction:column}
+  .wf-main{margin-left:258px}
+  .wf-workspace{padding:26px 30px 44px;max-width:1680px}
+}
+.wf-brand{gap:11px}.wf-brand b{font-size:15px;letter-spacing:-.01em}.wf-brand small{font-size:8px;letter-spacing:.14em;color:#9eb0c5}
+.wf-nav button span{width:26px;height:26px;display:grid;place-items:center;border-radius:8px;background:rgba(255,255,255,.045);font-size:15px}.wf-nav button.active span{background:rgba(34,211,238,.12);color:#70e5ff}.wf-nav button b{font-size:12px}.wf-nav button em{margin-left:auto;font-size:9px;color:#91a6bd}
+.wf-topbar{min-height:78px;padding:12px 28px;position:sticky;top:0;z-index:20}.wf-topbar>div:first-child{display:grid;grid-template-columns:auto;align-content:center}.wf-topbar h1{font-size:23px;line-height:1.1}.wf-topbar p{margin-top:3px}.wf-account{padding:8px 10px 8px 18px;border-radius:12px;background:#f8fbff;border:1px solid #e4edf6}.wf-account-copy b{color:#142944}.wf-account-copy small{color:#72849b}
+#wfDashboardView>.wf-dashboard-head{min-height:118px;padding:22px 24px;background:radial-gradient(circle at 82% 30%,rgba(61,151,236,.12),transparent 28%),linear-gradient(115deg,#fff 0%,#f6faff 58%,#eef7ff 100%);border-radius:18px}.wf-dashboard-head h2{font-size:30px!important;line-height:1.08}.wf-dashboard-head .wf-kicker{color:#1768b8!important}.wf-dashboard-head button{min-height:42px;padding:0 16px!important}
+#wfDashboardView .wf-kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+#wfDashboardView .wf-kpi-card{min-height:146px;padding:20px 20px 18px 72px;justify-content:center;position:relative}
+#wfDashboardView .wf-kpi-card:before{position:absolute;left:20px;top:22px;width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:18px;font-weight:900;background:#e7f3ff;color:#0a6fd6;box-shadow:inset 0 0 0 1px rgba(9,103,216,.06)}
+#wfDashboardView .wf-kpi-card:nth-child(1):before{content:'♟'}
+#wfDashboardView .wf-kpi-card:nth-child(2):before{content:'◆';background:#e7f8f1;color:#0a9c70}
+#wfDashboardView .wf-kpi-card:nth-child(3):before{content:'✓';background:#f0edff;color:#6753cf}
+#wfDashboardView .wf-kpi-card:nth-child(4):before{content:'!';background:#fff1e4;color:#e2781c}
+#wfDashboardView .wf-kpi-card>span{font-size:9px}.wf-kpi-card strong{letter-spacing:-.04em}
+#wfDashboardView .wf-dashboard-grid{grid-template-columns:minmax(0,1.72fr) minmax(315px,.68fr);gap:16px;margin-top:16px}
+#wfDashboardView .wf-ops-card{min-height:360px}#wfDashboardView .wf-payroll-card{min-height:360px;background:linear-gradient(180deg,#fff,#fbfdff)}
+#wfDashboardView .wf-card-head{align-items:center}.wf-card-head h2{font-size:19px!important;letter-spacing:-.02em}
+#wfDashboardView .wf-attendance-strip{margin:14px 0 12px;gap:10px}.wf-attendance-strip>div{min-height:78px;padding:14px!important}.wf-attendance-strip b{font-size:24px!important}
+#wfDashboardView .wf-dashboard-table{min-height:170px;max-height:245px}.wf-dashboard-table .wf-table th{height:38px}
+#wfDashboardView .wf-payroll-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.wf-payroll-summary>div{min-height:94px;padding:14px!important}.wf-payroll-summary b{font-size:21px!important}.wf-payroll-meta{padding:14px!important;border-radius:11px!important}
+#wfDashboardView .wf-dashboard-grid.lower{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}.wf-attention-card,.wf-activity-card{min-height:245px!important}
+#wfDashboardView .wf-empty-card{min-height:100px;display:grid;place-items:center;text-align:center}
+#wfDashboardView #wfDashboardMessage{background:transparent;border:0;padding-left:2px;color:#71839a}
+/* Import Center — stronger hierarchy, all controls remain the real controls */
+#wfImportView>.wf-dashboard-head{padding:20px 22px;border:1px solid #e0e9f3;border-radius:16px;background:#fff;box-shadow:0 8px 24px rgba(22,55,90,.045)}
+#wfImportView .wf-hero-grid{grid-template-columns:minmax(0,1.55fr) minmax(310px,.62fr);gap:16px;margin-top:16px}.wf-import-card,.wf-status-card,.wf-preview-card,.wf-recent-card{border-radius:14px!important}.wf-import-card{padding:22px!important}.wf-dropzone{min-height:142px;padding:24px!important}.wf-drop-icon{width:58px;height:58px;border-radius:14px!important;background:#e7f8ef!important;color:#07865f!important;font-size:11px}.wf-status-card{background:linear-gradient(180deg,#fff,#f8fcfb)}
+/* Approval / Leave / OT / Setup / Access — consistent enterprise page rhythm */
+#wfApprovalView>.wf-dashboard-head,#wfLeaveView>.wf-dashboard-head,#wfOvertimeView>.wf-dashboard-head,#wfSetupView>.wf-dashboard-head,#wfAccessView>.wf-dashboard-head,#wfPayrollView>.wf-dashboard-head{padding:18px 20px;border:1px solid #e1e9f2;border-radius:15px;background:#fff;box-shadow:0 7px 22px rgba(22,55,90,.04)}
+#wfApprovalView .wf-kpi-grid,#wfLeaveView .wf-kpi-grid,#wfOvertimeView .wf-kpi-grid,#wfAccessView .wf-kpi-grid{margin-top:14px}
+/* Payroll — visually structured around the real finalized run and live results */
+#wfPayrollView .wf-payroll-control-card{padding:22px;border-radius:15px;background:linear-gradient(180deg,#fff,#f8fbff);box-shadow:0 10px 28px rgba(22,55,90,.06)}
+#wfPayrollView .wf-payroll-kpis{gap:12px;margin-top:14px}.wf-payroll-kpis .wf-kpi-card{min-height:132px;padding:18px}.wf-payroll-kpis .wf-kpi-card strong{font-size:29px}
+#wfPayrollView .wf-payroll-grid{grid-template-columns:minmax(0,1.6fr) minmax(300px,.62fr);gap:16px}.wf-payroll-actions-card{background:linear-gradient(180deg,#fff,#f8fbff)}
+#wfPayrollView .wf-payroll-results-card{border-radius:15px}.wf-payroll-results-card .wf-table th{height:40px}
+/* Users & Access */
+#wfAccessView .wf-access-layout{grid-template-columns:minmax(0,1.55fr) minmax(300px,.62fr);gap:16px}.wf-access-card{border-radius:15px!important}.wf-access-card .wf-table-wrap{margin-top:12px}
+@media(max-width:1099px){#wfDashboardView .wf-dashboard-grid,#wfDashboardView .wf-dashboard-grid.lower,#wfImportView .wf-hero-grid,#wfPayrollView .wf-payroll-grid,#wfAccessView .wf-access-layout{grid-template-columns:1fr}}
+@media(max-width:760px){#wfDashboardView .wf-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#wfDashboardView .wf-kpi-card{padding-left:64px}}
+@media(max-width:520px){#wfDashboardView .wf-kpi-grid{grid-template-columns:1fr}}
