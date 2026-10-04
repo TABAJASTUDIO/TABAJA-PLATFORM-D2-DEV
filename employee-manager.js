@@ -15,6 +15,7 @@
   let employees = [];
 let photoData = '';
 let loadedCompanyId = null;
+let assignmentFoundation = null;
 
   const $ = (id) => document.getElementById(id);
   const safe = (value = '') => String(value).replace(/[&<>'"]/g, (char) => ({
@@ -189,6 +190,50 @@ let loadedCompanyId = null;
     }
   }
 
+  function fillSelect(id, rows, selected='', labelKey='name') {
+    const el=$(id); if(!el) return;
+    el.innerHTML='<option value="">Not assigned</option>' + (rows||[]).map(r=>`<option value="${safe(r.id)}">${safe(r[labelKey]||'Unnamed')}</option>`).join('');
+    el.value=selected||'';
+  }
+
+  function syncAssignmentOptions() {
+    if (!assignmentFoundation) return;
+    const areaId=$('employeeAreaInput')?.value||'';
+    const siteId=$('employeeSiteInput')?.value||'';
+    const sites=(assignmentFoundation.sites||[]).filter(x=>!areaId || x.area_id===areaId);
+    const keepSite=sites.some(x=>x.id===siteId)?siteId:'';
+    fillSelect('employeeSiteInput',sites,keepSite);
+    const posts=(assignmentFoundation.posts||[]).filter(x=>!keepSite || x.site_id===keepSite);
+    const currentPost=$('employeePostInput')?.value||'';
+    fillSelect('employeePostInput',posts,posts.some(x=>x.id===currentPost)?currentPost:'');
+  }
+
+  async function loadAssignmentFoundation(employee) {
+    assignmentFoundation=null;
+    $('employeeAssignmentState').textContent='Loading…';
+    const account=JSON.parse(localStorage.getItem('tabaja_card_designer_account_dev_v10')||'null');
+    const companyId=account?.companyId||account?.id, employeeId=employee?.id||employee?.key;
+    if(!account?.cloud||!companyId||!employeeId||!window.TabajaCloud?.loadEmployeeAssignmentFoundation){ $('employeeAssignmentState').textContent='Not available'; return; }
+    try {
+      const f=await window.TabajaCloud.loadEmployeeAssignmentFoundation(companyId,employeeId); assignmentFoundation=f;
+      const a=f?.assignment||null;
+      fillSelect('employeeAreaInput',f?.areas||[],a?.area_id||'');
+      fillSelect('employeeSiteInput',(f?.sites||[]).filter(x=>!a?.area_id||x.area_id===a.area_id),a?.site_id||'');
+      fillSelect('employeePostInput',(f?.posts||[]).filter(x=>!a?.site_id||x.site_id===a.site_id),a?.post_id||'');
+      $('employeeHireDateInput').value=a?.start_date||'';
+      $('employeeAssignmentState').textContent=a ? 'ACTIVE' : 'NOT ASSIGNED';
+      $('employeeAssignmentHint').textContent=a ? 'Live Workforce assignment loaded.' : 'Choose Site and Hire Date to create the Workforce assignment.';
+    } catch(e){ console.warn('Unable to load assignment foundation:',e); $('employeeAssignmentState').textContent='UNAVAILABLE'; $('employeeAssignmentHint').textContent='Workforce assignment could not be loaded.'; }
+  }
+
+  async function saveAssignmentIfRequested(companyId, employeeId) {
+    if(!window.TabajaCloud?.saveEmployeeAssignment) return;
+    const siteId=$('employeeSiteInput')?.value||'', startDate=$('employeeHireDateInput')?.value||'';
+    if(!siteId && !startDate) return;
+    if(!siteId || !startDate) throw new Error('Site and Hire Date must both be selected.');
+    await window.TabajaCloud.saveEmployeeAssignment(companyId,employeeId,{ assignmentId:assignmentFoundation?.assignment?.id||null, areaId:$('employeeAreaInput')?.value||null, siteId, postId:$('employeePostInput')?.value||null, startDate });
+  }
+
   function openModal(employee = null) {
     resetForm();
     if (employee) {
@@ -210,7 +255,8 @@ let loadedCompanyId = null;
       renderPhotoPreview();
       loadPaymentProfile(employee);
       loadPayrollReadiness(employee);
-    } else { syncPaymentFields(); }
+      loadAssignmentFoundation(employee);
+    } else { syncPaymentFields(); fillSelect('employeeAreaInput',[]); fillSelect('employeeSiteInput',[]); fillSelect('employeePostInput',[]); $('employeeAssignmentState').textContent='Save employee first'; $('employeeAssignmentHint').textContent='Workforce assignment becomes available after the master employee is created.'; }
     $('employeeModal').classList.remove('hidden');
     setTimeout(() => $('employeeIdInput').focus(), 50);
   }
@@ -304,6 +350,7 @@ try {
           afrimoneyNumber: f.afrimoney?.value || '', bankName: f.bankName?.value || '', bankAccountNumber: f.bankAccount?.value || ''
         });
       }
+      await saveAssignmentIfRequested(companyId, cloudId);
     }
   }
 
@@ -453,6 +500,8 @@ loadedCompanyId = companyId || null;
     $('employeeModal').addEventListener('click', (event) => { if (event.target === $('employeeModal')) closeModal(); });
     $('employeeForm').addEventListener('submit', saveForm);
     $('employeePaymentMethodInput')?.addEventListener('change', syncPaymentFields);
+    $('employeeAreaInput')?.addEventListener('change', syncAssignmentOptions);
+    $('employeeSiteInput')?.addEventListener('change', () => { if(!assignmentFoundation)return; const sid=$('employeeSiteInput').value; const site=(assignmentFoundation.sites||[]).find(x=>x.id===sid); if(site?.area_id) $('employeeAreaInput').value=site.area_id; const posts=(assignmentFoundation.posts||[]).filter(x=>!sid||x.site_id===sid); fillSelect('employeePostInput',posts,''); });
     $('employeeSearch').addEventListener('input', renderEmployees);
     $('employeeStatusFilter').addEventListener('change', renderEmployees);
     $('employeeTableBody').addEventListener('click', handleTableClick);

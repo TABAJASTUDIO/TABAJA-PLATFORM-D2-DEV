@@ -1,0 +1,17 @@
+V12.9.3.36.27 — MASTER EMPLOYMENT & ASSIGNMENT
+
+Adds live Workforce assignment controls to Employee Center:
+- Area
+- Site
+- Post
+- Hire Date
+- Live assignment state
+
+Existing employee/payment/payroll readiness and Identity flows are preserved.
+Assignment writes use the existing wf_employee_assignments table and its database security; no SQL migration is included.
+
+TEST
+1. Employee Center > Edit an existing Workforce employee.
+2. Confirm current Area/Site/Post/Hire Date load.
+3. For a test employee only, select Site + Hire Date and Save Employee.
+4. Reopen and confirm assignment persists.

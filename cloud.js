@@ -556,6 +556,39 @@ async function saveEmployeePaymentProfile(companyId, employeeId, profile) {
   return true;
 }
 
+async function loadEmployeeAssignmentFoundation(companyId, employeeId) {
+  const supabase = getClient();
+  if (!supabase || !companyId || !employeeId) return null;
+  const [areasR, sitesR, postsR, assignmentR] = await Promise.all([
+    supabase.from('wf_areas').select('id,name').eq('company_id', companyId).order('name'),
+    supabase.from('wf_sites').select('id,area_id,name,is_active').eq('company_id', companyId).eq('is_active', true).order('name'),
+    supabase.from('wf_posts').select('id,site_id,name,is_active').eq('company_id', companyId).eq('is_active', true).order('name'),
+    supabase.from('wf_employee_assignments').select('id,area_id,site_id,post_id,start_date,end_date,status').eq('company_id', companyId).eq('employee_id', employeeId).in('status',['active','planned']).order('start_date',{ascending:false}).limit(1)
+  ]);
+  for (const r of [areasR,sitesR,postsR,assignmentR]) if (r.error) throw r.error;
+  return { areas: areasR.data||[], sites: sitesR.data||[], posts: postsR.data||[], assignment: assignmentR.data?.[0]||null };
+}
+
+async function saveEmployeeAssignment(companyId, employeeId, input) {
+  const supabase = getClient();
+  if (!supabase) throw new Error('Cloud is not configured.');
+  if (!companyId || !employeeId) throw new Error('Company and employee are required.');
+  const siteId = input?.siteId || null;
+  const startDate = input?.startDate || null;
+  if (!siteId || !startDate) throw new Error('Site and Hire Date are required for a Workforce assignment.');
+  const payload = { company_id: companyId, employee_id: employeeId, area_id: input?.areaId||null, site_id: siteId, post_id: input?.postId||null, start_date:startDate, end_date:null, status:'active', source:'employee_center', updated_at:new Date().toISOString() };
+  if (input?.assignmentId) {
+    const { error } = await supabase.from('wf_employee_assignments').update(payload).eq('id', input.assignmentId).eq('company_id',companyId).eq('employee_id',employeeId);
+    if (error) throw error;
+  } else {
+    const user=(await supabase.auth.getUser()).data?.user?.id||null;
+    payload.created_by=user; payload.updated_by=user;
+    const { error } = await supabase.from('wf_employee_assignments').insert(payload);
+    if (error) throw error;
+  }
+  return true;
+}
+
   async function archiveEmployeeInCloud(companyId, employeeId) {
   const supabase = getClient();
 
@@ -646,6 +679,8 @@ async function saveEmployeePaymentProfile(companyId, employeeId, profile) {
     saveEmployeeToCloud,
     loadEmployeePaymentProfile,
     loadEmployeePayrollReadiness,
+    loadEmployeeAssignmentFoundation,
+    saveEmployeeAssignment,
     saveEmployeePaymentProfile,
     archiveEmployeeInCloud,
     loadEmployeesFromCloud,
