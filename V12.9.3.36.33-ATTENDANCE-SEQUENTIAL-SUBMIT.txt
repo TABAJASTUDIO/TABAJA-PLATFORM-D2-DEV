@@ -1,0 +1,5 @@
+V12.9.3.36.33
+- Bulk Attendance submits selected employees one-by-one using the same payload shape as Individual Attendance.
+- Existing attendance remains protected and skipped.
+- Service Worker cache bumped to .36.33 so the new Workforce JS is fetched.
+- No SQL or database schema changes. Identity untouched.
