@@ -1,0 +1,30 @@
+TABAJA SOLUTION D2 DEV — V12.9.3.36.24
+MASTER EMPLOYEE PROFILE FOUNDATION
+
+Purpose
+- Reframe existing Employee Manager as the Master Employee Center.
+- Preserve the proven shared employees table / employee UUID connection to Workforce.
+- Organize the existing safe fields into Personal, Employment and Identity sections.
+- Reserve Payment & Payroll visibly, including Afrimoney, without storing fake/local-only payment data.
+
+Files changed
+- index.html
+- style.css
+- service-worker.js
+
+NOT changed
+- employee-manager.js save/load logic
+- cloud.js
+- Workforce / Payroll logic
+- Identity / Card Designer
+- NFC / Batch / Templates
+- Database schema / RLS
+
+Test
+1. Employee Center still lists MASTER-TEST-0001.
+2. Edit opens the new Master Employee Profile layout.
+3. Save an existing safe field (e.g. Job Title) and confirm it persists.
+4. Payroll Setup still shows the same MASTER-TEST-0001 employee.
+
+Next controlled step
+- Add real Payment Profile persistence (Afrimoney / Bank / Cash) with proper database security, then Payroll Readiness and Assignment views.

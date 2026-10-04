@@ -1,8 +1,8 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.23-live-visual-analytics';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.24-master-employee-profile';
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=12.9.3.14',
+  './style.css?v=12.9.3.36.24-master-profile',
   './app.js?v=12.9.3.36.4-refresh-session',
   './cloud.js?v=12.9.3.16-fix5.7-rpc',
   './v8-ui.js?v=12.9.3.36.7-initial-focus-fix',

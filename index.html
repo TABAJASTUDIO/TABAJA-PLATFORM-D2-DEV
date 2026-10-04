@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=12.7.0">
   <link rel="shortcut icon" href="icons/tabaja-solution.ico?v=12.7.0">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="style.css?v=12.9.3.14">
+  <link rel="stylesheet" href="style.css?v=12.9.3.36.24-master-profile">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
@@ -386,9 +386,9 @@
     <section id="employeeWorkspace" class="employee-workspace" aria-labelledby="employeeWorkspaceTitle">
       <div class="employee-page-head">
         <div>
-          <span class="v8-kicker">COMPANY DIRECTORY</span>
-          <h2 id="employeeWorkspaceTitle">Employee Manager</h2>
-          <p>Maintain employee records separately from the stable card-design and printing engine.</p>
+          <span class="v8-kicker">MASTER EMPLOYEE CENTER</span>
+          <h2 id="employeeWorkspaceTitle">Employee Center</h2>
+          <p>Create each employee once. The same master record is used by Identity, Workforce and Payroll.</p>
         </div>
         <button id="addEmployeeBtn" class="primary employee-add-btn" type="button">+ Add Employee</button>
       </div>
@@ -663,29 +663,54 @@
   <div id="employeeModal" class="employee-modal hidden" role="dialog" aria-modal="true" aria-labelledby="employeeModalTitle">
     <form id="employeeForm" class="employee-modal-card">
       <button id="closeEmployeeModalBtn" class="employee-modal-close" type="button" aria-label="Close">×</button>
-      <span class="v8-kicker">EMPLOYEE RECORD</span>
+      <span class="v8-kicker">MASTER EMPLOYEE PROFILE</span>
       <h2 id="employeeModalTitle">Add Employee</h2>
+      <p class="employee-master-subtitle">One master record shared safely across Identity, Workforce and Payroll.</p>
       <input id="employeeRecordKey" type="hidden">
+      <div class="employee-master-strip" aria-label="Master employee modules">
+        <span class="active">Personal</span><span>Employment</span><span>Identity</span><span>Payment &amp; Payroll</span>
+      </div>
       <div class="employee-form-layout">
         <div class="employee-photo-column">
           <div id="employeePhotoPreview" class="employee-photo-preview"><span>Photo</span></div>
           <label class="employee-photo-button" for="employeePhotoInput">Choose Photo</label>
           <input id="employeePhotoInput" type="file" accept="image/*" hidden>
           <button id="removeEmployeePhotoBtn" class="link-button" type="button">Remove photo</button>
+          <div class="employee-master-id-note"><b>MASTER ID</b><small>Permanent cloud employee UUID stays unchanged across modules.</small></div>
         </div>
-        <div class="employee-form-grid">
-          <div><label for="employeeIdInput">Employee ID *</label><input id="employeeIdInput" required maxlength="40" placeholder="EMP-0001"></div>
-          <div><label for="employeeStatusInput">Status</label><select id="employeeStatusInput"><option>Active</option><option>Inactive</option></select></div>
-          <div><label for="employeeFirstNameInput">First Name *</label><input id="employeeFirstNameInput" required maxlength="80"></div>
-          <div><label for="employeeLastNameInput">Last Name</label><input id="employeeLastNameInput" maxlength="80"></div>
-          <div><label for="employeeDepartmentInput">Department</label><input id="employeeDepartmentInput" maxlength="100"></div>
-          <div><label for="employeeJobTitleInput">Job Title</label><input id="employeeJobTitleInput" maxlength="100"></div>
-          <div><label for="employeeCompanyInput">Company</label><input id="employeeCompanyInput" maxlength="120"></div>
-          <div><label for="employeePhoneInput">Phone</label><input id="employeePhoneInput" type="tel" maxlength="40"></div>
-          <div class="employee-span-2"><label for="employeeEmailInput">Email</label><input id="employeeEmailInput" type="email" maxlength="160"></div>
-          <div><label for="employeeIssueDateInput">Issue Date</label><input id="employeeIssueDateInput" type="date"></div>
-          <div><label for="employeeExpiryDateInput">Expiry Date</label><input id="employeeExpiryDateInput" type="date"></div>
-          <div class="employee-span-2"><label for="employeeNotesInput">Notes</label><textarea id="employeeNotesInput" rows="3" maxlength="500"></textarea></div>
+        <div class="employee-master-sections">
+          <section class="employee-profile-section">
+            <div class="employee-section-head"><div><span>PERSONAL</span><h3>Employee identity</h3></div><small>Master record</small></div>
+            <div class="employee-form-grid">
+              <div><label for="employeeIdInput">Employee ID *</label><input id="employeeIdInput" required maxlength="40" placeholder="EMP-0001"></div>
+              <div><label for="employeeStatusInput">Status</label><select id="employeeStatusInput"><option>Active</option><option>Inactive</option></select></div>
+              <div><label for="employeeFirstNameInput">First Name *</label><input id="employeeFirstNameInput" required maxlength="80"></div>
+              <div><label for="employeeLastNameInput">Last Name</label><input id="employeeLastNameInput" maxlength="80"></div>
+              <div><label for="employeePhoneInput">Phone</label><input id="employeePhoneInput" type="tel" maxlength="40"></div>
+              <div><label for="employeeEmailInput">Email</label><input id="employeeEmailInput" type="email" maxlength="160"></div>
+            </div>
+          </section>
+          <section class="employee-profile-section">
+            <div class="employee-section-head"><div><span>EMPLOYMENT</span><h3>Company position</h3></div><small>Workforce source</small></div>
+            <div class="employee-form-grid">
+              <div><label for="employeeDepartmentInput">Department</label><input id="employeeDepartmentInput" maxlength="100"></div>
+              <div><label for="employeeJobTitleInput">Job Title</label><input id="employeeJobTitleInput" maxlength="100"></div>
+              <div class="employee-span-2"><label for="employeeCompanyInput">Company</label><input id="employeeCompanyInput" maxlength="120"></div>
+            </div>
+          </section>
+          <section class="employee-profile-section">
+            <div class="employee-section-head"><div><span>IDENTITY</span><h3>Card record</h3></div><small>Designer remains locked</small></div>
+            <div class="employee-form-grid">
+              <div><label for="employeeIssueDateInput">Issue Date</label><input id="employeeIssueDateInput" type="date"></div>
+              <div><label for="employeeExpiryDateInput">Expiry Date</label><input id="employeeExpiryDateInput" type="date"></div>
+              <div class="employee-span-2"><label for="employeeNotesInput">Notes</label><textarea id="employeeNotesInput" rows="3" maxlength="500"></textarea></div>
+            </div>
+          </section>
+          <section class="employee-profile-section employee-payment-foundation">
+            <div class="employee-section-head"><div><span>PAYMENT &amp; PAYROLL</span><h3>Payment destination</h3></div><small>Foundation reserved</small></div>
+            <div class="employee-payment-preview"><b>Afrimoney</b><span>Cash</span><span>Bank</span></div>
+            <p>Afrimoney number, account name and payment method will be stored in the payroll profile in the next controlled database step. No temporary or fake data is saved here.</p>
+          </section>
         </div>
       </div>
       <div id="employeeFormMessage" class="employee-form-message" aria-live="polite"></div>
