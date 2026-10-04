@@ -176,3 +176,34 @@ html,body{background:linear-gradient(135deg,#f8fbff 0%,#f3f7fc 55%,#f7f9fd 100%)
 @media(max-width:1100px){#wfDashboardView .wf-dashboard-grid,#wfDashboardView .wf-dashboard-grid.lower,#wfPayrollView .wf-payroll-grid{grid-template-columns:1fr}}
 @media(max-width:850px){#wfDashboardView .wf-kpi-grid,#wfPayrollView .wf-payroll-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){#wfDashboardView .wf-kpi-grid,#wfPayrollView .wf-payroll-kpis{grid-template-columns:1fr}#wfDashboardView .wf-kpi-card{padding-left:68px}}
+
+/* ============================================================
+   V12.9.3.36.15 — PREMIUM DASHBOARD STRUCTURE
+   Visual-only. Existing DOM IDs and application logic are unchanged.
+   ============================================================ */
+#wfDashboardView{position:relative}
+#wfDashboardView>.wf-dashboard-head{padding:18px 20px;margin:-2px 0 16px;border:1px solid #dce7f3;border-radius:16px;background:linear-gradient(110deg,#ffffff 0%,#f4f9ff 60%,#eef7ff 100%);box-shadow:0 10px 28px rgba(30,67,105,.06)}
+#wfDashboardView>.wf-dashboard-head>div:before{content:"WORKFORCE COMMAND CENTER";font-size:9px;letter-spacing:.16em;color:#0b67cc}
+#wfDashboardView>.wf-dashboard-head h2{font-size:29px;margin-top:3px}
+#wfDashboardView>.wf-dashboard-head p{font-size:12px}
+#wfDashboardRefresh{min-height:40px;padding:0 15px!important;font-weight:800!important}
+#wfDashboardView .wf-kpi-grid{gap:14px}
+#wfDashboardView .wf-kpi-card{min-height:136px;border-color:#d9e6f3;box-shadow:0 10px 26px rgba(25,64,105,.065)}
+#wfDashboardView .wf-kpi-card strong{font-size:34px;letter-spacing:-.035em}
+#wfDashboardView .wf-kpi-card span{font-weight:850;letter-spacing:.045em}
+#wfDashboardView .wf-dashboard-grid{align-items:stretch}
+#wfDashboardView .wf-card{box-shadow:0 12px 30px rgba(25,60,96,.065)}
+#wfDashboardView .wf-card-head{padding-bottom:12px;border-bottom:1px solid #edf2f7;margin-bottom:13px}
+#wfDashboardView .wf-card-head span:first-child{font-size:9px;font-weight:850;letter-spacing:.11em}
+#wfDashboardView .wf-card-head h2{font-size:18px;margin-top:3px}
+#wfDashboardView .wf-attendance-strip{grid-template-columns:repeat(4,1fr)}
+#wfDashboardView .wf-attendance-strip>div{min-height:78px;display:flex;flex-direction:column;justify-content:center}
+#wfDashboardView .wf-payroll-summary>div{min-height:82px;display:flex;flex-direction:column;justify-content:center}
+#wfDashboardView .wf-payroll-summary span{font-size:10px;color:#617794}
+#wfDashboardView .wf-payroll-summary b{font-size:22px;letter-spacing:-.02em}
+#wfDashboardView .wf-payroll-meta{margin-top:10px;padding:12px 14px;border-radius:10px}
+#wfDashboardView .lower{margin-top:14px}
+#wfDashboardView .wf-attention-card,#wfDashboardView .wf-activity-card{min-height:235px}
+#wfDashboardView #wfDashboardMessage{margin-top:14px;box-shadow:none}
+@media(min-width:1280px){#wfDashboardView .wf-dashboard-grid{grid-template-columns:minmax(0,1.7fr) minmax(330px,.65fr)}#wfDashboardView .wf-dashboard-grid.lower{grid-template-columns:minmax(330px,.7fr) minmax(0,1.3fr)}}
+@media(max-width:760px){#wfDashboardView>.wf-dashboard-head{padding:15px}#wfDashboardView>.wf-dashboard-head h2{font-size:24px}#wfDashboardView .wf-attendance-strip{grid-template-columns:repeat(2,1fr)}}

@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.14-premium-ui-phase2';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.15-premium-dashboard';
 const APP_SHELL = [
   './',
   './index.html',
@@ -12,7 +12,7 @@ const APP_SHELL = [
   './pwa.js?v=12.9.3.16',
   './nfc-studio.js?v=12.9.3-local-pwa-fix2',
   './workforce.html',
-  './workforce/workforce.css?v=2.1.0-premium-ui-phase2',
+  './workforce/workforce.css?v=2.2.0-premium-dashboard',
   './workforce/workforce.js?v=12.9.3.36.13-premium-ui',
   './workforce/workforce-launcher.js?v=2.3.0-initial-focus-fix',
   './manifest.webmanifest',
