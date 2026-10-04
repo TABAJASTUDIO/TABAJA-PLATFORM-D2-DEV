@@ -1,0 +1,6 @@
+V12.9.3.36.29 - Payroll Current Assignment
+- Adds read-only Current Assignment to Workforce > Payroll Setup.
+- Reads the employee's ACTIVE Workforce assignment by the same employee UUID.
+- Shows Area -> Site, Post and ACTIVE status.
+- Does not change Hire Date, payroll calculations, salary, transport, Identity, assignments, or history.
+- No SQL / database migration required.

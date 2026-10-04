@@ -1,12 +1,12 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.28-assignment-history';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.27-master-employment-assignment';
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=12.9.3.36.28-assignment-history',
+  './style.css?v=12.9.3.36.25-master-profile',
   './app.js?v=12.9.3.36.4-refresh-session',
-  './cloud.js?v=12.9.3.36.28-assignment-history',
+  './cloud.js?v=12.9.3.16-fix5.7-rpc',
   './v8-ui.js?v=12.9.3.36.7-initial-focus-fix',
-  './employee-manager.js?v=12.9.3.36.28-assignment-history',
+  './employee-manager.js?v=12.9.3.2',
   './activity-store.js?v=12.9.3.2',
   './command-center.js?v=12.9.3.5',
   './pwa.js?v=12.9.3.16',

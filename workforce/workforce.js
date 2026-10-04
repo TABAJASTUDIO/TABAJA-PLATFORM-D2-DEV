@@ -1585,14 +1585,28 @@
     $('wfSetupEmployeeMeta').textContent=`${emp.employee_code||'NO CODE'} • ${emp.full_name||'Unnamed Employee'} • ${emp.department||'No department'} • ${emp.job_title||'No job title'}`;
     setupMessage('Reading approved and pending payroll inputs…','info');
     try {
-      const [profileRes,salaryRes,transportRes,attendanceRes]=await Promise.all([
+      const [profileRes,salaryRes,transportRes,attendanceRes,assignmentRes]=await Promise.all([
         state.client.from('wf_employee_profiles').select('hire_date,payroll_eligible,employment_status').eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).maybeSingle(),
         state.client.from('wf_employee_salary_history').select('*').eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).order('effective_from',{ascending:false}),
         state.client.from('wf_transport_employee_overrides').select('*').eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).order('effective_from',{ascending:false}),
-        state.client.from('wf_attendance_records').select('*').eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).order('work_date',{ascending:false}).limit(31)
+        state.client.from('wf_attendance_records').select('*').eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).order('work_date',{ascending:false}).limit(31),
+        state.client.from('wf_employee_assignments').select('id,area_id,site_id,post_id,start_date,end_date,status').eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).eq('status','active').order('start_date',{ascending:false}).limit(1).maybeSingle()
       ]);
-      if(profileRes.error)throw profileRes.error;if(salaryRes.error)throw salaryRes.error;if(transportRes.error)throw transportRes.error;if(attendanceRes.error)throw attendanceRes.error;
-      const profile=profileRes.data||null, salaries=salaryRes.data||[], transports=transportRes.data||[], attendance=attendanceRes.data||[];
+      if(profileRes.error)throw profileRes.error;if(salaryRes.error)throw salaryRes.error;if(transportRes.error)throw transportRes.error;if(attendanceRes.error)throw attendanceRes.error;if(assignmentRes.error)throw assignmentRes.error;
+      const profile=profileRes.data||null, salaries=salaryRes.data||[], transports=transportRes.data||[], attendance=attendanceRes.data||[], assignment=assignmentRes.data||null;
+      const assignmentMeta=$('wfSetupAssignmentMeta');
+      if(assignmentMeta){
+        if(!assignment){ assignmentMeta.textContent='Current assignment: Not assigned'; }
+        else {
+          const [areaRes,siteRes,postRes]=await Promise.all([
+            assignment.area_id ? state.client.from('wf_areas').select('name').eq('company_id',state.workspace.companyId).eq('id',assignment.area_id).maybeSingle() : Promise.resolve({data:null,error:null}),
+            assignment.site_id ? state.client.from('wf_sites').select('name').eq('company_id',state.workspace.companyId).eq('id',assignment.site_id).maybeSingle() : Promise.resolve({data:null,error:null}),
+            assignment.post_id ? state.client.from('wf_posts').select('name').eq('company_id',state.workspace.companyId).eq('id',assignment.post_id).maybeSingle() : Promise.resolve({data:null,error:null})
+          ]);
+          const area=areaRes.data?.name||'No area', site=siteRes.data?.name||'No site', post=postRes.data?.name||'No post';
+          assignmentMeta.textContent=`Current assignment: ${area} → ${site} • ${post} • ACTIVE`;
+        }
+      }
       $('wfSetupHireDate').value=formatDateDMY(profile?.hire_date||'');
       $('wfSetupHireDateSave').disabled=!profile;
       const salApproved=salaries.find(r=>r.approval_status==='approved'), salPending=salaries.find(r=>r.approval_status==='pending');
