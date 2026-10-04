@@ -7,11 +7,11 @@
   <title>Workforce & Payroll • Tabaja Solution DEV</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=12.9.3.16-wf1">
-  <link rel="stylesheet" href="workforce/workforce.css?v=1.5">
+  <link rel="stylesheet" href="workforce/workforce.css?v=1.7.0">
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="cloud.js?v=12.9.3.16-fix5.7-rpc"></script>
-  <script defer src="workforce/workforce.js?v=1.5.5"></script>
+  <script defer src="workforce/workforce.js?v=1.7.0"></script>
 </head>
 <body>
   <div class="wf-shell">
@@ -26,6 +26,7 @@
         <button type="button" data-section="import"><span>⇩</span><b>Import Center</b></button>
         <button type="button" data-section="approvals"><span>✓</span><b>Approval Center</b><em id="wfNavApprovalCount"></em></button>
         <button type="button" data-section="leave"><span>▦</span><b>Leave Calendar</b><em>HR</em></button>
+        <button type="button" data-section="overtime"><span>◷</span><b>Overtime</b><em id="wfNavOvertimeCount"></em></button>
         <button type="button" data-section="setup"><span>⚙</span><b>Payroll Setup</b><em id="wfNavSetupStatus"></em></button>
         <button type="button" data-section="payroll"><span>$</span><b>Payroll</b><em id="wfNavPayrollStatus"></em></button>
       </nav>
@@ -289,6 +290,48 @@
           <article class="wf-card wf-leave-list-card">
             <div class="wf-card-head"><div><span>AUDITABLE HISTORY</span><h2>Leave requests in this month</h2><p>Dates remain visible for HR follow-up and payroll review.</p></div><span id="wfLeaveRequestCount" class="wf-badge neutral">0 REQUESTS</span></div>
             <div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>Employee</th><th>Leave Type</th><th>From</th><th>To</th><th>Units</th><th>Status</th><th>Payroll Impact</th><th>Reason</th></tr></thead><tbody id="wfLeaveRows"><tr><td colspan="8" class="empty">No leave loaded yet.</td></tr></tbody></table></div>
+          </article>
+        </section>
+
+        <section id="wfOvertimeView" class="wf-section-view" hidden>
+          <div class="wf-dashboard-head">
+            <div><span class="wf-kicker">OVERTIME CONTROL</span><h2>Overtime</h2><p>Enter overtime once. Workforce resolves the approved rate automatically from employee, position, department, site or company policy.</p></div>
+            <button id="wfOvertimeRefresh" class="wf-soft-btn" type="button">Refresh Overtime</button>
+          </div>
+
+          <div class="wf-kpi-grid wf-overtime-kpis">
+            <article class="wf-kpi-card"><span>THIS MONTH</span><strong id="wfOtMonthCount">—</strong><small>Overtime entries</small></article>
+            <article class="wf-kpi-card attention"><span>PENDING</span><strong id="wfOtPendingCount">—</strong><small>Waiting for approval</small></article>
+            <article class="wf-kpi-card"><span>APPROVED HOURS</span><strong id="wfOtApprovedHours">—</strong><small>Approved payable hours</small></article>
+            <article class="wf-kpi-card"><span>APPROVED VALUE</span><strong id="wfOtApprovedValue">—</strong><small id="wfOtCurrency">SLE</small></article>
+          </div>
+
+          <div class="wf-overtime-grid">
+            <article id="wfOvertimeEntryCard" class="wf-card wf-overtime-entry-card">
+              <div class="wf-card-head"><div><span>NEW ENTRY</span><h2>Record Overtime</h2><p>The policy and rate are resolved automatically. They are not typed manually.</p></div><span id="wfOtAccessBadge" class="wf-badge neutral">CHECKING</span></div>
+              <div class="wf-overtime-form">
+                <label class="wf-field"><span>Employee</span><select id="wfOtEmployee"><option value="">Loading employees…</option></select></label>
+                <label class="wf-field"><span>Work date</span><input id="wfOtDate" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" autocomplete="off"></label>
+                <label class="wf-field"><span>Overtime type</span><select id="wfOtType"><option value="normal">Normal</option><option value="extra_shift">Extra Shift</option><option value="rest_day">Rest Day</option><option value="public_holiday">Public Holiday</option></select></label>
+                <label class="wf-field"><span>Hours</span><input id="wfOtHours" type="number" min="0" step="1" value="1"></label>
+                <label class="wf-field"><span>Minutes</span><input id="wfOtMinutes" type="number" min="0" max="59" step="1" value="0"></label>
+                <label class="wf-field wf-ot-reason"><span>Reason</span><input id="wfOtReason" type="text" maxlength="250" placeholder="Reason for overtime"></label>
+              </div>
+              <div id="wfOtResolvedPolicy" class="wf-ot-policy-preview"><span>AUTOMATIC RATE</span><b>Select employee and date</b><small>Workforce will show the policy before submission.</small></div>
+              <button id="wfOtSubmit" class="wf-setup-primary" type="button">Submit Overtime</button>
+              <div id="wfOtMessage" class="wf-message info">Select an employee and work date.</div>
+            </article>
+
+            <article class="wf-card wf-overtime-info-card">
+              <span class="wf-kicker">RATE PRIORITY</span><h2>Automatic policy</h2>
+              <div class="wf-ot-priority"><b>1</b><span>Employee Override</span><b>2</b><span>Position</span><b>3</b><span>Department</span><b>4</b><span>Site</span><b>5</b><span>Company Default</span></div>
+              <small>The selected policy is stored on the overtime entry. Payroll continues to use the approved frozen entry; the successful payroll engine is unchanged.</small>
+            </article>
+          </div>
+
+          <article class="wf-card wf-overtime-history-card">
+            <div class="wf-card-head"><div><span>AUDITABLE HISTORY</span><h2>Overtime History</h2><p>Dates use DD/MM/YYYY. Pending entries do not affect payroll.</p></div><span id="wfOtHistoryCount" class="wf-badge neutral">0 ENTRIES</span></div>
+            <div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>Employee</th><th>Date</th><th>Time</th><th>Policy / Scope</th><th>Rate</th><th>Amount</th><th>Status</th><th>Reason</th><th>Action</th></tr></thead><tbody id="wfOtRows"><tr><td colspan="9" class="empty">No overtime loaded yet.</td></tr></tbody></table></div>
           </article>
         </section>
 

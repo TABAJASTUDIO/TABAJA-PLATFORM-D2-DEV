@@ -106,7 +106,10 @@
     setupEmployees: [],
     setupBusy: false,
     leaveMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-    leaveBusy: false
+    leaveBusy: false,
+    overtimeBusy: false,
+    overtimeEmployees: [],
+    overtimePermissions: { view: false, manage: false, approve: false }
   };
 
   const $ = id => document.getElementById(id);
@@ -1699,19 +1702,207 @@
   }
   function moveLeaveMonth(delta){ state.leaveMonth=new Date(state.leaveMonth.getFullYear(),state.leaveMonth.getMonth()+delta,1); loadLeaveCalendar(); }
 
+
+  function overtimeMessage(text, tone = 'info') {
+    const el = $('wfOtMessage');
+    if (!el) return;
+    el.className = `wf-message ${tone}`;
+    el.textContent = text;
+  }
+
+  async function hasWorkforcePermission(permission) {
+    const variants = [
+      { target_company: state.workspace.companyId, target_permission: permission },
+      { target_company: state.workspace.companyId, permission_code: permission },
+      { target_company: state.workspace.companyId, target_permission_code: permission }
+    ];
+    let lastError = null;
+    for (const args of variants) {
+      const { data, error } = await state.client.rpc('wf_has_permission', args);
+      if (!error) return data === true;
+      lastError = error;
+      if (!String(error?.message || '').toLowerCase().includes('function')) break;
+    }
+    console.warn(`[Overtime] permission ${permission} unavailable`, lastError?.message || lastError);
+    return false;
+  }
+
+  function overtimeMinutesFromForm() {
+    const hours = Math.max(0, Math.floor(Number($('wfOtHours')?.value || 0)));
+    const minutes = Math.max(0, Math.min(59, Math.floor(Number($('wfOtMinutes')?.value || 0))));
+    return (hours * 60) + minutes;
+  }
+
+  function overtimeAmount(entry, policy) {
+    if (!policy) return 0;
+    if (policy.calculation_method === 'fixed_hourly') return Math.round(((Number(entry.overtime_minutes || 0) / 60) * Number(policy.fixed_rate || 0)) * 100) / 100;
+    if (policy.calculation_method === 'fixed_unit') return Math.round((Number(entry.overtime_units || 0) * Number(policy.fixed_rate || 0)) * 100) / 100;
+    return 0;
+  }
+
+  async function resolveOvertimePolicyPreview() {
+    const host = $('wfOtResolvedPolicy');
+    if (!host || !state.workspace?.companyId) return null;
+    const employeeId = $('wfOtEmployee')?.value;
+    const workDate = parseDateDMY($('wfOtDate')?.value);
+    if (!employeeId || !workDate) {
+      host.innerHTML = '<span>AUTOMATIC RATE</span><b>Select employee and valid date</b><small>Use DD/MM/YYYY.</small>';
+      return null;
+    }
+    host.innerHTML = '<span>AUTOMATIC RATE</span><b>Resolving…</b><small>Checking employee → position → department → site → company.</small>';
+    try {
+      const { data, error } = await state.client.rpc('wf_resolve_overtime_policy', {
+        target_company: state.workspace.companyId,
+        target_employee: employeeId,
+        target_work_date: workDate,
+        target_overtime_type: $('wfOtType')?.value || 'normal'
+      });
+      if (error) throw error;
+      const policy = Array.isArray(data) ? data[0] : data;
+      if (!policy?.policy_id) throw new Error('No approved overtime policy applies to this employee and date.');
+      const scope = String(policy.resolved_scope_type || 'company').replaceAll('_',' ');
+      host.innerHTML = `<span>AUTOMATIC RATE</span><b>${escapeHtml(policy.policy_name || policy.policy_code || 'Overtime Policy')}</b><small>${escapeHtml(String(policy.fixed_rate ?? '—'))} ${escapeHtml(policy.currency_code || 'SLE')} / hour • ${escapeHtml(scope.toUpperCase())}</small>`;
+      host.dataset.policyId = policy.policy_id;
+      return policy;
+    } catch (error) {
+      host.innerHTML = `<span>AUTOMATIC RATE</span><b>Policy unavailable</b><small>${escapeHtml(error?.message || 'Unable to resolve overtime policy.')}</small>`;
+      delete host.dataset.policyId;
+      return null;
+    }
+  }
+
+  async function loadOvertime() {
+    if (!state.workspace?.companyId || state.overtimeBusy) return;
+    state.overtimeBusy = true;
+    if ($('wfOvertimeRefresh')) $('wfOvertimeRefresh').disabled = true;
+    try {
+      const [view, manage, approve] = await Promise.all([
+        hasWorkforcePermission('overtime.view'),
+        hasWorkforcePermission('overtime.manage'),
+        hasWorkforcePermission('overtime.approve')
+      ]);
+      state.overtimePermissions = { view, manage, approve };
+      if (!view) throw new Error('Overtime view permission is required.');
+
+      const access = $('wfOtAccessBadge');
+      if (access) {
+        access.textContent = manage ? 'SUPERVISOR' : 'VIEW ONLY';
+        access.className = `wf-badge ${manage ? 'enabled' : 'neutral'}`;
+      }
+      const card = $('wfOvertimeEntryCard');
+      if (card) card.classList.toggle('wf-view-only', !manage);
+      ['wfOtEmployee','wfOtDate','wfOtType','wfOtHours','wfOtMinutes','wfOtReason','wfOtSubmit'].forEach(id => { if ($(id)) $(id).disabled = !manage; });
+      if (!manage) overtimeMessage('Director view only — overtime history is available, editing and approval are disabled.', 'info');
+
+      const now = new Date();
+      const monthStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+      const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 0);
+      const monthEndIso = `${monthEnd.getFullYear()}-${String(monthEnd.getMonth()+1).padStart(2,'0')}-${String(monthEnd.getDate()).padStart(2,'0')}`;
+
+      const [empRes, otRes, policyRes, assignmentRes] = await Promise.all([
+        state.client.from('employees').select('id,employee_code,full_name,status').eq('company_id', state.workspace.companyId).eq('status','active').order('employee_code'),
+        state.client.from('wf_overtime_entries').select('*').eq('company_id', state.workspace.companyId).order('work_date',{ascending:false}).order('created_at',{ascending:false}).limit(200),
+        state.client.from('wf_overtime_policies').select('id,code,name,calculation_method,fixed_rate,currency_code,overtime_type').eq('company_id', state.workspace.companyId),
+        state.client.from('wf_overtime_policy_assignments').select('policy_id,scope_type,scope_id,effective_from,effective_to,approval_status,is_active').eq('company_id', state.workspace.companyId).eq('approval_status','approved').eq('is_active',true)
+      ]);
+      if (empRes.error) throw empRes.error;
+      if (otRes.error) throw otRes.error;
+      if (policyRes.error) throw policyRes.error;
+      state.overtimeEmployees = empRes.data || [];
+      const employeeMap = Object.fromEntries(state.overtimeEmployees.map(e => [e.id,e]));
+      const policyMap = Object.fromEntries((policyRes.data || []).map(p => [p.id,p]));
+      const assignments = assignmentRes.error ? [] : (assignmentRes.data || []);
+
+      const employeeSelect = $('wfOtEmployee');
+      if (employeeSelect) {
+        const selected = employeeSelect.value;
+        employeeSelect.innerHTML = '<option value="">Select employee…</option>' + state.overtimeEmployees.map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.employee_code || '')} — ${escapeHtml(e.full_name || 'Employee')}</option>`).join('');
+        if (selected && state.overtimeEmployees.some(e => e.id === selected)) employeeSelect.value = selected;
+      }
+      if ($('wfOtDate') && !$('wfOtDate').value) $('wfOtDate').value = formatDateDMY(new Date().toISOString().slice(0,10));
+
+      const rows = otRes.data || [];
+      const monthRows = rows.filter(r => r.work_date >= monthStart && r.work_date <= monthEndIso);
+      const approvedRows = monthRows.filter(r => String(r.approval_status).toLowerCase() === 'approved');
+      const pendingRows = monthRows.filter(r => String(r.approval_status).toLowerCase() === 'pending');
+      const approvedMinutes = approvedRows.reduce((n,r)=>n+Number(r.overtime_minutes||0),0);
+      const approvedValue = approvedRows.reduce((n,r)=>n+overtimeAmount(r,policyMap[r.policy_id]),0);
+      $('wfOtMonthCount').textContent = String(monthRows.length);
+      $('wfOtPendingCount').textContent = String(pendingRows.length);
+      $('wfOtApprovedHours').textContent = (approvedMinutes/60).toLocaleString(undefined,{maximumFractionDigits:2});
+      $('wfOtApprovedValue').textContent = approvedValue.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+      $('wfNavOvertimeCount').textContent = pendingRows.length ? String(pendingRows.length) : '';
+      $('wfOtHistoryCount').textContent = `${rows.length} ENTR${rows.length===1?'Y':'IES'}`;
+
+      $('wfOtRows').innerHTML = rows.length ? rows.map(r => {
+        const emp=employeeMap[r.employee_id]||{}, p=policyMap[r.policy_id]||{};
+        const minutes=Number(r.overtime_minutes||0), hours=Math.floor(minutes/60), mins=minutes%60;
+        const amount=overtimeAmount(r,p), status=String(r.approval_status||'').toLowerCase();
+        const ass=assignments.find(a=>a.policy_id===r.policy_id && (!a.effective_from || a.effective_from<=r.work_date) && (!a.effective_to || a.effective_to>=r.work_date));
+        const scope=ass?.scope_type ? String(ass.scope_type).replaceAll('_',' ') : 'policy';
+        const actions = approve && status==='pending' ? `<div class="wf-ot-actions"><button class="approve" type="button" data-ot-action="approved" data-id="${escapeHtml(r.id)}">Approve</button><button class="reject" type="button" data-ot-action="rejected" data-id="${escapeHtml(r.id)}">Reject</button></div>` : '—';
+        return `<tr><td><b>${escapeHtml(emp.full_name||'Employee')}</b><small class="wf-cell-sub">${escapeHtml(emp.employee_code||'')}</small></td><td>${escapeHtml(formatDateDMY(r.work_date)||'—')}</td><td>${escapeHtml(`${hours}h ${mins}m`)}</td><td><b>${escapeHtml(p.name||p.code||'Policy')}</b><small class="wf-cell-sub">${escapeHtml(scope.toUpperCase())}</small></td><td>${escapeHtml(String(p.fixed_rate??'—'))} ${escapeHtml(p.currency_code||'SLE')}/hr</td><td>${escapeHtml(amount.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}))} ${escapeHtml(p.currency_code||'SLE')}</td><td><span class="wf-status-pill ${escapeHtml(status)}">${escapeHtml(status.toUpperCase())}</span></td><td>${escapeHtml(r.reason||r.notes||'—')}</td><td>${actions}</td></tr>`;
+      }).join('') : '<tr><td colspan="9" class="empty">No overtime entries yet.</td></tr>';
+
+      if (manage) {
+        overtimeMessage(rows.length ? `${rows.length} overtime entr${rows.length===1?'y':'ies'} loaded.` : 'No overtime entries yet. Add the first overtime entry.', 'success');
+        await resolveOvertimePolicyPreview();
+      }
+    } catch (error) {
+      console.error('[Overtime]', error);
+      overtimeMessage(error?.message || 'Unable to load overtime.', 'error');
+      if ($('wfOtRows')) $('wfOtRows').innerHTML='<tr><td colspan="9" class="empty">Overtime unavailable.</td></tr>';
+    } finally {
+      state.overtimeBusy=false;
+      if ($('wfOvertimeRefresh')) $('wfOvertimeRefresh').disabled=false;
+    }
+  }
+
+  async function submitOvertime() {
+    if (!state.overtimePermissions.manage) return overtimeMessage('Overtime manage permission is required.', 'error');
+    const employeeId=$('wfOtEmployee')?.value, workDate=parseDateDMY($('wfOtDate')?.value), minutes=overtimeMinutesFromForm(), reason=String($('wfOtReason')?.value||'').trim();
+    if (!employeeId) return overtimeMessage('Select an employee.', 'error');
+    if (!workDate) return overtimeMessage('Enter a valid work date in DD/MM/YYYY.', 'error');
+    if (minutes<=0) return overtimeMessage('Enter overtime hours or minutes greater than zero.', 'error');
+    const policy=await resolveOvertimePolicyPreview();
+    if (!policy?.policy_id) return overtimeMessage('No approved overtime policy could be resolved.', 'error');
+    $('wfOtSubmit').disabled=true;
+    try {
+      const payload={company_id:state.workspace.companyId,employee_id:employeeId,policy_id:policy.policy_id,work_date:workDate,overtime_minutes:minutes,overtime_units:0,source:'manual',reason:reason||null,approval_status:'pending',created_by:state.session.user.id,updated_by:state.session.user.id};
+      const { error }=await state.client.from('wf_overtime_entries').insert(payload);
+      if(error) throw error;
+      $('wfOtReason').value='';
+      overtimeMessage(`Overtime submitted. Automatic rate: ${policy.fixed_rate ?? '—'} ${policy.currency_code||'SLE'}/hour. Pending approval.`, 'success');
+      await loadOvertime();
+    } catch(error){ console.error('[Overtime Submit]',error); overtimeMessage(error?.message||'Unable to submit overtime.','error'); }
+    finally { $('wfOtSubmit').disabled=!state.overtimePermissions.manage; }
+  }
+
+  async function reviewOvertime(id, status) {
+    if (!state.overtimePermissions.approve) return overtimeMessage('Overtime approval permission is required.', 'error');
+    try {
+      const { error }=await state.client.from('wf_overtime_entries').update({approval_status:status,updated_by:state.session.user.id}).eq('company_id',state.workspace.companyId).eq('id',id);
+      if(error) throw error;
+      overtimeMessage(`Overtime ${status}.`, 'success');
+      await loadOvertime();
+    } catch(error){ console.error('[Overtime Review]',error); overtimeMessage(error?.message||'Unable to review overtime.','error'); }
+  }
+
   function showSection(section) {
-    const target = ['dashboard','import','approvals','leave','setup','payroll'].includes(section) ? section : 'dashboard';
+    const target = ['dashboard','import','approvals','leave','overtime','setup','payroll'].includes(section) ? section : 'dashboard';
     state.currentSection = target;
     const dashboard = $('wfDashboardView');
     const imports = $('wfImportView');
     const approvals = $('wfApprovalView');
     const leave = $('wfLeaveView');
+    const overtime = $('wfOvertimeView');
     const setup = $('wfSetupView');
     const payroll = $('wfPayrollView');
     if (dashboard) dashboard.hidden = target !== 'dashboard';
     if (imports) imports.hidden = target !== 'import';
     if (approvals) approvals.hidden = target !== 'approvals';
     if (leave) leave.hidden = target !== 'leave';
+    if (overtime) overtime.hidden = target !== 'overtime';
     if (setup) setup.hidden = target !== 'setup';
     if (payroll) payroll.hidden = target !== 'payroll';
 
@@ -1736,6 +1927,11 @@
       $('wfPageSubtitle').textContent = 'Employee leave visibility, approval status and auditable dates.';
       window.location.hash = 'leave';
       if (state.workspace?.companyId) loadLeaveCalendar();
+    } else if (target === 'overtime') {
+      $('wfPageTitle').textContent = 'Overtime';
+      $('wfPageSubtitle').textContent = 'Automatic overtime policy, approval and payroll-ready history.';
+      window.location.hash = 'overtime';
+      if (state.workspace?.companyId) loadOvertime();
     } else if (target === 'setup') {
       $('wfPageTitle').textContent = 'Employee Payroll Setup';
       $('wfPageSubtitle').textContent = 'Prepare salary, transport and attendance inputs for payroll.';
@@ -1766,6 +1962,13 @@
     $('wfLeaveRefresh')?.addEventListener('click', loadLeaveCalendar);
     $('wfLeavePrev')?.addEventListener('click', () => moveLeaveMonth(-1));
     $('wfLeaveNext')?.addEventListener('click', () => moveLeaveMonth(1));
+    $('wfOvertimeRefresh')?.addEventListener('click', loadOvertime);
+    $('wfOtEmployee')?.addEventListener('change', resolveOvertimePolicyPreview);
+    $('wfOtDate')?.addEventListener('change', resolveOvertimePolicyPreview);
+    $('wfOtType')?.addEventListener('change', resolveOvertimePolicyPreview);
+    $('wfOtDate')?.addEventListener('blur', resolveOvertimePolicyPreview);
+    $('wfOtSubmit')?.addEventListener('click', submitOvertime);
+    $('wfOtRows')?.addEventListener('click', (event) => { const btn=event.target.closest('[data-ot-action]'); if(btn) reviewOvertime(btn.dataset.id,btn.dataset.otAction); });
     $('wfSetupRefresh')?.addEventListener('click', loadPayrollSetup);
     $('wfSetupEmployee')?.addEventListener('change', loadSelectedPayrollSetup);
     $('wfSetupHireDateSave')?.addEventListener('click', saveSetupHireDate);
@@ -1890,7 +2093,7 @@
       bindIdentityReturnButtons();
 
       const hash = String(window.location.hash || '').toLowerCase();
-      const initialSection = hash === '#import' ? 'import' : (hash === '#approvals' ? 'approvals' : (hash === '#leave' ? 'leave' : (hash === '#setup' ? 'setup' : (hash === '#payroll' ? 'payroll' : 'dashboard'))));
+      const initialSection = hash === '#import' ? 'import' : (hash === '#approvals' ? 'approvals' : (hash === '#leave' ? 'leave' : (hash === '#overtime' ? 'overtime' : (hash === '#setup' ? 'setup' : (hash === '#payroll' ? 'payroll' : 'dashboard')))));
       showSection(initialSection);
       loadApprovalCenter();
       await restoreRememberedBatch();
