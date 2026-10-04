@@ -41,9 +41,18 @@
         if (event.key !== 'Escape') return;
         event.preventDefault();
         event.stopPropagation();
-        // Workforce has its own Back level: any child section returns to its dashboard first.
+        // Workforce Back follows the currently visible sidebar order.
+        // This automatically respects role-based hidden items (for example Director view).
         if (state.currentSection && state.currentSection !== 'dashboard') {
-          showSection('dashboard');
+          const visibleSections = Array.from(document.querySelectorAll('.wf-nav button[data-section]'))
+            .filter((button) => {
+              const style = window.getComputedStyle(button);
+              return !button.hidden && !button.disabled && style.display !== 'none' && style.visibility !== 'hidden';
+            })
+            .map((button) => button.dataset.section);
+          const currentIndex = visibleSections.indexOf(state.currentSection);
+          const previousSection = currentIndex > 0 ? visibleSections[currentIndex - 1] : 'dashboard';
+          showSection(previousSection);
           return;
         }
         // Only the Workforce Dashboard exits the embedded Workforce shell to Command Center.
