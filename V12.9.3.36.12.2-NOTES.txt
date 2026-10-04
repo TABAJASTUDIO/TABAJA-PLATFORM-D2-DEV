@@ -1,0 +1,11 @@
+V12.9.3.36.12.2 — Workforce Scope Labels
+
+Purpose:
+- Show the actual saved scope target name(s) in Users & Access instead of only a generic count when the target can be resolved.
+- Example: "UI TEST SITE 2602" instead of "1 Site".
+
+Safety:
+- Read-only UI enhancement.
+- No SQL migration.
+- No changes to Identity, navigation/ESC, refresh/session, single-PWA shell, role mutation, scope mutation, payroll, or seat enforcement.
+- Uses existing protected wf_get_scope_options RPC from V12.9.3.36.12.1.

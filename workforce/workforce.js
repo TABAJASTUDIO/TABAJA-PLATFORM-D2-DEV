@@ -1964,8 +1964,16 @@
     const rows = (state.accessScopeData?.scopes || []).filter(row => String(row.user_id) === String(userId) && row.is_active !== false);
     if (!rows.length || rows.some(row => row.scope_type === 'company')) return 'Company scope';
     const grouped = {};
-    rows.forEach(row => { grouped[row.scope_type] = (grouped[row.scope_type] || 0) + 1; });
-    const parts = Object.entries(grouped).map(([type,count]) => `${count} ${scopeTypeLabel(type)}${count > 1 ? 's' : ''}`);
+    rows.forEach(row => { (grouped[row.scope_type] ||= []).push(String(row.scope_id)); });
+    const parts = Object.entries(grouped).map(([type, ids]) => {
+      const options = Array.isArray(state.accessScopeData?.options?.[type]) ? state.accessScopeData.options[type] : [];
+      const names = ids.map(id => options.find(option => String(option.id) === id)?.name).filter(Boolean);
+      if (names.length === ids.length && names.length) {
+        if (names.length <= 2) return names.join(', ');
+        return `${names.slice(0,2).join(', ')} +${names.length - 2}`;
+      }
+      return `${ids.length} ${scopeTypeLabel(type)}${ids.length > 1 ? 's' : ''}`;
+    });
     return parts.join(' • ') || fallback || 'Scoped access';
   }
 
@@ -2120,6 +2128,27 @@
       if (accessError) throw accessError;
       if (scopeError) throw scopeError;
       state.accessScopeData = { ...(scopeData || {}), users: Array.isArray(accessData?.users) ? accessData.users : [] };
+
+      // V12.9.3.36.12.2: resolve saved scope IDs to human-readable names on load.
+      // Read-only enhancement: no scope/role mutation and no navigation/payroll changes.
+      const activeScopeTypes = [...new Set((state.accessScopeData.scopes || [])
+        .filter(scope => scope?.is_active !== false && scope?.scope_type && scope.scope_type !== 'company')
+        .map(scope => scope.scope_type))];
+      state.accessScopeData.options = state.accessScopeData.options || {};
+      await Promise.all(activeScopeTypes.map(async type => {
+        if (Array.isArray(state.accessScopeData.options[type]) && state.accessScopeData.options[type].length) return;
+        try {
+          const { data, error } = await state.client.rpc('wf_get_scope_options', {
+            target_company: state.workspace.companyId,
+            target_scope_type: type
+          });
+          if (error) throw error;
+          state.accessScopeData.options[type] = Array.isArray(data) ? data : [];
+        } catch (error) {
+          console.warn('[Workforce Scope Labels]', type, error);
+        }
+      }));
+
       const row = Array.isArray(seatData) ? seatData[0] : seatData;
       const limit = Number(row?.seat_limit ?? 1);
       const assigned = Number(row?.assigned_users ?? 0);
