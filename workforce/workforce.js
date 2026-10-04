@@ -1958,6 +1958,8 @@
     const body = $('wfAccessUsers');
     if (!body) return;
     const users = Array.isArray(payload?.users) ? payload.users : [];
+    const roleRows = Array.isArray(payload?.roles) ? payload.roles : [];
+    const canManage = payload?.can_manage === true;
     if ($('wfAccessUserCount')) $('wfAccessUserCount').textContent = `${users.filter(u => u.has_workforce_access).length} USERS`;
     if (!users.length) {
       body.innerHTML = '<tr><td colspan="5" class="empty">No company users found.</td></tr>';
@@ -1965,28 +1967,37 @@
     }
     body.innerHTML = users.map(user => {
       const roles = Array.isArray(user.roles) ? user.roles : [];
-      const roleText = roles.length ? roles.map(accessRoleLabel).join(', ') : 'No Workforce role';
       const active = user.has_workforce_access === true;
+      const currentRoleId = roles[0]?.role_id || '';
+      const roleText = roles.length ? roles.map(accessRoleLabel).join(', ') : 'No Workforce role';
       const scope = user.scope_summary || (active ? 'Company / configured scope' : '—');
-      const action = active
-        ? `<button class="wf-mini-action danger" data-access-revoke="${escapeHtml(user.user_id)}">Remove Access</button>`
-        : '<span class="wf-muted-small">Not assigned</span>';
-      return `<tr><td><b>${escapeHtml(user.email || 'User')}</b><small>${escapeHtml(user.core_role || 'company member')}</small></td><td>${escapeHtml(roleText)}</td><td>${escapeHtml(scope)}</td><td><span class="wf-badge ${active ? 'enabled' : 'neutral'}">${active ? 'ACTIVE' : 'NO ACCESS'}</span></td><td>${action}</td></tr>`;
+      const roleCell = active && canManage
+        ? `<select class="wf-access-role-inline" data-access-role-user="${escapeHtml(user.user_id)}" aria-label="Workforce role for ${escapeHtml(user.email || 'user')}">${roleRows.map(r => `<option value="${escapeHtml(r.role_id)}" ${String(r.role_id) === String(currentRoleId) ? 'selected' : ''}>${escapeHtml(accessRoleLabel(r))}</option>`).join('')}</select><small>${escapeHtml(roleText)}</small>`
+        : escapeHtml(roleText);
+      const action = active && canManage
+        ? `<div class="wf-access-actions"><button class="wf-mini-action" data-access-save-role="${escapeHtml(user.user_id)}" data-current-role="${escapeHtml(currentRoleId)}">Save Role</button><button class="wf-mini-action danger" data-access-revoke="${escapeHtml(user.user_id)}">Remove Access</button></div>`
+        : active ? '<span class="wf-muted-small">View only</span>' : '<span class="wf-muted-small">Not assigned</span>';
+      return `<tr><td><b>${escapeHtml(user.email || 'User')}</b><small>${escapeHtml(user.core_role || 'company member')}</small></td><td>${roleCell}</td><td>${escapeHtml(scope)}</td><td><span class="wf-badge ${active ? 'enabled' : 'neutral'}">${active ? 'ACTIVE' : 'NO ACCESS'}</span></td><td>${action}</td></tr>`;
     }).join('');
   }
 
   function populateAccessSelectors(payload) {
     const members = $('wfAccessMemberSelect');
     const roles = $('wfAccessRoleSelect');
+    const assignButton = $('wfAccessAssignBtn');
     const users = Array.isArray(payload?.users) ? payload.users : [];
     const roleRows = Array.isArray(payload?.roles) ? payload.roles : [];
+    const canManage = payload?.can_manage === true;
     if (members) {
       const available = users.filter(u => !u.has_workforce_access);
       members.innerHTML = '<option value="">Select company user…</option>' + available.map(u => `<option value="${escapeHtml(u.user_id)}">${escapeHtml(u.email || u.user_id)}</option>`).join('');
+      members.disabled = !canManage;
     }
     if (roles) {
       roles.innerHTML = '<option value="">Select role…</option>' + roleRows.map(r => `<option value="${escapeHtml(r.role_id)}">${escapeHtml(accessRoleLabel(r))}</option>`).join('');
+      roles.disabled = !canManage;
     }
+    if (assignButton) assignButton.disabled = !canManage;
   }
 
   async function loadAccessFoundation() {
@@ -2010,8 +2021,9 @@
       renderAccessUsers(accessData || {});
       populateAccessSelectors(accessData || {});
       if (msg) {
+        const canManage = accessData?.can_manage === true;
         msg.className = `wf-message ${available > 0 ? 'success' : 'info'}`;
-        msg.textContent = `${assigned} of ${limit} Workforce seats assigned • ${available} available.`;
+        msg.textContent = `${assigned} of ${limit} Workforce seats assigned • ${available} available${canManage ? ' • Role changes enabled.' : ' • View only.'}`;
       }
     } catch (error) {
       console.error('[Workforce Access]', error);
@@ -2038,6 +2050,27 @@
       alert(error?.message || 'Unable to assign Workforce access.');
     } finally {
       if (button) { button.disabled = false; button.textContent = 'Assign Access'; }
+    }
+  }
+
+  async function changeWorkforceRole(userId, button) {
+    const select = document.querySelector(`[data-access-role-user="${CSS.escape(userId)}"]`);
+    const roleId = select?.value || '';
+    const currentRole = button?.dataset?.currentRole || '';
+    if (!userId || !roleId) return;
+    if (String(roleId) === String(currentRole)) {
+      if (button) { button.textContent = 'No Change'; setTimeout(() => { button.textContent = 'Save Role'; }, 900); }
+      return;
+    }
+    try {
+      if (button) { button.disabled = true; button.textContent = 'Saving…'; }
+      const { error } = await state.client.rpc('wf_assign_user_access', { target_company: state.workspace.companyId, target_user: userId, target_role: roleId });
+      if (error) throw error;
+      await loadAccessFoundation();
+    } catch (error) {
+      console.error('[Workforce Access Role Change]', error);
+      alert(error?.message || 'Unable to change Workforce role.');
+      if (button) { button.disabled = false; button.textContent = 'Save Role'; }
     }
   }
 
@@ -2131,7 +2164,12 @@
     $('wfDashboardRefresh')?.addEventListener('click', loadDashboard);
     $('wfAccessRefresh')?.addEventListener('click', loadAccessFoundation);
     $('wfAccessAssignBtn')?.addEventListener('click', assignWorkforceAccess);
-    $('wfAccessUsers')?.addEventListener('click', event => { const btn = event.target.closest('[data-access-revoke]'); if (btn) revokeWorkforceAccess(btn.dataset.accessRevoke); });
+    $('wfAccessUsers')?.addEventListener('click', event => {
+      const save = event.target.closest('[data-access-save-role]');
+      if (save) return changeWorkforceRole(save.dataset.accessSaveRole, save);
+      const revoke = event.target.closest('[data-access-revoke]');
+      if (revoke) revokeWorkforceAccess(revoke.dataset.accessRevoke);
+    });
     $('wfSidebarBackDashboard')?.addEventListener('click', () => showSection('dashboard'));
     $('wfDashboardOpenImport')?.addEventListener('click', () => showSection('import'));
     $('wfApprovalRefresh')?.addEventListener('click', loadApprovalCenter);
