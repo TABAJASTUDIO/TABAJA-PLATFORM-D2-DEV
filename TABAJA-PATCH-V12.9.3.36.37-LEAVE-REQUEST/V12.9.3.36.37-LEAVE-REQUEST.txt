@@ -1,0 +1,8 @@
+TABAJA SOLUTION DEV — V12.9.3.36.37
+NEW LEAVE REQUEST
+
+- Adds New Leave Request entry to Leave Calendar.
+- Uses existing employees, leave types and wf_leave_requests backend.
+- DD/MM/YYYY input.
+- New requests are PENDING only and flow to Approval Center.
+- Existing Calendar, history, payroll impact and Identity remain unchanged.
