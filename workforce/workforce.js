@@ -1666,20 +1666,28 @@
     state.leaveBusy=true; leaveMessage('Loading leave records…','info');
     try{
       const {start,end}=monthBounds(state.leaveMonth);
-      const [leaveRes,typeRes,empRes]=await Promise.all([
+      const [leaveRes,typeRes,empRes,salaryRes]=await Promise.all([
         state.client.from('wf_leave_requests').select('*').eq('company_id',state.workspace.companyId).lte('start_date',end).gte('end_date',start).order('start_date',{ascending:true}),
         state.client.from('wf_leave_types').select('*').eq('company_id',state.workspace.companyId),
-        state.client.from('employees').select('id,employee_code,full_name').eq('company_id',state.workspace.companyId).eq('is_deleted',false)
+        state.client.from('employees').select('id,employee_code,full_name').eq('company_id',state.workspace.companyId).eq('is_deleted',false),
+        state.client.from('wf_employee_salary_history').select('*').eq('company_id',state.workspace.companyId).eq('approval_status','approved').lte('effective_from',end).or(`effective_to.is.null,effective_to.gte.${start}`).order('effective_from',{ascending:false})
       ]);
       if(leaveRes.error) throw leaveRes.error;
-      const rows=leaveRes.data||[], types=typeRes.error?[]:(typeRes.data||[]), employees=empRes.error?[]:(empRes.data||[]);
+      const rows=leaveRes.data||[], types=typeRes.error?[]:(typeRes.data||[]), employees=empRes.error?[]:(empRes.data||[]), salaries=salaryRes.error?[]:(salaryRes.data||[]);
       const employeeMap=Object.fromEntries(employees.map(x=>[x.id,x])); const typeMap=Object.fromEntries(types.map(x=>[x.id,x]));
+      const salaryMap={}; for(const sal of salaries){ if(!salaryMap[sal.employee_id]) salaryMap[sal.employee_id]=sal; }
+      const daysInMonth=monthBounds(state.leaveMonth).last;
+      const impactFor=(r)=>{ if(leaveStatus(r)!=='approved'||!isUnpaidLeave(r,typeMap)) return null; const sal=salaryMap[r.employee_id]; if(!sal||String(sal.pay_basis||'').toLowerCase()!=='monthly') return {available:false,reason:'No approved monthly salary'}; const units=Number(r.requested_units??r.units??0); const monthly=Number(sal.base_amount??sal.amount??0); const daily=daysInMonth?monthly/daysInMonth:0; return {available:true,units,monthly,daily,amount:Math.round(daily*units*100)/100}; };
+      const impacts=rows.map(r=>({row:r,impact:impactFor(r)})).filter(x=>x.impact);
+      const impactTotal=impacts.reduce((n,x)=>n+(x.impact.available?x.impact.amount:0),0);
       const approved=rows.filter(r=>leaveStatus(r)==='approved').length, pending=rows.filter(r=>leaveStatus(r)==='pending').length, unpaid=rows.filter(r=>isUnpaidLeave(r,typeMap)).length;
       $('wfLeavePeopleCount').textContent=String(new Set(rows.map(r=>r.employee_id).filter(Boolean)).size);
       $('wfLeaveApprovedCount').textContent=String(approved); $('wfLeavePendingCount').textContent=String(pending); $('wfLeaveUnpaidCount').textContent=String(unpaid);
       $('wfLeaveRequestCount').textContent=`${rows.length} REQUEST${rows.length===1?'':'S'}`;
+      $('wfLeaveImpactTotal').textContent=`${impactTotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} SLE`;
       renderLeaveCalendar(rows,employeeMap,typeMap);
-      $('wfLeaveRows').innerHTML=rows.length?rows.map(r=>{const emp=employeeMap[r.employee_id]||{}; const st=leaveStatus(r); return `<tr><td><b>${escapeHtml(emp.full_name||'Employee')}</b><small>${escapeHtml(emp.employee_code||'')}</small></td><td>${escapeHtml(leaveTypeName(r,typeMap))}${isUnpaidLeave(r,typeMap)?'<br><span class="wf-unpaid-tag">UNPAID</span>':''}</td><td>${escapeHtml(formatDateDMY(r.start_date)||'—')}</td><td>${escapeHtml(formatDateDMY(r.end_date)||'—')}</td><td>${escapeHtml(r.requested_units??r.units??'—')}</td><td><span class="wf-status-pill ${escapeHtml(st)}">${escapeHtml(st.toUpperCase())}</span></td><td>${escapeHtml(r.reason||r.notes||'—')}</td></tr>`}).join(''):'<tr><td colspan="7" class="empty">No leave requests overlap this month.</td></tr>';
+      $('wfLeaveImpactRows').innerHTML=impacts.length?impacts.map(({row:r,impact:i})=>{const emp=employeeMap[r.employee_id]||{};return `<div class="wf-leave-impact-row"><div><b>${escapeHtml(emp.full_name||'Employee')}</b><small>${escapeHtml(emp.employee_code||'')} • ${escapeHtml(formatDateDMY(r.start_date)||'—')} → ${escapeHtml(formatDateDMY(r.end_date)||'—')}</small></div><div><span>UNPAID UNITS</span><b>${escapeHtml(i.units??'—')}</b></div><div><span>DAILY RATE</span><b>${i.available?`${i.daily.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} SLE`:'—'}</b></div><div><span>EST. DEDUCTION</span><b class="wf-money-deduct">${i.available?`${i.amount.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} SLE`:escapeHtml(i.reason)}</b></div></div>`}).join(''):'<div class="wf-empty-card">No approved unpaid leave impact in this month.</div>';
+      $('wfLeaveRows').innerHTML=rows.length?rows.map(r=>{const emp=employeeMap[r.employee_id]||{}; const st=leaveStatus(r); const imp=impactFor(r); const impactText=imp?(imp.available?`${imp.amount.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} SLE`:`${imp.reason}`):'—'; return `<tr><td><b>${escapeHtml(emp.full_name||'Employee')}</b><small>${escapeHtml(emp.employee_code||'')}</small></td><td>${escapeHtml(leaveTypeName(r,typeMap))}${isUnpaidLeave(r,typeMap)?'<br><span class="wf-unpaid-tag">UNPAID</span>':''}</td><td>${escapeHtml(formatDateDMY(r.start_date)||'—')}</td><td>${escapeHtml(formatDateDMY(r.end_date)||'—')}</td><td>${escapeHtml(r.requested_units??r.units??'—')}</td><td><span class="wf-status-pill ${escapeHtml(st)}">${escapeHtml(st.toUpperCase())}</span></td><td>${escapeHtml(impactText)}</td><td>${escapeHtml(r.reason||r.notes||'—')}</td></tr>`}).join(''):'<tr><td colspan="8" class="empty">No leave requests overlap this month.</td></tr>';
       leaveMessage(rows.length?`${rows.length} leave request(s) loaded. Calendar dates use DD/MM/YYYY.`:'No leave requests overlap this month.','success');
     }catch(error){console.error('[Leave Calendar]',error);leaveMessage(error?.message||'Unable to load leave calendar.','error');$('wfLeaveCalendar').innerHTML='<div class="wf-empty-card">Leave calendar unavailable.</div>';}
     finally{state.leaveBusy=false;}

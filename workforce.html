@@ -281,9 +281,14 @@
             <div class="wf-calendar-head"><b>MON</b><b>TUE</b><b>WED</b><b>THU</b><b>FRI</b><b>SAT</b><b>SUN</b></div>
             <div id="wfLeaveCalendar" class="wf-leave-calendar"></div>
           </article>
+          <article class="wf-card wf-leave-impact-card">
+            <div class="wf-card-head"><div><span>PAYROLL IMPACT PREVIEW</span><h2>Unpaid Leave Impact</h2><p>Approved unpaid leave is reviewed against the employee’s approved monthly salary. This preview is advisory until the payroll engine freezes the final calculation.</p></div><span id="wfLeaveImpactTotal" class="wf-badge neutral">0.00 SLE</span></div>
+            <div class="wf-leave-policy-strip"><div><span>POLICY</span><b>Calendar Days</b><small>Monthly salary ÷ actual days in payroll month × approved unpaid leave units</small></div><div><span>CONTROL</span><b>Approved Only</b><small>Pending, rejected and cancelled requests never affect this preview.</small></div><div><span>AUDIT</span><b>DD/MM/YYYY</b><small>Employee, leave dates, units, rate and estimated deduction remain visible together.</small></div></div>
+            <div id="wfLeaveImpactRows" class="wf-leave-impact-list"><div class="wf-empty-card">No approved unpaid leave impact in this month.</div></div>
+          </article>
           <article class="wf-card wf-leave-list-card">
             <div class="wf-card-head"><div><span>AUDITABLE HISTORY</span><h2>Leave requests in this month</h2><p>Dates remain visible for HR follow-up and payroll review.</p></div><span id="wfLeaveRequestCount" class="wf-badge neutral">0 REQUESTS</span></div>
-            <div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>Employee</th><th>Leave Type</th><th>From</th><th>To</th><th>Units</th><th>Status</th><th>Reason</th></tr></thead><tbody id="wfLeaveRows"><tr><td colspan="7" class="empty">No leave loaded yet.</td></tr></tbody></table></div>
+            <div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>Employee</th><th>Leave Type</th><th>From</th><th>To</th><th>Units</th><th>Status</th><th>Payroll Impact</th><th>Reason</th></tr></thead><tbody id="wfLeaveRows"><tr><td colspan="8" class="empty">No leave loaded yet.</td></tr></tbody></table></div>
           </article>
         </section>
 

@@ -1,0 +1,16 @@
+Tabaja Solution D2 DEV — V12.9.3.29.1
+Workforce Leave Payroll Impact Preview
+
+Modified only:
+- workforce.html
+- workforce/workforce.js
+- workforce/workforce.css
+- service-worker.js
+
+Adds:
+- Approved unpaid leave payroll impact preview
+- Calendar-day monthly salary rate preview
+- Employee/date/unit/rate/deduction audit visibility
+- No Smart Identity changes
+
+IMPORTANT: This release is an advisory UI preview. It does NOT yet alter the server-side finalized payroll calculation. Server-side deduction/frozen snapshot remains the next backend release.
