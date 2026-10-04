@@ -1,0 +1,21 @@
+TABAJA SOLUTION DEV — V12.9.3.30
+WORKFORCE UNPAID LEAVE PAYROLL ENGINE
+
+Scope:
+- DEV only.
+- Smart Identity frozen; no Identity files changed.
+- Monthly payroll: approved unpaid leave creates a real payroll deduction.
+- Formula: contractual monthly salary / calendar days in payroll period * approved unpaid units.
+- Paid leave creates no deduction.
+- Daily/hourly/per-shift bases do not receive a second unpaid-leave deduction.
+- Frozen payroll snapshot records policy, units, daily rate, amount and approved leave request details.
+- Payroll Results UI displays the unpaid-leave deduction evidence under Deductions.
+- Existing permission/scope guard remains in wf_calculate_payroll.
+
+Five-employee DEV test matrix is included as:
+TABAJA-WORKFORCE-5-EMPLOYEE-LEAVE-TEST-PACK.xlsx
+
+IMPORTANT BACKEND DEPLOYMENT:
+V12.9.3.30-WORKFORCE-UNPAID-LEAVE-PAYROLL.sql is a Supabase database migration.
+Uploading static PWA files to GitHub does not execute PostgreSQL functions automatically.
+The SQL migration must be applied to the DEV Supabase project before the deduction can affect server-side payroll.

@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.29.1-workforce-leave-impact-preview';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.30-workforce-unpaid-leave-payroll';
 const APP_SHELL = [
   './',
   './index.html',

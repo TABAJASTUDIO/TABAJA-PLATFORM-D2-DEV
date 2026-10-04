@@ -1130,6 +1130,10 @@
       const baseItem = snapshotItems.find(x => String(x.code || '').toUpperCase() === 'BASE' || String(x.category || '').toLowerCase() === 'base_salary');
       const basic = baseItem ? Number(baseItem.amount || 0) : firstValue(r,['base_pay','calculated_base_pay','basic_pay','base_salary_amount','basic_salary','base_amount'],0);
       const transport = firstValue(r,['transport_amount','transport_total'],0);
+      const unpaidLeaveItem = snapshotItems.find(x => String(x.code || '').toUpperCase() === 'UNPAID_LEAVE' || String(x.category || '').toLowerCase() === 'unpaid_leave');
+      const unpaidLeaveAmount = unpaidLeaveItem ? Number(unpaidLeaveItem.amount || 0) : Number(r?.source_snapshot?.leave?.unpaid_deduction_amount || 0);
+      const unpaidLeaveUnits = unpaidLeaveItem ? Number(unpaidLeaveItem.quantity || 0) : Number(r?.source_snapshot?.leave?.unpaid_units || 0);
+      const unpaidLeaveRate = unpaidLeaveItem ? Number(unpaidLeaveItem.rate || 0) : Number(r?.source_snapshot?.leave?.unpaid_daily_rate || 0);
       const gross = firstValue(r,['gross_earnings','gross_amount','gross_total'], Number(basic)+Number(transport));
       const ded = firstValue(r,['total_deductions','deduction_amount','deduction_total'],0);
       const net = firstValue(r,['net_pay','net_amount','net_total','net_salary'], Number(gross)-Number(ded));
@@ -1145,7 +1149,8 @@
         const pct = days > 0 ? ((payable / days) * 100).toFixed(2) : '0.00';
         proration = `${payable}/${days} days • ${pct}%`;
       }
-      return `<tr><td><b>${escapeHtml(name)}</b>${code ? `<small class="wf-cell-sub">${escapeHtml(code)}</small>`:''}</td><td>${escapeHtml(money(basic,currency))}</td><td><b>${escapeHtml(proration)}</b>${hire ? `<small class="wf-cell-sub">Hire: ${escapeHtml(formatDateDMY(hire))}</small>` : ''}</td><td>${escapeHtml(money(transport,currency))}</td><td>${escapeHtml(money(gross,currency))}</td><td class="wf-money-deduct">${escapeHtml(money(ded,currency))}</td><td class="wf-money-net">${escapeHtml(money(net,currency))}</td></tr>`;
+      const leaveNote = unpaidLeaveAmount > 0 ? `<small class="wf-cell-sub wf-unpaid-payroll-note">Unpaid leave: ${escapeHtml(String(unpaidLeaveUnits))} day${unpaidLeaveUnits===1?'':'s'} × ${escapeHtml(money(unpaidLeaveRate,currency))} = ${escapeHtml(money(unpaidLeaveAmount,currency))}</small>` : '';
+      return `<tr><td><b>${escapeHtml(name)}</b>${code ? `<small class="wf-cell-sub">${escapeHtml(code)}</small>`:''}</td><td>${escapeHtml(money(basic,currency))}</td><td><b>${escapeHtml(proration)}</b>${hire ? `<small class="wf-cell-sub">Hire: ${escapeHtml(formatDateDMY(hire))}</small>` : ''}</td><td>${escapeHtml(money(transport,currency))}</td><td>${escapeHtml(money(gross,currency))}</td><td class="wf-money-deduct">${escapeHtml(money(ded,currency))}${leaveNote}</td><td class="wf-money-net">${escapeHtml(money(net,currency))}</td></tr>`;
     }).join('');
   }
 
