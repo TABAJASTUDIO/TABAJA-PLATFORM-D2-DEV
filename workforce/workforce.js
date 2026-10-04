@@ -1888,8 +1888,35 @@
     } catch(error){ console.error('[Overtime Review]',error); overtimeMessage(error?.message||'Unable to review overtime.','error'); }
   }
 
+  async function loadAccessFoundation() {
+    const msg = $('wfAccessMessage');
+    try {
+      if (msg) { msg.className = 'wf-message info'; msg.textContent = 'Loading Workforce seat allocation…'; }
+      const { data, error } = await state.client.rpc('wf_get_seat_summary', { target_company: state.workspace.companyId });
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      const limit = Number(row?.seat_limit ?? 1);
+      const assigned = Number(row?.assigned_users ?? 0);
+      const available = Math.max(0, Number(row?.available_seats ?? (limit - assigned)));
+      if ($('wfSeatLimit')) $('wfSeatLimit').textContent = limit;
+      if ($('wfSeatAssigned')) $('wfSeatAssigned').textContent = assigned;
+      if ($('wfSeatAvailable')) $('wfSeatAvailable').textContent = available;
+      if ($('wfNavSeatStatus')) $('wfNavSeatStatus').textContent = `${assigned}/${limit}`;
+      if (msg) {
+        msg.className = `wf-message ${available > 0 ? 'success' : 'info'}`;
+        msg.textContent = `${assigned} of ${limit} Workforce seat${limit === 1 ? '' : 's'} assigned • ${available} available.`;
+      }
+    } catch (error) {
+      console.error('[Workforce Access]', error);
+      if ($('wfSeatLimit')) $('wfSeatLimit').textContent = '—';
+      if ($('wfSeatAssigned')) $('wfSeatAssigned').textContent = '—';
+      if ($('wfSeatAvailable')) $('wfSeatAvailable').textContent = '—';
+      if (msg) { msg.className = 'wf-message error'; msg.textContent = error?.message || 'Unable to load seat allocation. Apply the V12.9.3.33 Supabase migration first.'; }
+    }
+  }
+
   function showSection(section) {
-    const target = ['dashboard','import','approvals','leave','overtime','setup','payroll'].includes(section) ? section : 'dashboard';
+    const target = ['dashboard','import','approvals','leave','overtime','setup','payroll','access'].includes(section) ? section : 'dashboard';
     state.currentSection = target;
     const dashboard = $('wfDashboardView');
     const imports = $('wfImportView');
@@ -1898,6 +1925,7 @@
     const overtime = $('wfOvertimeView');
     const setup = $('wfSetupView');
     const payroll = $('wfPayrollView');
+    const access = $('wfAccessView');
     if (dashboard) dashboard.hidden = target !== 'dashboard';
     if (imports) imports.hidden = target !== 'import';
     if (approvals) approvals.hidden = target !== 'approvals';
@@ -1905,6 +1933,7 @@
     if (overtime) overtime.hidden = target !== 'overtime';
     if (setup) setup.hidden = target !== 'setup';
     if (payroll) payroll.hidden = target !== 'payroll';
+    if (access) access.hidden = target !== 'access';
 
     document.querySelectorAll('.wf-nav button[data-section]').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.section === target);
@@ -1942,6 +1971,11 @@
       $('wfPageSubtitle').textContent = 'Preflight, calculate, review, approve and finalize payroll safely.';
       window.location.hash = 'payroll';
       if (state.workspace?.companyId) loadPayroll();
+    } else if (target === 'access') {
+      $('wfPageTitle').textContent = 'Users & Access';
+      $('wfPageSubtitle').textContent = 'Multi-user seats, roles, permissions and scope foundation.';
+      window.location.hash = 'access';
+      if (state.workspace?.companyId) loadAccessFoundation();
     } else {
       $('wfPageTitle').textContent = 'Excel Import Center';
       $('wfPageSubtitle').textContent = 'Stage, validate, preview and confirm workforce data safely.';
@@ -1956,6 +1990,7 @@
       button.addEventListener('click', () => showSection(button.dataset.section));
     });
     $('wfDashboardRefresh')?.addEventListener('click', loadDashboard);
+    $('wfAccessRefresh')?.addEventListener('click', loadAccessFoundation);
     $('wfSidebarBackDashboard')?.addEventListener('click', () => showSection('dashboard'));
     $('wfDashboardOpenImport')?.addEventListener('click', () => showSection('import'));
     $('wfApprovalRefresh')?.addEventListener('click', loadApprovalCenter);

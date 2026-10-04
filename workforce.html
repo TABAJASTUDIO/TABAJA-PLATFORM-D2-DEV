@@ -7,11 +7,11 @@
   <title>Workforce & Payroll • Tabaja Solution DEV</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=12.9.3.16-wf1">
-  <link rel="stylesheet" href="workforce/workforce.css?v=1.7.0">
+  <link rel="stylesheet" href="workforce/workforce.css?v=1.8.0">
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="cloud.js?v=12.9.3.16-fix5.7-rpc"></script>
-  <script defer src="workforce/workforce.js?v=1.7.0"></script>
+  <script defer src="workforce/workforce.js?v=1.8.0"></script>
 </head>
 <body>
   <div class="wf-shell">
@@ -29,6 +29,7 @@
         <button type="button" data-section="overtime"><span>◷</span><b>Overtime</b><em id="wfNavOvertimeCount"></em></button>
         <button type="button" data-section="setup"><span>⚙</span><b>Payroll Setup</b><em id="wfNavSetupStatus"></em></button>
         <button type="button" data-section="payroll"><span>$</span><b>Payroll</b><em id="wfNavPayrollStatus"></em></button>
+        <button type="button" data-section="access"><span>♙</span><b>Users & Access</b><em id="wfNavSeatStatus"></em></button>
       </nav>
 
       <div class="wf-sidebar-return">
@@ -382,6 +383,40 @@
             <div class="wf-card-head"><div><span>PAYROLL RESULTS</span><h2>Employee breakdown</h2></div><span id="wfPayResultCount">0 employees</span></div>
             <div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>Employee</th><th>Basic</th><th>Proration</th><th>Transport</th><th>Gross</th><th>Deductions</th><th>Net Salary</th></tr></thead><tbody id="wfPayrollResults"><tr><td colspan="7" class="empty">No calculated payroll results yet.</td></tr></tbody></table></div>
           </article>
+        </section>
+
+        <section id="wfAccessView" class="wf-section-view" hidden>
+          <div class="wf-dashboard-head">
+            <div><span class="wf-kicker">MULTI-USER CONTROL</span><h2>Users & Access</h2><p>Seat capacity and Workforce access foundation for this company.</p></div>
+            <button id="wfAccessRefresh" class="wf-soft-btn" type="button">Refresh Access</button>
+          </div>
+          <div class="wf-access-kpis">
+            <article class="wf-kpi-card"><span>PURCHASED SEATS</span><strong id="wfSeatLimit">—</strong><small>Workforce user capacity</small></article>
+            <article class="wf-kpi-card"><span>ASSIGNED USERS</span><strong id="wfSeatAssigned">—</strong><small>Users with Workforce roles</small></article>
+            <article class="wf-kpi-card"><span>AVAILABLE SEATS</span><strong id="wfSeatAvailable">—</strong><small>Capacity remaining</small></article>
+            <article class="wf-kpi-card"><span>ACCESS MODEL</span><strong class="wf-access-model">ROLE + SCOPE</strong><small>What + where / who</small></article>
+          </div>
+          <div id="wfAccessMessage" class="wf-message info">Loading Workforce seat allocation…</div>
+          <div class="wf-access-grid">
+            <article class="wf-card wf-access-card">
+              <span class="wf-kicker">FOUNDATION</span><h2>Connected HR team</h2>
+              <p>Multiple HR users work inside the same company workspace while permissions and scopes keep duties separated.</p>
+              <div class="wf-role-list">
+                <div><b>HR Manager / Supervisor</b><small>Operational control and review</small></div>
+                <div><b>Payroll Officer</b><small>Payroll preparation and processing</small></div>
+                <div><b>Attendance Officer</b><small>Attendance operations</small></div>
+                <div><b>Leave Officer</b><small>Leave operations</small></div>
+                <div><b>Overtime Officer</b><small>Overtime entry and workflow</small></div>
+                <div><b>Director</b><small>View-only management visibility</small></div>
+              </div>
+            </article>
+            <article class="wf-card wf-access-card">
+              <span class="wf-kicker">ACCESS LAW</span><h2>Permission + Scope</h2>
+              <div class="wf-access-law"><b>PERMISSION</b><span>WHAT the user can do</span></div>
+              <div class="wf-access-law"><b>SCOPE</b><span>WHERE / WHO the user can do it for</span></div>
+              <small>This screen is the seat/access foundation. User invitation, role assignment, custom roles and scope editing are the next controlled layer.</small>
+            </article>
+          </div>
         </section>
 
         <section id="wfImportView" class="wf-section-view" hidden>
