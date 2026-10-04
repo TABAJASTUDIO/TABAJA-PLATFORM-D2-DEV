@@ -892,6 +892,20 @@
     if (!host) return;
     if (!(state.approvalSelected instanceof Set)) state.approvalSelected = new Set();
     const items = approvalVisibleItems();
+    const totalPending = (state.approvals || []).length;
+    const visiblePending = items.length;
+    const message = $('wfApprovalMessage');
+    if (message) {
+      const hasActiveFilter = ($('wfApprovalFilter')?.value || 'all') !== 'all'
+        || String($('wfApprovalSearch')?.value || '').trim()
+        || String($('wfApprovalDate')?.value || '').trim()
+        || ($('wfApprovalArea')?.value || 'all') !== 'all'
+        || ($('wfApprovalSite')?.value || 'all') !== 'all';
+      if (hasActiveFilter) {
+        message.textContent = `${visiblePending} visible · ${totalPending} total pending`;
+        message.className = 'wf-message success';
+      }
+    }
 
     if (!items.length) {
       host.innerHTML = '<div class="wf-empty-card">No pending items in this view.</div>';

@@ -1,0 +1,5 @@
+V12.9.3.36.35 - Approval Visible Count Safety
+- Approval Center filtered message now shows: X visible · Y total pending
+- Keeps Select All Visible scoped to currently visible filtered items
+- No database, RLS, maker-checker, Identity, or approval action changes
+- Service Worker cache bumped to .36.35
