@@ -1967,7 +1967,7 @@
     rows.forEach(row => { (grouped[row.scope_type] ||= []).push(String(row.scope_id)); });
     const parts = Object.entries(grouped).map(([type, ids]) => {
       const options = Array.isArray(state.accessScopeData?.options?.[type]) ? state.accessScopeData.options[type] : [];
-      const names = ids.map(id => options.find(option => String(option.id) === id)?.name).filter(Boolean);
+      const names = ids.map(id => { const option = options.find(item => String(item.id) === id); return option?.label || option?.name; }).filter(Boolean);
       if (names.length === ids.length && names.length) {
         if (names.length <= 2) return names.join(', ');
         return `${names.slice(0,2).join(', ')} +${names.length - 2}`;
