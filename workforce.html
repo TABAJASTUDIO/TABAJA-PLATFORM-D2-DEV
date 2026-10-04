@@ -11,8 +11,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="cloud.js?v=12.9.3.16-fix5.7-rpc"></script>
-  <script defer src="workforce/workforce.js?v=12.9.3.36.13-premium-ui"></script>
-  <script defer src="workforce/workforce-visuals.js?v=12.9.3.36.21"></script>
+  <script defer src="workforce/workforce.js?v=12.9.3.36.20-approval-policy"></script>
   <style>
     /* Fail-closed role paint: never flash write/admin controls before access profile resolves. */
     .wf-access-pending .wf-nav button[data-section="import"],
@@ -406,6 +405,15 @@
             <article class="wf-kpi-card"><span>ACCESS MODEL</span><strong class="wf-access-model">ROLE + SCOPE</strong><small>What + where / who</small></article>
           </div>
           <div id="wfAccessMessage" class="wf-message info">Loading Workforce seat allocation…</div>
+          <article class="wf-card wf-access-card" id="wfApprovalPolicyCard">
+            <div class="wf-card-head"><div><span>APPROVAL POLICY</span><h2>Review workflow</h2></div><span id="wfApprovalPolicyBadge" class="wf-badge neutral">LOADING</span></div>
+            <p>Choose how this company approves Workforce changes.</p>
+            <div class="wf-access-add-row">
+              <label class="wf-field"><span>Approval mode</span><select id="wfApprovalPolicySelect"><option value="single_admin">Single Admin — self approval allowed</option><option value="maker_checker">Maker–Checker — another user must approve</option></select></label>
+              <button id="wfApprovalPolicySave" class="primary" type="button">Save Policy</button>
+            </div>
+            <div id="wfApprovalPolicyMessage" class="wf-message info">Reading company approval policy…</div>
+          </article>
           <div class="wf-access-grid wf-access-grid-manage">
             <article class="wf-card wf-access-card">
               <div class="wf-card-head"><div><span>TEAM ACCESS</span><h2>Workforce users</h2></div><span id="wfAccessUserCount" class="wf-badge neutral">0 USERS</span></div>

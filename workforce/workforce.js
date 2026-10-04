@@ -2115,6 +2115,69 @@
     if (assignButton) assignButton.disabled = !canManage;
   }
 
+  async function loadApprovalPolicySetting(canManage = false) {
+    const select = $('wfApprovalPolicySelect');
+    const save = $('wfApprovalPolicySave');
+    const badge = $('wfApprovalPolicyBadge');
+    const msg = $('wfApprovalPolicyMessage');
+    if (!select || !save) return;
+    try {
+      const { data, error } = await state.client
+        .from('wf_company_settings')
+        .select('maker_checker_required')
+        .eq('company_id', state.workspace.companyId)
+        .maybeSingle();
+      if (error) throw error;
+      state.makerCheckerRequired = data?.maker_checker_required !== false;
+      select.value = state.makerCheckerRequired ? 'maker_checker' : 'single_admin';
+      select.disabled = !canManage;
+      save.disabled = !canManage;
+      if (badge) {
+        badge.textContent = state.makerCheckerRequired ? 'MAKER–CHECKER' : 'SINGLE ADMIN';
+        badge.className = `wf-badge ${state.makerCheckerRequired ? 'open' : 'enabled'}`;
+      }
+      if (msg) {
+        msg.className = 'wf-message info';
+        msg.textContent = state.makerCheckerRequired
+          ? 'Another authorised user must review items created by the maker.'
+          : 'Authorised Workforce administrators may review their own items.';
+      }
+    } catch (error) {
+      if (msg) { msg.className = 'wf-message error'; msg.textContent = error?.message || 'Unable to read approval policy.'; }
+    }
+  }
+
+  async function saveApprovalPolicySetting() {
+    const select = $('wfApprovalPolicySelect');
+    const save = $('wfApprovalPolicySave');
+    const msg = $('wfApprovalPolicyMessage');
+    if (!select || !state.workspace?.companyId) return;
+    const makerCheckerRequired = select.value === 'maker_checker';
+    try {
+      save.disabled = true;
+      save.textContent = 'Saving…';
+      if (msg) { msg.className = 'wf-message info'; msg.textContent = 'Saving approval policy…'; }
+      const { data, error } = await state.client
+        .from('wf_company_settings')
+        .update({ maker_checker_required: makerCheckerRequired })
+        .eq('company_id', state.workspace.companyId)
+        .select('company_id,maker_checker_required')
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error('Approval policy was not changed. Your account may not have permission to update company settings.');
+      state.makerCheckerRequired = data.maker_checker_required !== false;
+      await loadApprovalPolicySetting(true);
+      if (msg) { msg.className = 'wf-message success'; msg.textContent = state.makerCheckerRequired ? 'Maker–Checker policy saved.' : 'Single Admin policy saved. Self approval is now allowed for authorised reviewers.'; }
+      if (state.currentSection === 'approvals') await loadApprovalCenter();
+    } catch (error) {
+      console.error('[Approval Policy Save]', error);
+      if (msg) { msg.className = 'wf-message error'; msg.textContent = error?.message || 'Unable to save approval policy.'; }
+    } finally {
+      save.disabled = false;
+      save.textContent = 'Save Policy';
+    }
+  }
+
   async function loadAccessFoundation() {
     const msg = $('wfAccessMessage');
     try {
@@ -2159,6 +2222,7 @@
       if ($('wfNavSeatStatus')) $('wfNavSeatStatus').textContent = `${assigned}/${limit}`;
       renderAccessUsers(accessData || {});
       populateAccessSelectors(accessData || {});
+      await loadApprovalPolicySetting(accessData?.can_manage === true);
       if (msg) {
         const canManage = accessData?.can_manage === true;
         msg.className = `wf-message ${available > 0 ? 'success' : 'info'}`;
@@ -2302,6 +2366,7 @@
     });
     $('wfDashboardRefresh')?.addEventListener('click', loadDashboard);
     $('wfAccessRefresh')?.addEventListener('click', loadAccessFoundation);
+    $('wfApprovalPolicySave')?.addEventListener('click', saveApprovalPolicySetting);
     $('wfAccessAssignBtn')?.addEventListener('click', assignWorkforceAccess);
     $('wfScopeType')?.addEventListener('change', event => { populateScopeTargets(event.target.value, []); $('wfScopeEditorMessage').className='wf-message info'; $('wfScopeEditorMessage').textContent = event.target.value === 'company' ? 'Company scope gives access across the company, subject to the user’s role permissions.' : 'Choose one or more records. Role permissions still control what the user can do.'; });
     $('wfScopeSave')?.addEventListener('click', saveWorkforceScope);
