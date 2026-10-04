@@ -209,89 +209,47 @@ html,body{background:linear-gradient(135deg,#f8fbff 0%,#f3f7fc 55%,#f7f9fd 100%)
 @media(max-width:760px){#wfDashboardView>.wf-dashboard-head{padding:15px}#wfDashboardView>.wf-dashboard-head h2{font-size:24px}#wfDashboardView .wf-attendance-strip{grid-template-columns:repeat(2,1fr)}}
 
 /* ============================================================
-   V12.9.3.36.18 — SAFE GLOBAL PREMIUM SKIN
-   CSS ONLY. No DOM replacement, no mock data, no ID changes.
+   V12.9.3.36.20 — SAFE PREMIUM LAYOUT TRANSFORMATION
+   Strong layout/presentation transformation on the locked 36.15 DOM.
+   No IDs, forms, tables, data hooks, workflow or application logic changed.
    ============================================================ */
-:root{--wf-navy:#07182b;--wf-navy2:#0b223b;--wf-blue:#0967d8;--wf-blue2:#0b78e3;--wf-ink:#10213d;--wf-muted:#687b95;--wf-line:#dfe8f2;--wf-bg:#f4f7fb;--wf-card:#fff;--wf-green:#0aa879;--wf-radius:14px}
-body{background:var(--wf-bg);color:var(--wf-ink)}
-.wf-shell{background:var(--wf-bg)}
-.wf-sidebar{background:linear-gradient(180deg,#061727 0%,#071b2f 58%,#061523 100%);border-right:1px solid rgba(255,255,255,.07);box-shadow:8px 0 30px rgba(5,20,38,.08)}
-.wf-brand{padding:20px 18px 18px;border-bottom:1px solid rgba(255,255,255,.07)}
-.wf-brand-mark{width:42px;height:42px;border-radius:11px;border:1px solid rgba(226,171,73,.7);box-shadow:inset 0 0 0 1px rgba(255,255,255,.03)}
-.wf-nav{padding:14px 10px;gap:5px}.wf-nav button{min-height:45px;border-radius:10px;padding:0 13px;font-size:13px;font-weight:650;letter-spacing:.005em;color:#cbd7e6;transition:.16s ease}.wf-nav button:hover{background:rgba(255,255,255,.055);color:#fff}.wf-nav button.active{background:linear-gradient(90deg,#0b5e9c,#0a477b);color:#fff;box-shadow:inset 3px 0 0 #28d6ff,0 7px 18px rgba(0,86,156,.2)}
-.wf-sidebar-foot{border-top:1px solid rgba(255,255,255,.07);background:rgba(0,0,0,.08)}
-.wf-main{background:linear-gradient(180deg,#f9fbfe 0,#f3f6fa 190px,#f4f7fb 100%)}
-.wf-topbar{min-height:68px;padding:10px 24px;background:rgba(255,255,255,.94);border-bottom:1px solid #e4ebf3;box-shadow:0 2px 12px rgba(22,48,78,.035);backdrop-filter:blur(10px)}
-.wf-topbar>.wf-kicker{font-size:10px;letter-spacing:.15em;color:#55708f}.wf-account{border-left:1px solid #e5ebf2;padding-left:18px}.wf-account-copy strong{font-size:12px}.wf-account-copy span{font-size:10px;color:#71839a}
-.wf-workspace{max-width:1540px;margin:0 auto;padding:22px 26px 36px}
-.wf-dashboard-head{align-items:center;margin-bottom:16px}.wf-dashboard-head h1,.wf-dashboard-head h2{letter-spacing:-.025em;color:#0c1c38}.wf-dashboard-head p{color:#718198}
-.wf-card,.wf-kpi-card{background:rgba(255,255,255,.97);border:1px solid var(--wf-line);border-radius:var(--wf-radius);box-shadow:0 8px 24px rgba(22,55,90,.055)}
-.wf-card{padding:18px}.wf-card-head h2{color:#14243f}.wf-kpi-grid{gap:12px}.wf-kpi-card{transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}.wf-kpi-card:hover{transform:translateY(-1px);box-shadow:0 12px 30px rgba(22,55,90,.085);border-color:#cedceb}
-.wf-soft-btn,.wf-primary-btn,.wf-danger-btn,.wf-setup-primary,button{font-family:inherit}.wf-soft-btn{border-radius:9px;border:1px solid #d9e3ee;background:#fff;color:#203754}.wf-soft-btn:hover{background:#f7faff;border-color:#c7d7e8}.wf-primary-btn,.wf-setup-primary{border-radius:9px;background:linear-gradient(180deg,#0b70dd,#095fbe);box-shadow:0 5px 13px rgba(9,103,216,.17)}
-.wf-field input,.wf-field select,.wf-inline-filter select,.wf-inline-filter input{border-radius:9px;border:1px solid #d9e3ee;background:#fff;min-height:41px;box-shadow:inset 0 1px 1px rgba(13,38,66,.02)}
-.wf-field input:focus,.wf-field select:focus,.wf-inline-filter select:focus,.wf-inline-filter input:focus{outline:none;border-color:#7db4ee;box-shadow:0 0 0 3px rgba(9,103,216,.09)}
-.wf-table-wrap{border:1px solid #e3eaf2;border-radius:11px;overflow:auto;background:#fff}.wf-table{border-collapse:separate;border-spacing:0}.wf-table th{background:#f6f9fc;color:#536984;font-size:10px;letter-spacing:.055em;text-transform:uppercase;border-bottom:1px solid #e2eaf2}.wf-table td{border-bottom:1px solid #edf2f7;color:#273a54}.wf-table tbody tr:hover td{background:#f9fbfe}
-.wf-badge{border-radius:999px;font-weight:800;letter-spacing:.035em}.wf-badge.active,.wf-badge.success{background:#e8f8f1;color:#087956}.wf-badge.neutral{background:#edf3f8;color:#566b83}
-.wf-message{border-radius:10px;border-width:1px}.wf-empty-card{border-radius:11px;background:#fbfcfe;border:1px dashed #d9e4ef;color:#7a8ba0}
-/* Dashboard: preserve live DOM, elevate composition */
-#wfDashboardView>.wf-dashboard-head{background:linear-gradient(110deg,#fff 0%,#f6faff 62%,#edf6ff 100%);border-color:#dbe7f3;box-shadow:0 10px 30px rgba(24,62,101,.055)}
-#wfDashboardView .wf-kpi-card:nth-child(1){background:linear-gradient(135deg,#fff,#f1f7ff)}#wfDashboardView .wf-kpi-card:nth-child(2){background:linear-gradient(135deg,#fff,#effbf7)}#wfDashboardView .wf-kpi-card:nth-child(3){background:linear-gradient(135deg,#fff,#f7f4ff)}#wfDashboardView .wf-kpi-card:nth-child(4){background:linear-gradient(135deg,#fff,#fff8ef)}
-#wfDashboardView .wf-dashboard-table{min-height:120px}
-/* Import: real controls only */
-#wfImportView .wf-hero-grid{gap:14px}#wfImportView .wf-import-card{border-top:3px solid #1671d9}#wfImportView .wf-status-card{border-top:3px solid #14a27c}#wfImportView .wf-preview-card{border-top:3px solid #7a61d1}#wfImportView .wf-recent-card{border-top:3px solid #e8a12c}.wf-dropzone{border-radius:12px!important;border:1.5px dashed #a9c7e8!important;background:linear-gradient(180deg,#fbfdff,#f4f9ff)!important}
-/* Operational pages */
-#wfApprovalView .wf-kpi-card,#wfLeaveView .wf-kpi-card,#wfOvertimeView .wf-kpi-card,#wfAccessView .wf-kpi-card{min-height:122px}
-#wfApprovalView .wf-approval-center-card,#wfLeaveView .wf-card,#wfOvertimeView .wf-card,#wfPayrollSetupView .wf-card,#wfAccessView .wf-card{box-shadow:0 9px 26px rgba(22,55,90,.055)}
-/* Payroll: live calculation DOM only */
-#wfPayrollView .wf-payroll-control-card{border-top:3px solid #116fd6}#wfPayrollView .wf-payroll-kpis .wf-kpi-card:nth-child(1){background:linear-gradient(135deg,#fff,#f2f7ff)}#wfPayrollView .wf-payroll-kpis .wf-kpi-card:nth-child(2){background:linear-gradient(135deg,#fff,#f1fbf7)}#wfPayrollView .wf-payroll-kpis .wf-kpi-card:nth-child(3){background:linear-gradient(135deg,#fff,#fff7ef)}#wfPayrollView .wf-payroll-kpis .wf-kpi-card:nth-child(4){background:linear-gradient(135deg,#fff,#f5f2ff)}#wfPayrollView .wf-payroll-results-card{border-top:3px solid #6d55cc}
-/* Access: keep role/scope data untouched */
-#wfAccessView .wf-access-layout{gap:14px}#wfAccessView .wf-access-card{border-top:3px solid #146fd4}
-@media(max-width:980px){.wf-workspace{padding:18px}.wf-topbar{padding:10px 16px}}
-
-/* ============================================================
-   V12.9.3.36.19 — SAFE PREMIUM ARCHITECTURE LAYER
-   CSS-only architectural composition on the locked .36.15 DOM.
-   No IDs, sections, data bindings or application logic changed.
-   ============================================================ */
-@media (min-width:1100px){
-  .wf-sidebar{width:258px;padding:18px 12px 16px;display:flex;flex-direction:column}
-  .wf-main{margin-left:258px}
-  .wf-workspace{padding:26px 30px 44px;max-width:1680px}
-}
-.wf-brand{gap:11px}.wf-brand b{font-size:15px;letter-spacing:-.01em}.wf-brand small{font-size:8px;letter-spacing:.14em;color:#9eb0c5}
-.wf-nav button span{width:26px;height:26px;display:grid;place-items:center;border-radius:8px;background:rgba(255,255,255,.045);font-size:15px}.wf-nav button.active span{background:rgba(34,211,238,.12);color:#70e5ff}.wf-nav button b{font-size:12px}.wf-nav button em{margin-left:auto;font-size:9px;color:#91a6bd}
-.wf-topbar{min-height:78px;padding:12px 28px;position:sticky;top:0;z-index:20}.wf-topbar>div:first-child{display:grid;grid-template-columns:auto;align-content:center}.wf-topbar h1{font-size:23px;line-height:1.1}.wf-topbar p{margin-top:3px}.wf-account{padding:8px 10px 8px 18px;border-radius:12px;background:#f8fbff;border:1px solid #e4edf6}.wf-account-copy b{color:#142944}.wf-account-copy small{color:#72849b}
-#wfDashboardView>.wf-dashboard-head{min-height:118px;padding:22px 24px;background:radial-gradient(circle at 82% 30%,rgba(61,151,236,.12),transparent 28%),linear-gradient(115deg,#fff 0%,#f6faff 58%,#eef7ff 100%);border-radius:18px}.wf-dashboard-head h2{font-size:30px!important;line-height:1.08}.wf-dashboard-head .wf-kicker{color:#1768b8!important}.wf-dashboard-head button{min-height:42px;padding:0 16px!important}
-#wfDashboardView .wf-kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
-#wfDashboardView .wf-kpi-card{min-height:146px;padding:20px 20px 18px 72px;justify-content:center;position:relative}
-#wfDashboardView .wf-kpi-card:before{position:absolute;left:20px;top:22px;width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:18px;font-weight:900;background:#e7f3ff;color:#0a6fd6;box-shadow:inset 0 0 0 1px rgba(9,103,216,.06)}
-#wfDashboardView .wf-kpi-card:nth-child(1):before{content:'♟'}
-#wfDashboardView .wf-kpi-card:nth-child(2):before{content:'◆';background:#e7f8f1;color:#0a9c70}
-#wfDashboardView .wf-kpi-card:nth-child(3):before{content:'✓';background:#f0edff;color:#6753cf}
-#wfDashboardView .wf-kpi-card:nth-child(4):before{content:'!';background:#fff1e4;color:#e2781c}
-#wfDashboardView .wf-kpi-card>span{font-size:9px}.wf-kpi-card strong{letter-spacing:-.04em}
-#wfDashboardView .wf-dashboard-grid{grid-template-columns:minmax(0,1.72fr) minmax(315px,.68fr);gap:16px;margin-top:16px}
-#wfDashboardView .wf-ops-card{min-height:360px}#wfDashboardView .wf-payroll-card{min-height:360px;background:linear-gradient(180deg,#fff,#fbfdff)}
-#wfDashboardView .wf-card-head{align-items:center}.wf-card-head h2{font-size:19px!important;letter-spacing:-.02em}
-#wfDashboardView .wf-attendance-strip{margin:14px 0 12px;gap:10px}.wf-attendance-strip>div{min-height:78px;padding:14px!important}.wf-attendance-strip b{font-size:24px!important}
-#wfDashboardView .wf-dashboard-table{min-height:170px;max-height:245px}.wf-dashboard-table .wf-table th{height:38px}
-#wfDashboardView .wf-payroll-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.wf-payroll-summary>div{min-height:94px;padding:14px!important}.wf-payroll-summary b{font-size:21px!important}.wf-payroll-meta{padding:14px!important;border-radius:11px!important}
-#wfDashboardView .wf-dashboard-grid.lower{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}.wf-attention-card,.wf-activity-card{min-height:245px!important}
-#wfDashboardView .wf-empty-card{min-height:100px;display:grid;place-items:center;text-align:center}
-#wfDashboardView #wfDashboardMessage{background:transparent;border:0;padding-left:2px;color:#71839a}
-/* Import Center — stronger hierarchy, all controls remain the real controls */
-#wfImportView>.wf-dashboard-head{padding:20px 22px;border:1px solid #e0e9f3;border-radius:16px;background:#fff;box-shadow:0 8px 24px rgba(22,55,90,.045)}
-#wfImportView .wf-hero-grid{grid-template-columns:minmax(0,1.55fr) minmax(310px,.62fr);gap:16px;margin-top:16px}.wf-import-card,.wf-status-card,.wf-preview-card,.wf-recent-card{border-radius:14px!important}.wf-import-card{padding:22px!important}.wf-dropzone{min-height:142px;padding:24px!important}.wf-drop-icon{width:58px;height:58px;border-radius:14px!important;background:#e7f8ef!important;color:#07865f!important;font-size:11px}.wf-status-card{background:linear-gradient(180deg,#fff,#f8fcfb)}
-/* Approval / Leave / OT / Setup / Access — consistent enterprise page rhythm */
-#wfApprovalView>.wf-dashboard-head,#wfLeaveView>.wf-dashboard-head,#wfOvertimeView>.wf-dashboard-head,#wfSetupView>.wf-dashboard-head,#wfAccessView>.wf-dashboard-head,#wfPayrollView>.wf-dashboard-head{padding:18px 20px;border:1px solid #e1e9f2;border-radius:15px;background:#fff;box-shadow:0 7px 22px rgba(22,55,90,.04)}
-#wfApprovalView .wf-kpi-grid,#wfLeaveView .wf-kpi-grid,#wfOvertimeView .wf-kpi-grid,#wfAccessView .wf-kpi-grid{margin-top:14px}
-/* Payroll — visually structured around the real finalized run and live results */
-#wfPayrollView .wf-payroll-control-card{padding:22px;border-radius:15px;background:linear-gradient(180deg,#fff,#f8fbff);box-shadow:0 10px 28px rgba(22,55,90,.06)}
-#wfPayrollView .wf-payroll-kpis{gap:12px;margin-top:14px}.wf-payroll-kpis .wf-kpi-card{min-height:132px;padding:18px}.wf-payroll-kpis .wf-kpi-card strong{font-size:29px}
-#wfPayrollView .wf-payroll-grid{grid-template-columns:minmax(0,1.6fr) minmax(300px,.62fr);gap:16px}.wf-payroll-actions-card{background:linear-gradient(180deg,#fff,#f8fbff)}
-#wfPayrollView .wf-payroll-results-card{border-radius:15px}.wf-payroll-results-card .wf-table th{height:40px}
-/* Users & Access */
-#wfAccessView .wf-access-layout{grid-template-columns:minmax(0,1.55fr) minmax(300px,.62fr);gap:16px}.wf-access-card{border-radius:15px!important}.wf-access-card .wf-table-wrap{margin-top:12px}
-@media(max-width:1099px){#wfDashboardView .wf-dashboard-grid,#wfDashboardView .wf-dashboard-grid.lower,#wfImportView .wf-hero-grid,#wfPayrollView .wf-payroll-grid,#wfAccessView .wf-access-layout{grid-template-columns:1fr}}
-@media(max-width:760px){#wfDashboardView .wf-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#wfDashboardView .wf-kpi-card{padding-left:64px}}
-@media(max-width:520px){#wfDashboardView .wf-kpi-grid{grid-template-columns:1fr}}
+:root{--wf-bg:#f2f6fb;--wf-panel:#fff;--wf-ink:#0c1b38;--wf-muted:#63718a;--wf-line:#dbe5f1;--wf-navy:#07182c;--wf-navy2:#0a223c;--wf-blue:#0868d8;--wf-green:#0ca678;--wf-red:#ef476f;--wf-amber:#f59f00;--wf-shadow:0 10px 30px rgba(25,57,91,.075)}
+body{background:linear-gradient(180deg,#f7faff 0,#eef4fa 100%)}
+.wf-sidebar{width:258px;padding:22px 12px;background:linear-gradient(180deg,#06172a 0%,#081d33 56%,#061525 100%);box-shadow:10px 0 30px rgba(7,24,44,.12)}
+.wf-brand{padding:0 8px 22px;margin:0 4px;border-bottom:1px solid rgba(255,255,255,.09)}
+.wf-brand-mark{width:48px;height:48px;border-radius:12px;border:1px solid rgba(232,178,74,.65);background:rgba(10,29,51,.9);color:#eab34d;font-size:17px}
+.wf-brand b{font-size:16px}.wf-brand small{font-size:9px;color:#a8b7c9}
+.wf-nav{gap:5px;margin-top:24px}.wf-nav button{min-height:47px;border-radius:9px;padding:10px 13px;color:#d0dae7}.wf-nav button b{font-size:13px;font-weight:650}.wf-nav button span{font-size:19px;color:#b8c9db}.wf-nav button.active{background:linear-gradient(90deg,#075ba8,#0b477c);border-color:#1678c7;box-shadow:inset 3px 0 0 #24d3ff,0 7px 18px rgba(0,82,155,.22);color:#fff}.wf-nav button.active span{color:#fff}.wf-sidebar-foot{margin:18px 4px 0;padding:16px 10px;border:1px solid rgba(255,255,255,.07);border-radius:12px;background:rgba(255,255,255,.025)}
+.wf-main{margin-left:258px}.wf-topbar{min-height:86px;padding:15px 28px;background:rgba(255,255,255,.96);backdrop-filter:blur(14px);border-bottom:1px solid #e3eaf3;box-shadow:0 4px 18px rgba(18,52,87,.035)}
+.wf-topbar>div:first-child{display:grid;grid-template-columns:auto 1fr;column-gap:10px;align-items:center}.wf-topbar .wf-kicker{grid-column:1/-1;color:#1766b3;font-size:9px}.wf-topbar h1{font-size:23px;letter-spacing:-.025em;margin:3px 0 0}.wf-topbar p{grid-column:2;margin:2px 0 0;font-size:11px;color:#758399}
+.wf-account{padding:8px 10px;border:1px solid #e1e9f3;border-radius:12px;background:#f9fbfe;min-width:300px;justify-content:flex-end}.wf-account-copy{text-align:right}.wf-account-copy b{font-size:12px}.wf-account-copy small{font-size:10px}.wf-badge{border-radius:999px;font-weight:800}
+.wf-workspace{padding:24px 28px 34px;max-width:1540px;margin:0 auto}
+.wf-section-view{animation:wfPremiumIn .18s ease-out}@keyframes wfPremiumIn{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
+.wf-dashboard-head{border-radius:14px!important}.wf-dashboard-head h2{color:#0a1934;letter-spacing:-.025em}.wf-dashboard-head p{color:#6f7e94}.wf-soft-btn{border:1px solid #d8e4f1!important;background:#fff!important;color:#174a80!important;border-radius:9px!important;box-shadow:0 3px 10px rgba(32,72,110,.04)}
+/* Dashboard: stronger product hierarchy */
+#wfDashboardView>.wf-dashboard-head{padding:20px 22px;margin:0 0 14px;background:radial-gradient(circle at 80% 0,rgba(39,145,255,.10),transparent 30%),linear-gradient(110deg,#fff,#f3f8ff);border:1px solid #dce7f3;box-shadow:none}
+#wfDashboardView>.wf-dashboard-head h2{font-size:30px}
+#wfDashboardView .wf-kpi-grid{gap:12px;margin-bottom:14px}
+#wfDashboardView .wf-kpi-card{min-height:128px;padding:20px 16px 18px 70px;border:1px solid #dce7f2;border-radius:13px;box-shadow:none;overflow:hidden}
+#wfDashboardView .wf-kpi-card:after{content:"";position:absolute;width:110px;height:110px;border-radius:50%;right:-48px;top:-48px;background:rgba(34,126,230,.055)}
+#wfDashboardView .wf-kpi-card:nth-child(1){background:linear-gradient(135deg,#fff,#f0f7ff)}#wfDashboardView .wf-kpi-card:nth-child(2){background:linear-gradient(135deg,#fff,#effbf7)}#wfDashboardView .wf-kpi-card:nth-child(3){background:linear-gradient(135deg,#fff,#f5f1ff)}#wfDashboardView .wf-kpi-card:nth-child(4){background:linear-gradient(135deg,#fff,#fff5ea)}
+#wfDashboardView .wf-kpi-card:before{left:16px;top:20px;width:42px;height:42px;border-radius:11px}
+#wfDashboardView .wf-kpi-card strong{font-size:31px;margin:3px 0 4px;color:#0a1934}
+#wfDashboardView .wf-dashboard-grid{grid-template-columns:minmax(0,1.7fr) minmax(310px,.65fr);gap:14px}
+#wfDashboardView .wf-card{border:1px solid #dce6f1;border-radius:14px;box-shadow:none;background:#fff}
+#wfDashboardView .wf-ops-card{min-height:340px}#wfDashboardView .wf-payroll-card{min-height:340px;background:linear-gradient(180deg,#fff,#f8fbff)}
+#wfDashboardView .wf-card-head{border-bottom:0;margin-bottom:10px;padding-bottom:5px}#wfDashboardView .wf-card-head h2{font-size:18px}
+#wfDashboardView .wf-attendance-strip{gap:8px}#wfDashboardView .wf-attendance-strip>div{border:1px solid #e3ebf4;border-radius:10px;background:#f9fbfe;min-height:74px}
+#wfDashboardView .wf-dashboard-table{margin-top:10px;border:1px solid #e3eaf2;border-radius:10px;overflow:hidden}
+#wfDashboardView .wf-table thead{background:#f5f8fc}#wfDashboardView .wf-table th{color:#52627a;font-size:9px}
+#wfDashboardView .wf-payroll-summary{gap:8px}#wfDashboardView .wf-payroll-summary>div{border:1px solid #e1e9f2;border-radius:10px;background:#fff;min-height:84px}
+#wfDashboardView .wf-payroll-summary>div:last-child{background:linear-gradient(135deg,#eef9f5,#fff);border-color:#cfeadf}#wfDashboardView .wf-payroll-summary>div:last-child b{color:#087b59}
+#wfDashboardView .wf-payroll-meta{border:1px solid #e1e9f2;background:#f7faff}
+#wfDashboardView .wf-dashboard-grid.lower{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-top:14px}#wfDashboardView .wf-attention-card,#wfDashboardView .wf-activity-card{min-height:220px}
+/* Import: workspace-like layout using real controls */
+#wfImportView .wf-hero-grid{grid-template-columns:minmax(0,1.7fr) minmax(300px,.65fr);gap:14px}#wfImportView .wf-card{border-radius:14px;border:1px solid #dce6f1;box-shadow:none}#wfImportView .wf-import-card{background:#fff}#wfImportView .wf-dropzone{min-height:175px;border:1.5px dashed #8eb9e7;background:linear-gradient(180deg,#fbfdff,#f2f8ff);border-radius:12px}#wfImportView .wf-status-card{background:linear-gradient(180deg,#fff,#f6faff)}#wfImportView .wf-preview-card{border-top:0}
+/* Payroll: enterprise control-room treatment, real data only */
+#wfPayrollView .wf-dashboard-head{padding:18px 20px;background:linear-gradient(110deg,#fff,#f4f8ff);border:1px solid #dce7f2}#wfPayrollView .wf-payroll-control-card,#wfPayrollView .wf-payroll-results-card,#wfPayrollView .wf-payroll-issues-card,#wfPayrollView .wf-payroll-actions-card{border:1px solid #dce6f1!important;border-radius:14px!important;box-shadow:none!important}#wfPayrollView .wf-payroll-kpis{gap:10px}#wfPayrollView .wf-payroll-kpis .wf-kpi-card{background:linear-gradient(135deg,#fff,#f6f9fd)!important;border:1px solid #dce6f1!important;min-height:120px}#wfPayrollView .wf-payroll-grid{grid-template-columns:minmax(0,1.65fr) minmax(290px,.6fr)}#wfPayrollView .wf-payroll-actions-card{background:linear-gradient(180deg,#fff,#f7faff)}
+/* Remaining operational pages: consistent premium system */
+#wfApprovalView .wf-kpi-grid,#wfLeaveView .wf-kpi-grid,#wfOvertimeView .wf-kpi-grid,#wfAccessView .wf-kpi-grid{gap:10px}.wf-section-view>.wf-dashboard-head{padding:18px 20px;background:linear-gradient(110deg,#fff,#f6f9fd);border:1px solid #dce6f1}.wf-card{border-color:#dce6f1!important;box-shadow:none!important}.wf-field input,.wf-field select,select,input{border-radius:9px!important}.wf-table-wrap{border-radius:10px}.wf-table thead{background:#f5f8fc}.wf-message{border-radius:10px}
+@media(max-width:1180px){.wf-sidebar{width:230px}.wf-main{margin-left:230px}#wfDashboardView .wf-dashboard-grid,#wfDashboardView .wf-dashboard-grid.lower,#wfPayrollView .wf-payroll-grid,#wfImportView .wf-hero-grid{grid-template-columns:1fr}.wf-account{min-width:0}}
