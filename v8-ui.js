@@ -66,13 +66,37 @@
   }
 
   window.TabajaSetView = setView;
+  // One-level professional Back navigation used by Esc.
+  // Child workspace -> logical parent -> Command Center.
+  const backParent = Object.freeze({
+    reports: 'printcenter',
+    printcenter: 'designer',
+    employees: 'designer',
+    templates: 'dashboard',
+    designer: 'dashboard',
+    batch: 'printcenter',
+    quality: 'printcenter',
+    zebra: 'printcenter',
+    nfc: 'dashboard',
+    elements: 'designer'
+  });
+
+  function backView() {
+    const current = document.body.dataset.v8View || 'dashboard';
+    const parent = backParent[current] || 'dashboard';
+    if (current === 'dashboard') return false;
+    setView(parent);
+    return true;
+  }
+
+  window.TabajaBackView = backView;
 
   function init() {
     const qualityTools = document.getElementById('qualityTools');
     const host = document.getElementById('qualityToolsHost');
     if (qualityTools && host) host.appendChild(qualityTools);
 
-    document.querySelectorAll('.v8-nav-btn[data-view]').forEach(btn => btn.addEventListener('click', () => setView(btn.dataset.view)));
+    document.querySelectorAll('.v8-nav-btn').forEach(btn => btn.addEventListener('click', () => setView(btn.dataset.view)));
     document.querySelectorAll('[data-go]').forEach(btn => btn.addEventListener('click', () => setView(btn.dataset.go)));
 
     const modes = document.querySelectorAll('[data-quality-mode]');

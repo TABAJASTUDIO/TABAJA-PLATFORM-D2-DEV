@@ -40,6 +40,13 @@
       window.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape' || event.defaultPrevented) return;
         event.preventDefault();
+        event.stopPropagation();
+        // Workforce has its own Back level: any child section returns to its dashboard first.
+        if (state.currentSection && state.currentSection !== 'dashboard') {
+          showSection('dashboard');
+          return;
+        }
+        // Only the Workforce Dashboard exits the embedded Workforce shell to Command Center.
         returnToIdentityPlatform(event);
       });
     }
