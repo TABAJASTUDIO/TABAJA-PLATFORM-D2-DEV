@@ -1,0 +1,14 @@
+V12.9.3.36.31 — ATTENDANCE CENTER
+
+- Friendly duplicate-attendance message; database constraint unchanged.
+- DD/MM/YYYY retained for attendance date entry/display.
+- Bulk Attendance Center added inside Workforce Payroll Setup.
+- Area + Site filters.
+- Live search by name/code/phone/post/site.
+- Employee names sorted A-Z.
+- Mark All Present + Clear Selection.
+- Per-row status and units.
+- Bulk submit as PENDING for approval.
+- Existing attendance on the same date is skipped/protected.
+- No database schema changes.
+- Identity files/logic not modified.

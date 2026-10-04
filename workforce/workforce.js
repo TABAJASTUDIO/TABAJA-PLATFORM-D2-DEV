@@ -1646,7 +1646,54 @@
   async function saveSetupAttendance(){
     const emp=selectedSetupEmployee(), date=parseDateDMY($('wfSetupAttendanceDate').value), status=$('wfSetupAttendanceStatus').value, units=Number($('wfSetupAttendanceUnits').value);
     if(!emp)return setupMessage('Select an employee first.','warning'); if(!date||!Number.isFinite(units)||units<0||units>1)return setupMessage('Enter a valid attendance date and units from 0 to 1.','warning');
-    try{state.setupBusy=true;const period=await ensureAttendancePeriod(date);const {error}=await state.client.from('wf_attendance_records').insert({company_id:state.workspace.companyId,employee_id:emp.id,attendance_period_id:period.id,work_date:date,attendance_status:status,attendance_units:units,worked_minutes:0,late_minutes:0,early_leave_minutes:0,overtime_minutes:0,source:'manual',approval_status:'pending',notes:'Created from Workforce Payroll Setup'});if(error)throw error;setupMessage('Attendance submitted as PENDING for approval.','success');await loadSelectedPayrollSetup();await loadApprovalCenter();}catch(error){setupMessage(error?.message||'Unable to submit attendance.','error');}finally{state.setupBusy=false;}
+    try{state.setupBusy=true;const period=await ensureAttendancePeriod(date);const {error}=await state.client.from('wf_attendance_records').insert({company_id:state.workspace.companyId,employee_id:emp.id,attendance_period_id:period.id,work_date:date,attendance_status:status,attendance_units:units,worked_minutes:0,late_minutes:0,early_leave_minutes:0,overtime_minutes:0,source:'manual',approval_status:'pending',notes:'Created from Workforce Payroll Setup'});if(error)throw error;setupMessage('Attendance submitted as PENDING for approval.','success');await loadSelectedPayrollSetup();await loadApprovalCenter();}catch(error){const msg=String(error?.message||''); if(error?.code==='23505'||msg.toLowerCase().includes('duplicate key')||msg.includes('wf_attendance_employee_date_no_shift_unique')) setupMessage(`Attendance already exists for this employee on ${$('wfSetupAttendanceDate').value}. Please edit the existing attendance record instead.`,'warning'); else setupMessage(msg||'Unable to submit attendance.','error');}finally{state.setupBusy=false;}
+  }
+
+
+  const attendanceCenter = { rows: [], areas: [], sites: [] };
+  function attendanceCenterMessage(text,tone='info'){const el=$('wfAttendanceCenterMessage');if(!el)return;el.className=`wf-message ${tone}`;el.textContent=text;}
+  function attendanceUnitsForStatus(status){return status==='half_day'?0.5:(['absent','no_show'].includes(status)?0:1);}
+  function attendanceStatusOptions(selected='present'){return ['present','late','half_day','absent','no_show','leave','off','holiday'].map(v=>`<option value="${v}"${v===selected?' selected':''}>${v.split('_').map(x=>x[0].toUpperCase()+x.slice(1)).join(' ')}</option>`).join('');}
+  async function loadAttendanceCenterFoundation(){
+    if(!state.workspace?.companyId)return;
+    const today=formatDateDMY(new Date().toISOString().slice(0,10)); if($('wfAttendanceCenterDate')&&!$('wfAttendanceCenterDate').value)$('wfAttendanceCenterDate').value=today;
+    try{
+      const [areasRes,sitesRes]=await Promise.all([
+        state.client.from('wf_areas').select('id,name').eq('company_id',state.workspace.companyId).order('name',{ascending:true}),
+        state.client.from('wf_sites').select('id,name,area_id').eq('company_id',state.workspace.companyId).order('name',{ascending:true})
+      ]);
+      if(areasRes.error)throw areasRes.error;if(sitesRes.error)throw sitesRes.error;
+      attendanceCenter.areas=areasRes.data||[];attendanceCenter.sites=sitesRes.data||[];
+      $('wfAttendanceCenterArea').innerHTML='<option value="">All Areas</option>'+attendanceCenter.areas.map(x=>`<option value="${escapeHtml(x.id)}">${escapeHtml(x.name||'Unnamed Area')}</option>`).join('');
+      refreshAttendanceCenterSites();
+    }catch(error){attendanceCenterMessage(error?.message||'Unable to load Attendance Center filters.','error');}
+  }
+  function refreshAttendanceCenterSites(){const area=$('wfAttendanceCenterArea')?.value||'';const site=$('wfAttendanceCenterSite');if(!site)return;const rows=attendanceCenter.sites.filter(x=>!area||x.area_id===area);site.innerHTML='<option value="">All Sites</option>'+rows.map(x=>`<option value="${escapeHtml(x.id)}">${escapeHtml(x.name||'Unnamed Site')}</option>`).join('');}
+  async function loadAttendanceCenterEmployees(){
+    const date=parseDateDMY($('wfAttendanceCenterDate')?.value||''); if(!date)return attendanceCenterMessage('Enter a valid Work date as DD/MM/YYYY.','warning');
+    attendanceCenterMessage('Loading active employees and current assignments…','info');
+    try{
+      let q=state.client.from('wf_employee_assignments').select('employee_id,area_id,site_id,post_id,start_date,end_date,status').eq('company_id',state.workspace.companyId).eq('status','active');
+      const area=$('wfAttendanceCenterArea').value,site=$('wfAttendanceCenterSite').value;if(area)q=q.eq('area_id',area);if(site)q=q.eq('site_id',site);
+      const ares=await q;if(ares.error)throw ares.error;const assignments=ares.data||[];const ids=[...new Set(assignments.map(x=>x.employee_id).filter(Boolean))];
+      if(!ids.length){attendanceCenter.rows=[];renderAttendanceCenter();return attendanceCenterMessage('No active employees found for this Area/Site.','warning');}
+      const [empRes,postRes]=await Promise.all([
+        state.client.from('employees').select('id,employee_code,full_name,phone,job_title,status,is_deleted').eq('company_id',state.workspace.companyId).in('id',ids).eq('is_deleted',false).eq('status','active'),
+        state.client.from('wf_posts').select('id,name').eq('company_id',state.workspace.companyId)
+      ]);if(empRes.error)throw empRes.error;if(postRes.error)throw postRes.error;
+      const em=new Map((empRes.data||[]).map(x=>[x.id,x])),pm=new Map((postRes.data||[]).map(x=>[x.id,x.name])),sm=new Map(attendanceCenter.sites.map(x=>[x.id,x.name]));
+      attendanceCenter.rows=assignments.map(a=>{const e=em.get(a.employee_id);if(!e)return null;return {employee_id:e.id,code:e.employee_code||'',name:e.full_name||'Unnamed Employee',phone:e.phone||'',post:pm.get(a.post_id)||e.job_title||'No post',site:sm.get(a.site_id)||'No site',selected:false,status:'present',units:1};}).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
+      renderAttendanceCenter();attendanceCenterMessage(`${attendanceCenter.rows.length} active employees loaded A–Z. Mark attendance, then submit the selected rows.`,'success');
+    }catch(error){attendanceCenterMessage(error?.message||'Unable to load employees.','error');}
+  }
+  function renderAttendanceCenter(){const body=$('wfAttendanceCenterBody');if(!body)return;const term=($('wfAttendanceCenterSearch')?.value||'').trim().toLowerCase();const rows=attendanceCenter.rows.filter(r=>!term||`${r.name} ${r.code} ${r.phone} ${r.post} ${r.site}`.toLowerCase().includes(term));$('wfAttendanceCenterCount').textContent=`${rows.length} employee${rows.length===1?'':'s'}`;body.innerHTML=rows.length?rows.map(r=>`<tr data-att-employee="${escapeHtml(r.employee_id)}"><td><input type="checkbox" data-att-select ${r.selected?'checked':''}></td><td><b>${escapeHtml(r.name)}</b><small class="wf-cell-sub">${escapeHtml(r.code||'NO CODE')}</small></td><td>${escapeHtml(r.post)}</td><td>${escapeHtml(r.site)}</td><td><select data-att-status>${attendanceStatusOptions(r.status)}</select></td><td><input data-att-units type="number" min="0" max="1" step="0.5" value="${r.units}"></td></tr>`).join(''):'<tr><td colspan="6" class="empty">No matching employees.</td></tr>';}
+  function updateAttendanceCenterRow(event){const tr=event.target.closest('[data-att-employee]');if(!tr)return;const r=attendanceCenter.rows.find(x=>x.employee_id===tr.dataset.attEmployee);if(!r)return;if(event.target.matches('[data-att-select]'))r.selected=event.target.checked;if(event.target.matches('[data-att-status]')){r.status=event.target.value;r.units=attendanceUnitsForStatus(r.status);tr.querySelector('[data-att-units]').value=r.units;}if(event.target.matches('[data-att-units]'))r.units=Number(event.target.value);}
+  function markAllAttendance(present){attendanceCenter.rows.forEach(r=>{r.selected=present;if(present){r.status='present';r.units=1;}});renderAttendanceCenter();}
+  async function submitAttendanceCenter(){
+    const date=parseDateDMY($('wfAttendanceCenterDate')?.value||'');const selected=attendanceCenter.rows.filter(r=>r.selected);if(!date)return attendanceCenterMessage('Enter a valid Work date as DD/MM/YYYY.','warning');if(!selected.length)return attendanceCenterMessage('Select at least one employee first.','warning');
+    try{const period=await ensureAttendancePeriod(date);const ids=selected.map(r=>r.employee_id);const existingRes=await state.client.from('wf_attendance_records').select('employee_id').eq('company_id',state.workspace.companyId).eq('work_date',date).in('employee_id',ids);if(existingRes.error)throw existingRes.error;const existing=new Set((existingRes.data||[]).map(x=>x.employee_id));const fresh=selected.filter(r=>!existing.has(r.employee_id));if(!fresh.length)return attendanceCenterMessage(`Attendance already exists for all selected employees on ${$('wfAttendanceCenterDate').value}. Nothing was duplicated.`,'warning');
+      const payload=fresh.map(r=>({company_id:state.workspace.companyId,employee_id:r.employee_id,attendance_period_id:period.id,work_date:date,attendance_status:r.status,attendance_units:r.units,worked_minutes:0,late_minutes:0,early_leave_minutes:0,overtime_minutes:0,source:'bulk_manual',approval_status:'pending',notes:'Created from Workforce Attendance Center'}));const {error}=await state.client.from('wf_attendance_records').insert(payload);if(error)throw error;attendanceCenterMessage(`${fresh.length} attendance record${fresh.length===1?'':'s'} submitted as PENDING.${existing.size?` ${existing.size} existing record${existing.size===1?' was':'s were'} skipped.`:''}`,'success');attendanceCenter.rows.forEach(r=>r.selected=false);renderAttendanceCenter();await loadApprovalCenter();
+    }catch(error){const msg=String(error?.message||'');attendanceCenterMessage((error?.code==='23505'||msg.toLowerCase().includes('duplicate key'))?'One or more attendance records already exist for this date. Existing records were protected; nothing should be duplicated.':(msg||'Unable to submit bulk attendance.'),'error');}
   }
 
 
@@ -2339,7 +2386,7 @@
       $('wfPageTitle').textContent = 'Employee Payroll Setup';
       $('wfPageSubtitle').textContent = 'Prepare salary, transport and attendance inputs for payroll.';
       window.location.hash = 'setup';
-      if (state.workspace?.companyId) loadPayrollSetup();
+      if (state.workspace?.companyId) { loadPayrollSetup(); loadAttendanceCenterFoundation(); }
     } else if (target === 'payroll') {
       $('wfPageTitle').textContent = 'Payroll';
       $('wfPageSubtitle').textContent = 'Preflight, calculate, review, approve and finalize payroll safely.';
@@ -2396,6 +2443,13 @@
     $('wfSetupSalarySave')?.addEventListener('click', saveSetupSalary);
     $('wfSetupTransportSave')?.addEventListener('click', saveSetupTransport);
     $('wfSetupAttendanceSave')?.addEventListener('click', saveSetupAttendance);
+    $('wfAttendanceCenterArea')?.addEventListener('change', refreshAttendanceCenterSites);
+    $('wfAttendanceCenterSearch')?.addEventListener('input', renderAttendanceCenter);
+    $('wfAttendanceCenterLoad')?.addEventListener('click', loadAttendanceCenterEmployees);
+    $('wfAttendanceMarkAll')?.addEventListener('click', () => markAllAttendance(true));
+    $('wfAttendanceClearAll')?.addEventListener('click', () => markAllAttendance(false));
+    $('wfAttendanceCenterBody')?.addEventListener('change', updateAttendanceCenterRow);
+    $('wfAttendanceCenterSubmit')?.addEventListener('click', submitAttendanceCenter);
     $('wfPayrollRefresh')?.addEventListener('click', loadPayroll);
     $('wfPayrollRunSelect')?.addEventListener('change', loadPayrollRunDetail);
     if ($('wfPayrollNewBtn')) $('wfPayrollNewBtn').textContent = '+ New Month';

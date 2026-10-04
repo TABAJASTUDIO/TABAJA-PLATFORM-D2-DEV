@@ -7,11 +7,11 @@
   <title>Workforce & Payroll • Tabaja Solution DEV</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=12.9.3.16-wf1">
-  <link rel="stylesheet" href="workforce/workforce.css?v=2.2.0-premium-dashboard">
+  <link rel="stylesheet" href="workforce/workforce.css?v=12.9.3.36.31-attendance-center">
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="cloud.js?v=12.9.3.16-fix5.7-rpc"></script>
-  <script defer src="workforce/workforce.js?v=12.9.3.36.21-approval-policy-rpc"></script>
+  <script defer src="workforce/workforce.js?v=12.9.3.36.31-attendance-center"></script>
   <script defer src="workforce/workforce-visuals.js?v=12.9.3.36.23"></script>
   <style>
     /* Fail-closed role paint: never flash write/admin controls before access profile resolves. */
@@ -267,6 +267,26 @@
               <div id="wfSetupAttendanceHistory" class="wf-setup-history">No attendance history loaded.</div>
             </article>
           </div>
+          <article class="wf-card wf-attendance-center-card">
+            <div class="wf-attendance-center-head">
+              <div><span class="wf-kicker">BULK ATTENDANCE</span><h2>Attendance Center</h2><p>Load active employees by Area and Site, then mark attendance in one batch.</p></div>
+              <button id="wfAttendanceCenterLoad" class="wf-soft-btn" type="button">Load Employees</button>
+            </div>
+            <div class="wf-attendance-center-filters">
+              <label class="wf-field"><span>Work date</span><input id="wfAttendanceCenterDate" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" autocomplete="off"></label>
+              <label class="wf-field"><span>Area</span><select id="wfAttendanceCenterArea"><option value="">All Areas</option></select></label>
+              <label class="wf-field"><span>Site</span><select id="wfAttendanceCenterSite"><option value="">All Sites</option></select></label>
+              <label class="wf-field"><span>Search</span><input id="wfAttendanceCenterSearch" type="search" placeholder="Name, code, phone or post"></label>
+            </div>
+            <div class="wf-attendance-center-actions">
+              <button id="wfAttendanceMarkAll" type="button">✓ Mark All Present</button>
+              <button id="wfAttendanceClearAll" type="button">Clear Selection</button>
+              <span id="wfAttendanceCenterCount">0 employees</span>
+            </div>
+            <div class="wf-table-wrap wf-attendance-center-table"><table class="wf-table"><thead><tr><th>✓</th><th>Employee</th><th>Post</th><th>Site</th><th>Status</th><th>Units</th></tr></thead><tbody id="wfAttendanceCenterBody"><tr><td colspan="6" class="empty">Choose Area/Site and load employees.</td></tr></tbody></table></div>
+            <button id="wfAttendanceCenterSubmit" class="wf-setup-primary" type="button">Submit Selected Attendance for Approval</button>
+            <div id="wfAttendanceCenterMessage" class="wf-message info">Nothing is submitted until you select employees and press Submit.</div>
+          </article>
           <div id="wfSetupMessage" class="wf-message info">Select an employee to begin payroll setup.</div>
         </section>
 
