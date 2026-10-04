@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#10192c">
   <title>Workforce & Payroll • Tabaja Solution DEV</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=12.9.3.16-wf1">
-  <link rel="stylesheet" href="workforce/workforce.css?v=2.3.0-premium-import">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=12.9.3.17-wf1">
+  <link rel="stylesheet" href="workforce/workforce.css?v=2.4.0-global-ui">
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="cloud.js?v=12.9.3.16-fix5.7-rpc"></script>
@@ -54,15 +54,11 @@
     </aside>
 
     <main class="wf-main">
-      <header class="wf-topbar">
-        <div>
-          <span class="wf-kicker">WORKFORCE MODULE</span>
-          <h1 id="wfPageTitle">Workforce Dashboard</h1>
-          <p id="wfPageSubtitle">Daily workforce, attendance, approvals and payroll visibility.</p>
-        </div>
-        <div class="wf-account">
-          <span id="wfEntitlementBadge" class="wf-badge checking">CHECKING</span>
-          <div class="wf-account-copy"><b id="wfCompanyName">Loading company…</b><small id="wfUserEmail">Checking session…</small></div>
+      <header class="wf-topbar wf-global-topbar">
+        <div class="wf-topbar-search"><span class="wf-menu-glyph">☰</span><div class="wf-searchbox">⌕ <span>Search employees, sites, payroll…</span></div></div>
+        <div class="wf-topbar-tools"><div class="wf-top-pill">⌖ <span>All Sites</span>⌄</div><div class="wf-top-pill">▣ <span>October 2026</span>⌄</div><span class="wf-help-dot">?</span><span class="wf-bell">♢<i>3</i></span>
+          <div class="wf-account"><span class="wf-avatar">CA</span><div class="wf-account-copy"><b id="wfCompanyName">Loading company…</b><small id="wfUserEmail">Checking session…</small></div><span>⌄</span></div>
+          <span id="wfEntitlementBadge" class="wf-badge checking wf-entitlement-hidden">CHECKING</span>
         </div>
       </header>
 
@@ -73,102 +69,31 @@
       </section>
 
       <section id="wfWorkspace" class="wf-workspace" hidden>
-        <section id="wfDashboardView" class="wf-section-view">
-          <div class="wf-dashboard-head">
-            <div>
-              <span class="wf-kicker">LIVE OPERATIONS</span>
-              <h2>Today at a glance</h2>
-              <p id="wfDashboardDate">Loading current workforce position…</p>
+        <section id="wfDashboardView" class="wf-section-view wf-world-dashboard">
+          <div class="wf-world-welcome"><div><h2>Welcome back, Company Owner</h2><p>Here’s what’s happening with your workforce today.</p></div><div class="wf-world-date"><b id="wfDashboardDate">Loading current workforce position…</b><small>Live company workforce</small></div><button id="wfDashboardRefresh" class="wf-soft-btn" type="button">↻ Refresh</button></div>
+          <div class="wf-world-kpis">
+            <article class="wf-world-kpi blue"><i>♟</i><div><span>Total Employees</span><strong id="wfKpiEmployees">—</strong><small>Active workforce</small></div></article>
+            <article class="wf-world-kpi green"><i>✓</i><div><span>Present Today</span><strong id="wfKpiPresent">—</strong><small id="wfKpiAttendanceNote">Attendance today</small></div></article>
+            <article class="wf-world-kpi red"><i>!</i><div><span>Pending Approvals</span><strong id="wfKpiPending">—</strong><small>Items requiring review</small></div></article>
+            <article class="wf-world-kpi violet"><i>⌖</i><div><span>Active Sites</span><strong id="wfKpiSites">—</strong><small>Operational sites</small></div></article>
+            <article class="wf-world-kpi amber"><i>$</i><div><span>Latest Net Pay</span><strong id="wfPayrollNet">—</strong><small>Latest payroll position</small></div></article>
+          </div>
+          <div class="wf-world-dashboard-grid">
+            <article class="wf-card wf-world-attendance"><div class="wf-world-card-title"><div><span>▣</span><h3>Attendance Overview</h3></div><span id="wfAttendanceDateBadge" class="wf-linkish">Today →</span></div>
+              <div class="wf-attendance-strip"><div><span>Present</span><b id="wfTodayPresent">0</b></div><div><span>Late</span><b id="wfTodayLate">0</b></div><div><span>Absent / No Show</span><b id="wfTodayAbsent">0</b></div><div><span>Pending</span><b id="wfTodayPending">0</b></div></div>
+              <div class="wf-chart-stage"><div class="wf-chart-grid"></div><div class="wf-chart-bars"><i style="height:62%"></i><i style="height:78%"></i><i style="height:70%"></i><i style="height:84%"></i><i style="height:75%"></i><i style="height:90%"></i><i style="height:68%"></i></div></div>
+              <div class="wf-table-wrap wf-dashboard-table"><table class="wf-table"><thead><tr><th>Employee</th><th>Status</th><th>Site</th><th>Worked</th><th>OT</th><th>Approval</th></tr></thead><tbody id="wfTodayAttendanceBody"><tr><td colspan="6" class="empty">No attendance loaded yet.</td></tr></tbody></table></div>
+            </article>
+            <div class="wf-world-rightstack">
+              <article class="wf-card wf-world-payroll"><div class="wf-world-card-title"><div><span>$</span><h3>Payroll Summary</h3></div><span id="wfPayrollStatus" class="wf-badge neutral">NO RUN</span></div><div class="wf-payroll-summary"><div><span>Employees</span><b id="wfPayrollEmployees">—</b></div><div><span>Gross</span><b id="wfPayrollGross">—</b></div><div><span>Deductions</span><b id="wfPayrollDeductions">—</b></div></div><div class="wf-payroll-meta"><span id="wfPayrollPeriod">No payroll run available yet.</span><small id="wfPayrollUpdated">Reads existing Workforce payroll data.</small></div></article>
+              <article class="wf-card wf-world-attention"><div class="wf-world-card-title"><div><span>◎</span><h3>Upcoming / Attention</h3></div><span id="wfApprovalTotalBadge" class="wf-badge neutral">0 ITEMS</span></div><div id="wfApprovalBreakdown" class="wf-approval-breakdown"><div class="wf-empty-card">No approval information loaded yet.</div></div></article>
             </div>
-            <button id="wfDashboardRefresh" class="wf-soft-btn" type="button">Refresh Dashboard</button>
           </div>
-
-          <div class="wf-kpi-grid">
-            <article class="wf-kpi-card">
-              <span>ACTIVE WORKFORCE</span>
-              <strong id="wfKpiEmployees">—</strong>
-              <small>Active employees in this company</small>
-            </article>
-            <article class="wf-kpi-card">
-              <span>ACTIVE SITES</span>
-              <strong id="wfKpiSites">—</strong>
-              <small>Operational Workforce sites</small>
-            </article>
-            <article class="wf-kpi-card">
-              <span>PRESENT TODAY</span>
-              <strong id="wfKpiPresent">—</strong>
-              <small id="wfKpiAttendanceNote">Attendance records today</small>
-            </article>
-            <article class="wf-kpi-card attention">
-              <span>PENDING APPROVALS</span>
-              <strong id="wfKpiPending">—</strong>
-              <small>Items requiring review</small>
-            </article>
-          </div>
-
-          <div class="wf-dashboard-grid">
-            <article class="wf-card wf-ops-card">
-              <div class="wf-card-head">
-                <div><span>ATTENDANCE TODAY</span><h2>Daily operations</h2></div>
-                <span id="wfAttendanceDateBadge" class="wf-badge neutral">TODAY</span>
-              </div>
-              <div class="wf-attendance-strip">
-                <div><span>Present</span><b id="wfTodayPresent">0</b></div>
-                <div><span>Late</span><b id="wfTodayLate">0</b></div>
-                <div><span>Absent / No Show</span><b id="wfTodayAbsent">0</b></div>
-                <div><span>Pending</span><b id="wfTodayPending">0</b></div>
-              </div>
-              <div class="wf-table-wrap wf-dashboard-table">
-                <table class="wf-table">
-                  <thead><tr><th>Employee</th><th>Status</th><th>Site</th><th>Worked</th><th>OT</th><th>Approval</th></tr></thead>
-                  <tbody id="wfTodayAttendanceBody"><tr><td colspan="6" class="empty">No attendance loaded yet.</td></tr></tbody>
-                </table>
-              </div>
-            </article>
-
-            <article class="wf-card wf-payroll-card">
-              <div class="wf-card-head">
-                <div><span>PAYROLL</span><h2>Latest payroll position</h2></div>
-                <span id="wfPayrollStatus" class="wf-badge neutral">NO RUN</span>
-              </div>
-              <div class="wf-payroll-summary">
-                <div><span>Employees</span><b id="wfPayrollEmployees">—</b></div>
-                <div><span>Gross</span><b id="wfPayrollGross">—</b></div>
-                <div><span>Deductions</span><b id="wfPayrollDeductions">—</b></div>
-                <div><span>Net Pay</span><b id="wfPayrollNet">—</b></div>
-              </div>
-              <div class="wf-payroll-meta">
-                <span id="wfPayrollPeriod">No payroll run available yet.</span>
-                <small id="wfPayrollUpdated">Dashboard reads existing Workforce payroll data only.</small>
-              </div>
-            </article>
-          </div>
-
-          <div class="wf-dashboard-grid lower">
-            <article class="wf-card wf-attention-card">
-              <div class="wf-card-head">
-                <div><span>ATTENTION NEEDED</span><h2>Pending approvals</h2></div>
-                <span id="wfApprovalTotalBadge" class="wf-badge neutral">0 ITEMS</span>
-              </div>
-              <div id="wfApprovalBreakdown" class="wf-approval-breakdown">
-                <div class="wf-empty-card">No approval information loaded yet.</div>
-              </div>
-            </article>
-
-            <article class="wf-card wf-activity-card">
-              <div class="wf-card-head">
-                <div><span>RECENT ACTIVITY</span><h2>Latest imports</h2></div>
-                <button id="wfDashboardOpenImport" class="wf-soft-btn" type="button">Open Import Center</button>
-              </div>
-              <div id="wfDashboardImports" class="wf-mini-list">
-                <div class="wf-empty-card">No import history loaded yet.</div>
-              </div>
-            </article>
-          </div>
-
-          <div id="wfDashboardMessage" class="wf-message info">Dashboard is connecting to Workforce data…</div>
+          <div class="wf-world-lower">
+            <article class="wf-card"><div class="wf-world-card-title"><div><span>↯</span><h3>Recent Activity</h3></div><button id="wfDashboardOpenImport" class="wf-soft-btn" type="button">Open Import Center</button></div><div id="wfDashboardImports" class="wf-mini-list"><div class="wf-empty-card">No import history loaded yet.</div></div></article>
+            <article class="wf-card wf-world-quick"><div class="wf-world-card-title"><div><span>⚡</span><h3>Quick Actions</h3></div></div><div class="wf-quick-grid"><button type="button" data-wf-world-nav="import">⇩<b>Import Data</b></button><button type="button" data-wf-world-nav="payroll">$<b>Run Payroll</b></button><button type="button" data-wf-world-nav="leave">▦<b>Leave</b></button><button type="button" data-wf-world-nav="approvals">✓<b>Approvals</b></button></div></article>
+          </div><div id="wfDashboardMessage" class="wf-message info">Dashboard is connecting to Workforce data…</div>
         </section>
-
 
         <section id="wfApprovalView" class="wf-section-view" hidden>
           <div class="wf-dashboard-head">
@@ -344,53 +269,13 @@
           </article>
         </section>
 
-        <section id="wfPayrollView" class="wf-section-view" hidden>
-          <div class="wf-dashboard-head">
-            <div><span class="wf-kicker">PAYROLL CONTROL</span><h2>Payroll</h2><p>Preflight → Calculate → Review → Approve → Finalize. Finalized results remain frozen snapshots.</p></div>
-            <button id="wfPayrollRefresh" class="wf-soft-btn" type="button">Refresh Payroll</button>
-          </div>
-
-          <article class="wf-card wf-payroll-control-card">
-            <div class="wf-payroll-toolbar">
-              <label class="wf-field"><span>Payroll run</span><select id="wfPayrollRunSelect"><option value="">Loading payroll runs…</option></select></label>
-              <div class="wf-payroll-toolbar-actions">
-                <button id="wfPayrollNewBtn" class="wf-soft-btn" type="button">+ New Monthly Run</button>
-                <button id="wfPayrollPreflightBtn" class="wf-soft-btn" type="button" disabled>Run Preflight</button>
-                <button id="wfPayrollCalculateBtn" class="primary" type="button" disabled>Calculate Payroll</button>
-              </div>
-            </div>
-            <div id="wfPayrollMessage" class="wf-message info">Select a payroll run.</div>
-          </article>
-
-          <div class="wf-kpi-grid wf-payroll-kpis">
-            <article class="wf-kpi-card"><span>STATUS</span><strong id="wfPayStatus">—</strong><small id="wfPayPeriod">No run selected</small></article>
-            <article class="wf-kpi-card"><span>EMPLOYEES</span><strong id="wfPayEmployees">—</strong><small>Frozen payroll snapshots</small></article>
-            <article class="wf-kpi-card"><span>GROSS</span><strong id="wfPayGross">—</strong><small id="wfPayCurrency">Company payroll currency</small></article>
-            <article class="wf-kpi-card attention"><span>NET PAY</span><strong id="wfPayNet">—</strong><small><span id="wfPayDeductions">—</span> deductions</small></article>
-          </div>
-
-          <div class="wf-payroll-grid">
-            <article class="wf-card wf-payroll-issues-card">
-              <div class="wf-card-head"><div><span>READINESS</span><h2>Preflight issues</h2></div><span id="wfPayIssueBadge" class="wf-badge neutral">0 ISSUES</span></div>
-              <div id="wfPayrollIssues" class="wf-mini-list"><div class="wf-empty-card">Run preflight to check payroll readiness.</div></div>
-            </article>
-            <article class="wf-card wf-payroll-actions-card">
-              <div class="wf-card-head"><div><span>CONTROL</span><h2>Review & finalization</h2></div></div>
-              <div class="wf-payroll-action-stack">
-                <button id="wfPayrollSubmitBtn" type="button" disabled>Submit for Approval</button>
-                <button id="wfPayrollApproveBtn" class="approve" type="button" disabled>Approve Payroll</button>
-                <button id="wfPayrollRejectBtn" class="reject" type="button" disabled>Reject</button>
-                <button id="wfPayrollFinalizeBtn" class="finalize" type="button" disabled>Finalize & Lock</button>
-                <button id="wfPayrollReopenBtn" type="button" disabled>Reopen with Reason</button>
-              </div>
-              <small class="wf-control-note">Database permissions and maker-checker remain the final authority. Reopen always requires a reason.</small>
-            </article>
-          </div>
-
-          <article class="wf-card wf-payroll-results-card">
-            <div class="wf-card-head"><div><span>PAYROLL RESULTS</span><h2>Employee breakdown</h2></div><span id="wfPayResultCount">0 employees</span></div>
-            <div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>Employee</th><th>Basic</th><th>Proration</th><th>Transport</th><th>Gross</th><th>Deductions</th><th>Net Salary</th></tr></thead><tbody id="wfPayrollResults"><tr><td colspan="7" class="empty">No calculated payroll results yet.</td></tr></tbody></table></div>
-          </article>
+        <section id="wfPayrollView" class="wf-section-view wf-world-payroll-view" hidden>
+          <div class="wf-world-pagehead"><div><h2>Payroll</h2><p>Process salaries, allowances, deductions and frozen payroll snapshots.</p></div><button id="wfPayrollRefresh" class="wf-soft-btn" type="button">↻ Refresh Payroll</button></div>
+          <div class="wf-world-pay-kpis"><article class="blue"><span>Employees</span><strong id="wfPayEmployees">—</strong><small>Payroll snapshots</small></article><article class="green"><span>Gross Salary</span><strong id="wfPayGross">—</strong><small id="wfPayCurrency">Company currency</small></article><article class="amber"><span>Deductions</span><strong id="wfPayDeductions">—</strong><small>Approved deductions</small></article><article class="violet"><span>Net Payable</span><strong id="wfPayNet">—</strong><small>Final net position</small></article><article class="blue"><span>Status</span><strong id="wfPayStatus">—</strong><small id="wfPayPeriod">No run selected</small></article></div>
+          <div class="wf-pay-stepper"><div class="active"><i>1</i><span><b>Select Period</b><small>Choose payroll run</small></span></div><div><i>2</i><span><b>Review & Adjust</b><small>Preflight employee data</small></span></div><div><i>3</i><span><b>Calculate & Approve</b><small>Review payroll results</small></span></div><div><i>4</i><span><b>Finalize</b><small>Lock frozen snapshots</small></span></div></div>
+          <article class="wf-card wf-world-pay-toolbar"><label class="wf-field"><span>Payroll run</span><select id="wfPayrollRunSelect"><option value="">Loading payroll runs…</option></select></label><div class="wf-payroll-toolbar-actions"><button id="wfPayrollNewBtn" class="wf-soft-btn" type="button">+ New Monthly Run</button><button id="wfPayrollPreflightBtn" class="wf-soft-btn" type="button" disabled>Run Preflight</button><button id="wfPayrollCalculateBtn" class="primary" type="button" disabled>Calculate Payroll</button></div><div id="wfPayrollMessage" class="wf-message info">Select a payroll run.</div></article>
+          <div class="wf-world-pay-body"><article class="wf-card wf-world-pay-table"><div class="wf-world-card-title"><div><span>▤</span><h3>Employee Payroll</h3></div><span id="wfPayResultCount">0 employees</span></div><div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>Employee</th><th>Basic</th><th>Proration</th><th>Transport</th><th>Gross</th><th>Deductions</th><th>Net Salary</th></tr></thead><tbody id="wfPayrollResults"><tr><td colspan="7" class="empty">No calculated payroll results yet.</td></tr></tbody></table></div></article>
+            <aside class="wf-world-pay-side"><article class="wf-card"><div class="wf-world-card-title"><div><span>!</span><h3>Preflight</h3></div><span id="wfPayIssueBadge" class="wf-badge neutral">0 ISSUES</span></div><div id="wfPayrollIssues" class="wf-mini-list"><div class="wf-empty-card">Run preflight to check payroll readiness.</div></div></article><article class="wf-card"><div class="wf-world-card-title"><div><span>⚡</span><h3>Quick Actions</h3></div></div><div class="wf-payroll-action-stack"><button id="wfPayrollSubmitBtn" type="button" disabled>Submit for Approval</button><button id="wfPayrollApproveBtn" class="approve" type="button" disabled>Approve Payroll</button><button id="wfPayrollRejectBtn" class="reject" type="button" disabled>Reject</button><button id="wfPayrollFinalizeBtn" class="finalize" type="button" disabled>Finalize & Lock</button><button id="wfPayrollReopenBtn" type="button" disabled>Reopen with Reason</button></div><small class="wf-control-note">Database permissions and maker-checker remain final authority.</small></article></aside></div>
         </section>
 
         <section id="wfAccessView" class="wf-section-view" hidden>
@@ -525,5 +410,6 @@
       </section>
     </main>
   </div>
+<script>document.addEventListener('click',function(e){var b=e.target.closest('[data-wf-world-nav]');if(!b)return;var n=document.querySelector('.wf-nav button[data-section="'+b.dataset.wfWorldNav+'"]');if(n)n.click();});</script>
 </body>
 </html>

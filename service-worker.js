@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.16-premium-import';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.17-global-premium';
 const APP_SHELL = [
   './',
   './index.html',
