@@ -1,0 +1,8 @@
+V12.9.3.36.39 — LEAVE BALANCE MANAGEMENT
+- Adds Leave Balance Management UI to Leave Calendar.
+- Uses existing wf_get_leave_balance RPC for live balance preview.
+- Creates new wf_leave_balances records as PENDING only.
+- Adds Leave Balance items to existing Approval Center queue.
+- Keeps maker-checker approval behavior and existing database guards.
+- Does not touch Identity / Designer / NFC / Batch.
+- Dates and existing Leave Calendar logic remain unchanged.

@@ -688,6 +688,7 @@
       ['Transport overrides', 'wf_transport_employee_overrides'],
       ['Attendance', 'wf_attendance_records'],
       ['Leave requests', 'wf_leave_requests'],
+      ['Leave balances', 'wf_leave_balances'],
       ['Advances / loans', 'wf_advances']
     ];
     const results = await Promise.all(definitions.map(async ([label, table]) => [label, await safeCount(table, [['eq', 'approval_status', 'pending']])]));
@@ -825,6 +826,7 @@
     { kind: 'transport', label: 'Transport', table: 'wf_transport_employee_overrides' },
     { kind: 'attendance', label: 'Attendance', table: 'wf_attendance_records' },
     { kind: 'leave', label: 'Leave', table: 'wf_leave_requests' },
+    { kind: 'leave_balance', label: 'Leave Balance', table: 'wf_leave_balances' },
     { kind: 'advance', label: 'Advance / Loan', table: 'wf_advances' }
   ]);
 
@@ -841,6 +843,7 @@
     if (item.kind === 'transport') return `${String(r.method || 'transport').replaceAll('_',' ')} • ${r.amount === null || r.amount === undefined ? 'Rule-based amount' : formatMoney(r.amount)} • effective ${formatDateDMY(r.effective_from) || '—'}`;
     if (item.kind === 'attendance') return `${formatDateDMY(r.work_date) || '—'} • ${String(r.attendance_status || 'attendance').replaceAll('_',' ')} • ${r.worked_minutes ?? 0} worked min • ${r.overtime_minutes ?? 0} OT min`;
     if (item.kind === 'leave') return `${formatDateDMY(r.start_date) || '—'} → ${formatDateDMY(r.end_date) || '—'} • ${r.requested_units ?? '—'} unit(s)`;
+    if (item.kind === 'leave_balance') return `${r.leave_year || '—'} • entitlement ${r.entitlement_units ?? 0} unit(s) • opening ${r.opening_units ?? 0} • carry ${r.carry_forward_units ?? 0} • adjustment ${r.adjustment_units ?? 0}`;
     if (item.kind === 'advance') return `${formatMoney(r.principal_amount, r.currency_code || '')} • ${String(r.advance_type || 'advance').replaceAll('_',' ')} • ${formatDateDMY(r.issue_date) || '—'}`;
     return 'Pending Workforce item';
   }
@@ -1009,7 +1012,7 @@
       const count = kind => queue.filter(item => item.kind === kind).length;
       const salary = count('salary');
       const transport = count('transport');
-      const other = count('attendance') + count('leave') + count('advance');
+      const other = count('attendance') + count('leave') + count('leave_balance') + count('advance');
       $('wfApprovalKpiTotal').textContent = String(queue.length);
       $('wfApprovalKpiSalary').textContent = String(salary);
       $('wfApprovalKpiTransport').textContent = String(transport);
@@ -1853,6 +1856,57 @@
     finally { state.leaveBusy=false; $('wfLeaveRequestSubmit').disabled=false; }
   }
 
+  function leaveBalanceMessage(text, tone = 'info') {
+    const el=$('wfLeaveBalanceMessage'); if(!el) return;
+    el.className=`wf-message ${tone}`; el.textContent=text;
+  }
+  function renderLeaveBalancePreview(row) {
+    const host=$('wfLeaveBalancePreview'), badge=$('wfLeaveBalanceStatus'); if(!host) return;
+    if(!row){host.innerHTML='<span>TOTAL</span><b>—</b><span>APPROVED USED</span><b>—</b><span>PENDING USED</span><b>—</b><span>AVAILABLE</span><b>—</b>'; if(badge){badge.textContent='NO BALANCE';badge.className='wf-badge neutral';} return;}
+    const total=Number(row.total_units??0), approved=Number(row.approved_units??0), pending=Number(row.pending_units??0), available=Number(row.available_units??(total-approved));
+    host.innerHTML=`<span>TOTAL</span><b>${escapeHtml(total)}</b><span>APPROVED USED</span><b>${escapeHtml(approved)}</b><span>PENDING USED</span><b>${escapeHtml(pending)}</b><span>AVAILABLE</span><b>${escapeHtml(available)}</b>`;
+    if(badge){badge.textContent='APPROVED BALANCE';badge.className='wf-badge approved';}
+  }
+  async function loadLeaveBalancePreview(){
+    const employee=$('wfLeaveBalanceEmployee')?.value||'', type=$('wfLeaveBalanceType')?.value||'', year=Number($('wfLeaveBalanceYear')?.value||0);
+    renderLeaveBalancePreview(null); if(!employee||!type||!year) return leaveBalanceMessage('Select employee, leave type and year to check the current balance.','info');
+    try{
+      const {data,error}=await state.client.rpc('wf_get_leave_balance',{target_company:state.workspace.companyId,target_employee:employee,target_leave_type:type,target_year:year}); if(error) throw error;
+      const row=Array.isArray(data)?data[0]:data; renderLeaveBalancePreview(row||null);
+      const {data:existing,error:existingError}=await state.client.from('wf_leave_balances').select('id,approval_status,opening_units,entitlement_units,carry_forward_units,adjustment_units').eq('company_id',state.workspace.companyId).eq('employee_id',employee).eq('leave_type_id',type).eq('leave_year',year).maybeSingle();
+      if(existingError) throw existingError;
+      if(existing){
+        const st=String(existing.approval_status||'pending').toUpperCase(); const badge=$('wfLeaveBalanceStatus'); if(badge){badge.textContent=st;badge.className=`wf-badge ${st==='APPROVED'?'approved':st==='REJECTED'?'rejected':'open'}`;}
+        $('wfLeaveBalanceEntitlement').value=String(existing.entitlement_units??0);
+        leaveBalanceMessage(`A ${st} leave balance already exists for this employee, leave type and year.` , st==='APPROVED'?'success':'warning');
+      } else leaveBalanceMessage('No balance exists yet. Enter the annual entitlement and submit it for approval.','info');
+    }catch(error){leaveBalanceMessage(error?.message||'Unable to load leave balance.','error');}
+  }
+  async function loadLeaveBalanceForm(){
+    if(!state.workspace?.companyId||!$('wfLeaveBalanceEmployee')) return;
+    try{
+      const [empRes,typeRes]=await Promise.all([
+        state.client.from('employees').select('id,employee_code,full_name').eq('company_id',state.workspace.companyId).eq('is_deleted',false).eq('status','active').order('full_name'),
+        state.client.from('wf_leave_types').select('*').eq('company_id',state.workspace.companyId).order('name')
+      ]); if(empRes.error) throw empRes.error; if(typeRes.error) throw typeRes.error;
+      $('wfLeaveBalanceEmployee').innerHTML='<option value="">Select employee</option>'+((empRes.data||[]).map(e=>`<option value="${escapeHtml(e.id)}">${escapeHtml((e.employee_code||'')+' • '+(e.full_name||'Employee'))}</option>`).join(''));
+      $('wfLeaveBalanceType').innerHTML='<option value="">Select leave type</option>'+((typeRes.data||[]).filter(t=>t.requires_balance!==false).map(t=>`<option value="${escapeHtml(t.id)}">${escapeHtml(t.name||t.code||'Leave')}</option>`).join(''));
+      if(!$('wfLeaveBalanceYear').value) $('wfLeaveBalanceYear').value=String(new Date().getFullYear());
+    }catch(error){leaveBalanceMessage(error?.message||'Unable to load leave balance form.','error');}
+  }
+  async function submitLeaveBalance(){
+    const employee_id=$('wfLeaveBalanceEmployee')?.value||'', leave_type_id=$('wfLeaveBalanceType')?.value||'', leave_year=Number($('wfLeaveBalanceYear')?.value||0), entitlement_units=Number($('wfLeaveBalanceEntitlement')?.value||0);
+    if(!employee_id) return leaveBalanceMessage('Select an employee.','warning'); if(!leave_type_id) return leaveBalanceMessage('Select a leave type.','warning'); if(!leave_year) return leaveBalanceMessage('Enter a valid leave year.','warning'); if(entitlement_units<0) return leaveBalanceMessage('Entitlement cannot be negative.','warning');
+    const btn=$('wfLeaveBalanceSubmit'); if(btn) btn.disabled=true; leaveBalanceMessage('Submitting leave balance…','info');
+    try{
+      const {data:existing,error:checkError}=await state.client.from('wf_leave_balances').select('id,approval_status').eq('company_id',state.workspace.companyId).eq('employee_id',employee_id).eq('leave_type_id',leave_type_id).eq('leave_year',leave_year).maybeSingle(); if(checkError) throw checkError;
+      if(existing) throw new Error(`A ${String(existing.approval_status||'pending').toUpperCase()} leave balance already exists for this employee, leave type and year.`);
+      const payload={company_id:state.workspace.companyId,employee_id,leave_type_id,leave_year,opening_units:0,entitlement_units,carry_forward_units:0,adjustment_units:0,approval_status:'pending',created_by:state.session.user.id,updated_by:state.session.user.id};
+      const {error}=await state.client.from('wf_leave_balances').insert(payload); if(error) throw error;
+      leaveBalanceMessage('Leave balance submitted as PENDING. Approve it from Approval Center.','success'); await Promise.all([loadLeaveBalancePreview(),loadApprovalCenter()]);
+    }catch(error){leaveBalanceMessage(error?.message||'Unable to submit leave balance.','error');}finally{if(btn) btn.disabled=false;}
+  }
+
   function leaveMessage(text, tone = 'info') {
     const el = $('wfLeaveMessage'); if (!el) return;
     el.className = `wf-message ${tone}`; el.textContent = text;
@@ -2532,7 +2586,7 @@
       $('wfPageTitle').textContent = 'Leave Calendar';
       $('wfPageSubtitle').textContent = 'Employee leave visibility, approval status and auditable dates.';
       window.location.hash = 'leave';
-      if (state.workspace?.companyId) { loadLeaveCalendar(); loadLeaveRequestForm(); }
+      if (state.workspace?.companyId) { loadLeaveCalendar(); loadLeaveRequestForm(); loadLeaveBalanceForm(); }
     } else if (target === 'overtime') {
       $('wfPageTitle').textContent = 'Overtime';
       $('wfPageSubtitle').textContent = 'Automatic overtime policy, approval and payroll-ready history.';
@@ -2587,6 +2641,8 @@
     $('wfLeaveRefresh')?.addEventListener('click', loadLeaveCalendar);
     $('wfLeavePrev')?.addEventListener('click', () => moveLeaveMonth(-1));
     $('wfLeaveNext')?.addEventListener('click', () => moveLeaveMonth(1));
+    $('wfLeaveBalanceSubmit')?.addEventListener('click', submitLeaveBalance);
+    ['wfLeaveBalanceEmployee','wfLeaveBalanceType','wfLeaveBalanceYear'].forEach(id=>$(id)?.addEventListener('change',loadLeaveBalancePreview));
     $('wfLeaveRequestSubmit')?.addEventListener('click', submitLeaveRequest);
     $('wfLeaveRequestFrom')?.addEventListener('change', syncLeaveRequestUnits);
     $('wfLeaveRequestTo')?.addEventListener('change', syncLeaveRequestUnits);
