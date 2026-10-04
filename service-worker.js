@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.22-approval-policy-rpc';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.23-live-visual-analytics';
 const APP_SHELL = [
   './',
   './index.html',
@@ -14,6 +14,7 @@ const APP_SHELL = [
   './workforce.html',
   './workforce/workforce.css?v=2.2.0-premium-dashboard',
   './workforce/workforce.js?v=12.9.3.36.22-approval-policy-rpc',
+  './workforce/workforce-visuals.js?v=12.9.3.36.23',
   './workforce/workforce-launcher.js?v=2.3.0-initial-focus-fix',
   './manifest.webmanifest',
   './icons/icon-192.png',

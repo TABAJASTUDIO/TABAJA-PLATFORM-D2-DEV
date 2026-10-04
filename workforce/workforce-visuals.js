@@ -1,4 +1,4 @@
-/* Tabaja Workforce presentation layer v12.9.3.36.21
+/* Tabaja Workforce presentation layer v12.9.3.36.23
    READ-ONLY visualization layer: does not write to Supabase, payroll, roles, scope or core Workforce state. */
 (() => {
   'use strict';
