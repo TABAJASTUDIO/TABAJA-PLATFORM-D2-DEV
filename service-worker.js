@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.12.3-scope-label-display';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.13-premium-ui';
 const APP_SHELL = [
   './',
   './index.html',
@@ -12,8 +12,8 @@ const APP_SHELL = [
   './pwa.js?v=12.9.3.16',
   './nfc-studio.js?v=12.9.3-local-pwa-fix2',
   './workforce.html',
-  './workforce/workforce.css?v=1.9.0-scope-management',
-  './workforce/workforce.js?v=12.9.3.36.12.3-scope-label-display',
+  './workforce/workforce.css?v=2.0.0-premium-ui',
+  './workforce/workforce.js?v=12.9.3.36.13-premium-ui',
   './workforce/workforce-launcher.js?v=2.3.0-initial-focus-fix',
   './manifest.webmanifest',
   './icons/icon-192.png',
