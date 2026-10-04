@@ -1,0 +1,46 @@
+{
+  "id": "/TABAJA-PLATFORM-D2-DEV/",
+  "name": "Tabaja Solution DEV",
+  "short_name": "Tabaja DEV",
+  "description": "Professional identity, card design, NFC and Zebra printing platform.",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "/TABAJA-PLATFORM-D2-DEV/?source=pwa",
+  "scope": "/TABAJA-PLATFORM-D2-DEV/",
+  "display": "standalone",
+  "display_override": [
+    "standalone"
+  ],
+  "orientation": "any",
+  "background_color": "#0b1020",
+  "theme_color": "#121a36",
+  "categories": [
+    "business",
+    "productivity",
+    "design"
+  ],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
+}
