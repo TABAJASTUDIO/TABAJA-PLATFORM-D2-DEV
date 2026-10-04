@@ -156,10 +156,29 @@
       }
       modal.style.display = 'grid';
       modal.setAttribute('aria-hidden', 'false');
-      modal.querySelector('[data-exit-cancel]')?.focus();
+      modal.querySelector('[data-exit-yes]')?.focus();
     };
 
     window.addEventListener('keydown', (event) => {
+      const openModal = document.getElementById('tabajaExitConfirm');
+      if (openModal && openModal.style.display !== 'none') {
+        const yes = openModal.querySelector('[data-exit-yes]');
+        const cancel = openModal.querySelector('[data-exit-cancel]');
+        if (event.key === 'Escape') {
+          event.preventDefault(); event.stopPropagation(); closeExitModal(); return;
+        }
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+          event.preventDefault(); event.stopPropagation();
+          (document.activeElement === yes ? cancel : yes)?.focus();
+          return;
+        }
+        if (event.key === 'Enter') {
+          event.preventDefault(); event.stopPropagation();
+          (document.activeElement === cancel ? cancel : yes)?.click();
+          return;
+        }
+        return;
+      }
       if (event.key !== 'Escape' || event.defaultPrevented) return;
       const shell = document.getElementById('tabajaWorkforceShell');
       if (shell && shell.style.display !== 'none') return; // iframe owns its own Back stack.

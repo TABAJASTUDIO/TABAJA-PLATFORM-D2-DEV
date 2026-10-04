@@ -41,18 +41,17 @@
         if (event.key !== 'Escape') return;
         event.preventDefault();
         event.stopPropagation();
-        // Workforce Back follows the currently visible sidebar order.
-        // This automatically respects role-based hidden items (for example Director view).
-        if (state.currentSection && state.currentSection !== 'dashboard') {
+        // Sequential Workforce Back: move one step backward through the currently
+        // visible sidebar order. Hidden role-restricted sections are skipped automatically.
+        const current = state.currentSection || 'dashboard';
+        if (current !== 'dashboard') {
           const visibleSections = Array.from(document.querySelectorAll('.wf-nav button[data-section]'))
-            .filter((button) => {
-              const style = window.getComputedStyle(button);
-              return !button.hidden && !button.disabled && style.display !== 'none' && style.visibility !== 'hidden';
-            })
-            .map((button) => button.dataset.section);
-          const currentIndex = visibleSections.indexOf(state.currentSection);
-          const previousSection = currentIndex > 0 ? visibleSections[currentIndex - 1] : 'dashboard';
-          showSection(previousSection);
+            .filter((btn) => !btn.hidden && btn.getAttribute('aria-hidden') !== 'true' && getComputedStyle(btn).display !== 'none')
+            .map((btn) => btn.dataset.section)
+            .filter(Boolean);
+          const index = visibleSections.indexOf(current);
+          const previous = index > 0 ? visibleSections[index - 1] : 'dashboard';
+          showSection(previous);
           return;
         }
         // Only the Workforce Dashboard exits the embedded Workforce shell to Command Center.

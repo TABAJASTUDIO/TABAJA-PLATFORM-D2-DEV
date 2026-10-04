@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.7-initial-focus-fix';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.9-wf-sequential-exit-keyboard';
 const APP_SHELL = [
   './',
   './index.html',
@@ -13,7 +13,7 @@ const APP_SHELL = [
   './nfc-studio.js?v=12.9.3-local-pwa-fix2',
   './workforce.html',
   './workforce/workforce.css?v=1.7.0',
-  './workforce/workforce.js?v=12.9.3.36.7-initial-focus-fix',
+  './workforce/workforce.js?v=12.9.3.36.9-wf-sequential-exit-keyboard',
   './workforce/workforce-launcher.js?v=2.3.0-initial-focus-fix',
   './manifest.webmanifest',
   './icons/icon-192.png',
