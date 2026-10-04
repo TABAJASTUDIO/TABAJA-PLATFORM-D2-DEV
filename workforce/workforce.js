@@ -2157,15 +2157,14 @@
       save.disabled = true;
       save.textContent = 'Saving…';
       if (msg) { msg.className = 'wf-message info'; msg.textContent = 'Saving approval policy…'; }
-      const { data, error } = await state.client
-        .from('wf_company_settings')
-        .update({ maker_checker_required: makerCheckerRequired })
-        .eq('company_id', state.workspace.companyId)
-        .select('company_id,maker_checker_required')
-        .maybeSingle();
+      const { data, error } = await state.client.rpc('wf_set_approval_policy', {
+        target_company: state.workspace.companyId,
+        maker_checker: makerCheckerRequired
+      });
       if (error) throw error;
-      if (!data) throw new Error('Approval policy was not changed. Your account may not have permission to update company settings.');
-      state.makerCheckerRequired = data.maker_checker_required !== false;
+      const saved = Array.isArray(data) ? data[0] : data;
+      if (!saved) throw new Error('Approval policy was not changed. Your account may not have permission to manage Workforce access.');
+      state.makerCheckerRequired = saved.maker_checker_required !== false;
       await loadApprovalPolicySetting(true);
       if (msg) { msg.className = 'wf-message success'; msg.textContent = state.makerCheckerRequired ? 'Maker–Checker policy saved.' : 'Single Admin policy saved. Self approval is now allowed for authorised reviewers.'; }
       if (state.currentSection === 'approvals') await loadApprovalCenter();
