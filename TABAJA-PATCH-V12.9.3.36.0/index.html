@@ -1,0 +1,754 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tabaja Solution</title>
+  <meta name="theme-color" content="#090d1a">
+  <meta name="application-name" content="Tabaja Solution">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tabaja Solution">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=12.7.0">
+  <link rel="shortcut icon" href="icons/tabaja-solution.ico?v=12.7.0">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css?v=12.9.3.14">
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/svg2pdf.js@2.5.0/dist/svg2pdf.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <section id="loginScreen" class="login-screen">
+    <div class="auth-layout">
+      <div class="auth-showcase">
+        <div class="login-brand">TABAJA SOLUTION</div>
+        <h1>Professional Card Production, secured by your account.</h1>
+        <p>Install once, sign in from any supported device, and work inside your company workspace.</p>
+        <div class="auth-feature-grid">
+          <div><b>Protected workspace</b><span>Only authorised users enter the designer.</span></div>
+          <div><b>Company account</b><span>Each customer gets a separate workspace.</span></div>
+          <div><b>Plan permissions</b><span>Features can be enabled by subscription.</span></div>
+          <div><b>PWA ready</b><span>Runs as an installed Windows or Android app.</span></div>
+        </div>
+        <small>V12.9.3.9 Smart Identity Platform — professional card production workspace.</small>
+      </div>
+
+      <div class="auth-card">
+        <div class="auth-logo"><span>TS</span></div>
+        <div class="auth-tabs" role="tablist">
+          <button id="showLoginTab" class="active" type="button">Sign In</button>
+          <button id="showRegisterTab" type="button" hidden data-admin-registration="true">Create Company</button>
+        </div>
+
+        <form id="loginForm" class="auth-form" autocomplete="on">
+          <h2>Welcome back</h2>
+          <p>Sign in to open your company workspace.</p>
+          <label for="loginUser">Email or username</label>
+          <input id="loginUser" name="username" autocomplete="username" placeholder="your email" required>
+          <label for="loginPassword">Password</label>
+          <div class="password-field"><input id="loginPassword" name="password" type="password" autocomplete="current-password" required><button id="toggleLoginPassword" type="button" aria-label="Show password">Show</button></div>
+          <div class="auth-row"><label class="remember"><input id="rememberLogin" type="checkbox"> Keep me signed in</label><button id="forgotPasswordBtn" class="link-button" type="button">Forgot password?</button></div>
+          <button class="primary login-button" type="submit">Sign In</button>
+          <div id="loginError" class="login-error" aria-live="polite"></div>
+        </form>
+
+        <form id="registerForm" class="auth-form hidden" autocomplete="on">
+          <h2>Create company workspace</h2>
+          <p>Create a secure company workspace in the cloud.</p>
+          <div class="form-grid">
+            <div><label for="registerCompany">Company name</label><input id="registerCompany" required></div>
+            <div><label for="registerOwner">Owner name</label><input id="registerOwner" required></div>
+            <div><label for="registerCountry">Country</label><input id="registerCountry" value="Sierra Leone" required></div>
+            <div><label for="registerPhone">Phone</label><input id="registerPhone" type="tel" required></div>
+          </div>
+          <label for="registerEmail">Email</label><input id="registerEmail" type="email" autocomplete="email" required>
+          <label for="registerPassword">Password</label><div class="password-field"><input id="registerPassword" type="password" minlength="8" autocomplete="new-password" required><button id="toggleRegisterPassword" type="button">Show</button></div>
+          <label class="remember"><input id="acceptTerms" type="checkbox" required> I accept the service terms and account rules.</label>
+          <button class="primary login-button" type="submit">Create Company Account</button>
+          <div id="registerError" class="login-error" aria-live="polite"></div>
+        </form>
+
+        <form id="forgotForm" class="auth-form hidden">
+          <h2>Reset password</h2><p>Enter your account email. The cloud version will send a secure reset link.</p>
+          <label for="forgotEmail">Email</label><input id="forgotEmail" type="email" required>
+          <button class="primary login-button" type="submit">Request Reset</button>
+          <button id="backToLoginBtn" class="secondary-wide" type="button">Back to Sign In</button>
+          <div id="forgotMessage" class="login-error" aria-live="polite"></div>
+        </form>
+
+        <form id="recoveryForm" class="auth-form hidden" autocomplete="off">
+          <h2>Choose a new password</h2>
+          <p>Your secure recovery link is verified. Set a new Supabase account password.</p>
+          <label for="recoveryPassword">New password</label>
+          <div class="password-field"><input id="recoveryPassword" type="password" minlength="8" autocomplete="new-password" required></div>
+          <label for="recoveryPasswordConfirm">Confirm password</label>
+          <div class="password-field"><input id="recoveryPasswordConfirm" type="password" minlength="8" autocomplete="new-password" required></div>
+          <button class="primary login-button" type="submit">Save New Password</button>
+          <div id="recoveryMessage" class="login-error" aria-live="polite"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <div id="appShell" class="app-shell hidden">
+    <header class="ts-header">
+      <div class="ts-header-top">
+        <div class="ts-page-title">
+          <div class="ts-brand-mark" aria-hidden="true"><span>TS</span></div>
+          <div class="ts-title-copy"><span class="ts-page-kicker">IDENTITY WORKSPACE</span><h1>Card Design Center</h1><small id="pageSubtitle">Tabaja Solution <i></i> Smart Identity Platform</small></div>
+        </div>
+        <label class="ts-global-search" data-admin-only="true"><span>⌕</span><input id="globalTemplateSearch" type="search" placeholder="Search templates, sectors, card types…"><kbd>Ctrl + K</kbd></label>
+        <div class="ts-account-zone"><button class="ts-icon-btn" type="button" title="Notifications">◌</button><button class="ts-icon-btn" type="button" title="Settings">⚙</button><div class="account-chip"><span class="account-avatar" id="accountAvatar">T</span><span><b id="accountName">Tabaja Admin</b><small id="accountCompany">Tabaja Solution</small></span></div><button id="companyManagerBtn" type="button" hidden>Companies</button><button id="cloudSetupBtn" type="button">Cloud</button><button id="logoutBtn">Logout</button></div>
+      </div>
+      <div class="top-actions ts-toolbar" id="designerTopActions">
+        <div class="ts-tool-group"><span>FILE</span><button id="newBtn">＋ New</button><button id="openBtn">▱ Open</button><button id="saveBtn">▣ Save</button></div>
+        <div class="ts-tool-group"><span>EXPORT</span><button id="pngBtn">PNG</button><button id="pdfBtn">PDF Stable</button><button class="primary" id="vectorPdfBtn">Vector PDF</button></div>
+        <div class="ts-tool-group"><span>PRINT</span><button class="primary" id="printBtn">Current Stable</button><button class="primary" id="printBothBtn">Front + Back</button><button class="primary" id="vectorPrintBtn">Vector</button></div>
+        <button id="installAppBtn" class="install-app-btn ts-install" type="button" disabled>✓ App Installed</button>
+        <small id="pwaInstallStatus" class="pwa-install-status">Preparing install…</small>
+      </div>
+    </header>
+
+    <nav class="v8-nav" aria-label="Main navigation">
+      <button class="v8-nav-btn active" data-view="dashboard">⌂<span>Command Center</span></button>
+      <button class="v8-nav-btn" data-view="templates" data-admin-only="true">▦<span>Card Design Center</span></button>
+      <button class="v8-nav-btn" data-view="designer">✦<span>Identity Studio</span></button>
+      <button class="v8-nav-btn" data-view="employees">👥<span>Employee Center</span></button>
+      <a id="workforceNavLink" class="v8-nav-btn" href="workforce.html" hidden style="display:none;text-decoration:none">▤<span>Workforce</span></a>
+      <button class="v8-nav-btn" data-view="printcenter">▦<span>Print Center</span></button>
+      <button class="v8-nav-btn" data-view="reports">★<span>Reports</span></button>
+      <button class="v8-nav-btn" data-view="batch" data-feature="batch">▦<span>Batch Printing</span></button>
+      <button class="v8-nav-btn" data-view="nfc" data-feature="nfc">▣<span>NFC Studio</span></button>
+      <div class="ts-build-badge"><b>Tabaja Solution</b><span>Version 12.9.3.9</span></div>
+    </nav>
+
+    <section id="v8Dashboard" class="v8-dashboard command-center">
+      <div class="cc-topline">
+        <div>
+          <span class="cc-eyebrow">LIVE OPERATIONS</span>
+          <h2 id="ccGreeting">Good evening, Abed.</h2>
+          <p id="ccDate">Your identity production workspace is ready.</p>
+        </div>
+        <div class="cc-system-strip" aria-label="System status">
+          <span class="cc-live-dot"></span>
+          <div><b>System operational</b><small>Local workspace</small></div>
+          <time id="ccClock">00:00</time>
+        </div>
+      </div>
+
+      <div class="cc-grid">
+        <article class="cc-panel cc-overview">
+          <div class="cc-panel-head"><div><span>PRODUCTION PULSE</span><h3>Today at a glance</h3></div><span class="cc-badge">LIVE</span></div>
+          <div class="cc-metrics">
+            <div class="cc-metric"><span>Today's Cards</span><b id="ccTodayCards">0</b><small>Printed today</small></div>
+            <div class="cc-metric"><span>Employees</span><b id="ccEmployeeCount">0</b><small>Directory records</small></div>
+            <div class="cc-metric"><span>Print Jobs</span><b id="ccTodayJobs">0</b><small>Jobs today</small></div>
+            <div class="cc-metric"><span>Templates</span><b id="ccTemplateCount">0</b><small>Saved designs</small></div>
+          </div>
+          <div class="cc-production-line"><span></span><i></i><i></i><i></i><i></i><small>Production activity will appear here as cards are printed.</small></div>
+        </article>
+
+        <article class="cc-panel cc-printer">
+          <div class="cc-panel-head"><div><span>DEVICE STATUS</span><h3>Print Station</h3></div><span class="cc-status-ready">READY</span></div>
+          <div class="cc-device-visual"><div class="cc-printer-icon">▰</div><div><b>Zebra ZC300</b><small>Professional card printer</small></div></div>
+          <div class="cc-device-rows"><div><span>Connection</span><b>Local / USB</b></div><div><span>Queue</span><b id="ccQueueCount">0 waiting</b></div><div><span>Environment</span><b>Production ready</b></div></div>
+          <button class="cc-link-btn" type="button" data-go="printcenter">Open device centre <span>↗</span></button>
+        </article>
+
+        <article class="cc-panel cc-quick">
+          <div class="cc-panel-head"><div><span>QUICK ACTIONS</span><h3>Start something</h3></div></div>
+          <div class="cc-quick-grid">
+            <button type="button" data-go="designer"><i>✦</i><b>New Card</b><small>Open Identity Studio</small></button>
+            <button type="button" data-go="employees"><i>＋</i><b>New Employee</b><small>Open employee directory</small></button>
+            <button type="button" data-go="printcenter"><i>▦</i><b>Quick Print</b><small>Start a batch job</small></button>
+            <button type="button" data-go="nfc" data-feature="nfc"><i>◉</i><b>Write NFC</b><small>Open NFC Studio</small></button>
+          </div>
+        </article>
+
+        <article class="cc-panel cc-recent">
+          <div class="cc-panel-head"><div><span>RECENT OUTPUT</span><h3>Latest 5 cards</h3></div><button type="button" data-go="designer">View studio</button></div>
+          <div id="ccRecentCards" class="cc-recent-list">
+            <div class="cc-empty-row"><span>◇</span><div><b>No cards printed yet</b><small>Your five most recent cards will appear here.</small></div></div>
+          </div>
+        </article>
+
+        <article class="cc-panel cc-batch" data-feature="batch">
+          <div class="cc-panel-head"><div><span>LAST BATCH</span><h3>Production run</h3></div><span id="ccBatchState" class="cc-neutral-badge">NO JOB</span></div>
+          <div class="cc-batch-main"><strong id="ccBatchName">No batch recorded</strong><p id="ccBatchNote">Start an Excel batch and its progress will be displayed here.</p></div>
+          <div class="cc-progress"><span id="ccBatchProgress"></span></div>
+          <div class="cc-batch-foot"><small id="ccBatchMeta">0 cards • 0 completed</small><button type="button" data-go="printcenter">Open Print Center →</button></div>
+        </article>
+
+        <article class="cc-panel cc-nfc" data-feature="nfc">
+          <div class="cc-panel-head"><div><span>SMART IDENTITY</span><h3>NFC Reader</h3></div><span class="cc-neutral-badge">STANDBY</span></div>
+          <div class="cc-nfc-ring"><span>NFC</span></div>
+          <b>ACS ACR122U</b><small>Connect the reader to begin writing smart identity links.</small>
+          <button class="cc-link-btn" type="button" data-go="nfc">Open NFC Studio <span>↗</span></button>
+        </article>
+
+        <article class="cc-panel cc-activity">
+          <div class="cc-panel-head"><div><span>ACTIVITY</span><h3>Recent operations</h3></div><span>Today</span></div>
+          <div id="ccActivityList" class="cc-activity-list">
+            <div><i class="success"></i><span><b>Workspace started</b><small>Tabaja Solution is ready for production.</small></span><time>Now</time></div>
+            <div><i></i><span><b>Employee directory loaded</b><small id="ccActivityEmployees">0 records available.</small></span><time>Now</time></div>
+            <div><i></i><span><b>Print engine protected</b><small>Stable Zebra production engine unchanged.</small></span><time>System</time></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+
+    <section id="templateGalleryWorkspace" class="template-gallery-workspace" data-admin-only="true" aria-labelledby="templateGalleryTitle">
+      <div class="tg-hero">
+        <div>
+          <span class="tg-kicker">V12.9.3.9 CUSTOMER READY</span>
+          <h2 id="templateGalleryTitle">Professional identity design, without the clutter.</h2>
+          <p>Choose a sector, open a production-ready template, or start from a clean CR80 canvas.</p>
+          <div class="tg-proof" data-admin-only="true" aria-label="Platform highlights">
+            <div><b id="productionTemplateCount">12</b><span>Production Templates</span></div>
+            <div><b>6</b><span>Identity Sectors</span></div>
+            <div><b>2</b><span>Current Materials</span></div>
+            <div><b>100%</b><span>Zebra Compatible</span></div>
+          </div>
+        </div>
+        <button id="openBlankDesigner" class="tg-blank-btn" type="button"><span>＋</span><b>Start Blank Card</b><small>Build from a clean canvas</small></button>
+      </div>
+
+      <section class="design-quick-start" aria-label="Quick design resources">
+        <button type="button" data-quick-go="collections" data-admin-only="true"><span>▦</span><div><b>Browse Collections</b><small>Government, corporate, schools and more</small></div><em>Open</em></button>
+        <button type="button" data-quick-go="templates"><span>✦</span><div><b>Ready Templates</b><small>Production-ready CR80 card designs</small></div><em>View</em></button>
+        <button type="button" data-quick-go="elements" hidden aria-hidden="true" tabindex="-1" style="display:none"><span>☺</span><div><b>Elements Library</b><small>Emoji, flags and useful card symbols</small></div><em>Explore</em></button>
+      </section>
+
+      <section id="elementsLibrary" class="elements-library" hidden>
+        <div class="elements-library-head"><div><span>DESIGN ELEMENTS</span><h3>Emoji &amp; Flags</h3><p>Click any item to add it directly to the active card in Identity Studio.</p></div><button id="closeElementsLibrary" type="button">Close</button></div>
+        <div class="elements-category"><div class="elements-category-title"><span>☺</span><div><b>School &amp; Kids Emoji</b><small>Friendly elements for student, nursery and activity cards</small></div></div><div class="elements-grid">
+          <button type="button" data-card-symbol="😀">😀</button><button type="button" data-card-symbol="😊">😊</button><button type="button" data-card-symbol="🤓">🤓</button><button type="button" data-card-symbol="🎓">🎓</button><button type="button" data-card-symbol="📚">📚</button><button type="button" data-card-symbol="✏️">✏️</button><button type="button" data-card-symbol="🚌">🚌</button><button type="button" data-card-symbol="⚽">⚽</button><button type="button" data-card-symbol="⭐">⭐</button><button type="button" data-card-symbol="🌈">🌈</button><button type="button" data-card-symbol="🦋">🦋</button><button type="button" data-card-symbol="🦖">🦖</button>
+        </div></div>
+        <div class="elements-category"><div class="elements-category-title"><span>⚑</span><div><b>Country Flags</b><small>High-visibility nationality markers for identity cards</small></div></div><div class="elements-grid flags">
+          <button type="button" data-card-symbol="🇸🇱" title="Sierra Leone">🇸🇱<small>Sierra Leone</small></button><button type="button" data-card-symbol="🇱🇧" title="Lebanon">🇱🇧<small>Lebanon</small></button><button type="button" data-card-symbol="🇹🇷" title="Turkey">🇹🇷<small>Turkey</small></button><button type="button" data-card-symbol="🇬🇧" title="United Kingdom">🇬🇧<small>United Kingdom</small></button><button type="button" data-card-symbol="🇺🇸" title="United States">🇺🇸<small>United States</small></button><button type="button" data-card-symbol="🇨🇳" title="China">🇨🇳<small>China</small></button><button type="button" data-card-symbol="🇫🇷" title="France">🇫🇷<small>France</small></button><button type="button" data-card-symbol="🇩🇪" title="Germany">🇩🇪<small>Germany</small></button>
+        </div></div>
+      </section>
+
+      <section id="collectionHome" class="collection-home" data-admin-only="true" aria-label="Card collections">
+        <div class="collection-home-head">
+          <div><span>DESIGN LIBRARY</span><h3>Explore by sector</h3><p>Choose a collection first, then open the exact card type you need.</p></div>
+          <button id="showAllTemplates" type="button">View all ready templates</button>
+        </div>
+        <div class="collection-home-grid">
+          <button class="collection-cover government" type="button" data-open-collection="government"><span class="collection-icon">♜</span><div><small>OFFICIAL DOCUMENTS</small><b>Government</b><p>National identity, driver licence, residence permit and public-sector credentials.</p><em>Explore collection →</em></div></button>
+          <button class="collection-cover corporate" type="button" data-open-collection="corporate"><span class="collection-icon">▥</span><div><small>BUSINESS IDENTITY</small><b>Corporate</b><p>Executive, employee, contractor and company access cards.</p><em>Explore collection →</em></div></button>
+          <button class="collection-cover healthcare" type="button" data-open-collection="healthcare"><span class="collection-icon">✚</span><div><small>MEDICAL IDENTITY</small><b>Healthcare</b><p>Doctors, nurses, laboratories, pharmacies and hospital staff.</p><em>Explore collection →</em></div></button>
+          <button class="collection-cover security" type="button" data-open-collection="security"><span class="collection-icon">◆</span><div><small>ACCESS CONTROL</small><b>Security</b><p>Guards, supervisors, visitors and restricted-access credentials.</p><em>Explore collection →</em></div></button>
+          <button class="collection-cover membership" type="button" data-open-collection="membership"><span class="collection-icon">★</span><div><small>LOYALTY & VIP</small><b>Membership</b><p>Clubs, loyalty programmes, premium members and events.</p><em>Explore collection →</em></div></button>
+          <button class="collection-cover education" type="button" data-open-collection="education"><span class="collection-icon">▰</span><div><small>SCHOOLS & CAMPUSES</small><b>Education</b><p>Student, teacher, library and campus access cards.</p><em>Collection structure ready →</em></div></button>
+        </div>
+      </section>
+
+      <section id="collectionDetail" class="collection-detail" hidden>
+        <div class="collection-detail-head">
+          <button id="backToCollections" type="button">← All collections</button>
+          <div><span id="collectionEyebrow">COLLECTION</span><h3 id="collectionTitle">Government</h3><p id="collectionDescription">Choose the exact document type.</p></div>
+          <small id="collectionReadyCount">0 ready designs</small>
+        </div>
+        <div id="collectionTypeGrid" class="collection-type-grid"></div>
+      </section>
+
+      <div id="templateBrowser" class="template-browser" hidden>
+      <div class="tg-toolbar">
+        <div class="tg-search"><span>⌕</span><input id="templateSearch" type="search" placeholder="Search templates, industries or styles…"></div>
+        <div class="tg-filters" role="group" aria-label="Template filters">
+          <button class="active" type="button" data-template-filter="all">All Designs</button>
+          <button type="button" data-template-filter="white">White PVC</button>
+          <button type="button" data-template-filter="black">Black PVC</button>
+          <button type="button" data-template-filter="government">Government</button>
+          <button type="button" data-template-filter="idcard">ID Card</button>
+          <button type="button" data-template-filter="driver">Driver License</button>
+          <button type="button" data-template-filter="residence">Residence Permit</button>
+          <button type="button" data-template-filter="healthcare">Healthcare</button>
+          <button type="button" data-template-filter="corporate">Corporate</button>
+          <button type="button" data-template-filter="security">Security</button>
+          <button type="button" data-template-filter="membership">Membership</button>
+        </div>
+      </div>
+
+      <div class="tg-collection-strip" aria-label="Design collections">
+        <button type="button" data-collection-filter="corporate"><i>▥</i><span><b>Corporate</b><small>Executive & staff</small></span></button>
+        <button type="button" data-collection-filter="government"><i>♜</i><span><b>Government</b><small>Official identities</small></span></button>
+        <button type="button" data-collection-filter="idcard"><i>▣</i><span><b>ID Card</b><small>General identity</small></span></button>
+        <button type="button" data-collection-filter="driver"><i>▤</i><span><b>Driver License</b><small>Road credentials</small></span></button>
+        <button type="button" data-collection-filter="residence"><i>⌂</i><span><b>Residence Permit</b><small>Residential cards</small></span></button>
+        <button type="button" data-collection-filter="healthcare"><i>✚</i><span><b>Healthcare</b><small>Doctors & hospitals</small></span></button>
+        <button type="button" data-collection-filter="security"><i>◆</i><span><b>Security</b><small>Access & guards</small></span></button>
+        <button type="button" data-collection-filter="membership"><i>★</i><span><b>Membership</b><small>VIP & loyalty</small></span></button>
+      </div>
+
+      <div class="tg-section-head"><div><span>CURATED COLLECTION</span><h3>Signature Templates</h3></div><small id="templateResultCount">12 designs</small></div>
+      <div id="templateGrid" class="tg-grid">
+        <article class="tg-card" data-template-tags="white corporate executive clean" data-template-id="white-executive">
+          <div class="tg-preview white-executive"><div class="tp-brand">NORTHSTAR</div><div class="tp-photo"></div><div class="tp-lines"><b>OLIVIA CARTER</b><span>OPERATIONS DIRECTOR</span><i></i><small>ID 000284</small></div><em>EXECUTIVE</em></div>
+          <div class="tg-meta"><div><b>White Executive</b><span>Corporate • White PVC</span></div><button type="button">Use Template</button></div>
+        </article>
+        <article class="tg-card" data-template-tags="white corporate blue modern" data-template-id="white-wave">
+          <div class="tg-preview white-wave"><div class="tp-wave"></div><div class="tp-brand">VANTAGE</div><div class="tp-photo round"></div><div class="tp-lines"><b>DANIEL MORGAN</b><span>PROJECT MANAGER</span><small>EMPLOYEE 00192</small></div></div>
+          <div class="tg-meta"><div><b>Modern Wave</b><span>Corporate • White PVC</span></div><button type="button">Use Template</button></div>
+        </article>
+        <article class="tg-card" data-template-tags="white security access minimal" data-template-id="white-security">
+          <div class="tg-preview white-security"><div class="tp-side"></div><div class="tp-shield">S</div><div class="tp-photo"></div><div class="tp-lines"><b>MICHAEL KAMARA</b><span>SECURITY OFFICER</span><small>ACCESS LEVEL 03</small></div><em>SECURE ID</em></div>
+          <div class="tg-meta"><div><b>Secure Access</b><span>Security • White PVC</span></div><button type="button">Use Template</button></div>
+        </article>
+        <article class="tg-card" data-template-tags="white membership luxury elegant" data-template-id="white-member">
+          <div class="tg-preview white-member"><div class="tp-brand">AURELIA CLUB</div><div class="tp-monogram">AC</div><div class="tp-lines"><b>PREMIUM MEMBER</b><span>AMINA SESAY</span><small>VALID THROUGH 2028</small></div><em>MEMBER 00841</em></div>
+          <div class="tg-meta"><div><b>Ivory Membership</b><span>Membership • White PVC</span></div><button type="button">Use Template</button></div>
+        </article>
+        <article class="tg-card" data-template-tags="black luxury gold executive premium" data-template-id="black-gold">
+          <div class="tg-preview black-gold"><div class="tp-goldline"></div><div class="tp-brand">TABAJA GROUP</div><div class="tp-photo"></div><div class="tp-lines"><b>JAMES WILLIAMS</b><span>EXECUTIVE DIRECTOR</span><small>ID 000017</small></div><em>PREMIUM ID</em></div>
+          <div class="tg-meta"><div><b>Black Gold</b><span>Executive • Black PVC</span></div><button type="button">Use Template</button></div>
+        </article>
+        <article class="tg-card" data-template-tags="black corporate carbon technology" data-template-id="black-carbon">
+          <div class="tg-preview black-carbon"><div class="tp-carbon"></div><div class="tp-brand">NEXUS TECH</div><div class="tp-photo round"></div><div class="tp-lines"><b>SARAH JOHNSON</b><span>SYSTEMS ENGINEER</span><small>NT-0429</small></div></div>
+          <div class="tg-meta"><div><b>Carbon Tech</b><span>Technology • Black PVC</span></div><button type="button">Use Template</button></div>
+        </article>
+        <article class="tg-card" data-template-tags="black security red access bold" data-template-id="black-security">
+          <div class="tg-preview black-security"><div class="tp-redbar"></div><div class="tp-brand">APEX SECURITY</div><div class="tp-photo"></div><div class="tp-lines"><b>IBRAHIM CONTEH</b><span>FIELD SUPERVISOR</span><small>LEVEL 04 • ACTIVE</small></div><em>AUTHORISED</em></div>
+          <div class="tg-meta"><div><b>Black Sentinel</b><span>Security • Black PVC</span></div><button type="button">Use Template</button></div>
+        </article>
+        <article class="tg-card" data-template-tags="black membership silver vip premium" data-template-id="black-silver">
+          <div class="tg-preview black-silver"><div class="tp-silverring">V</div><div class="tp-brand">VANTAGE CLUB</div><div class="tp-lines"><b>VIP MEMBER</b><span>ABED TABAJA</span><small>NO. 0001</small></div><em>EST. 2026</em></div>
+          <div class="tg-meta"><div><b>Midnight VIP</b><span>Membership • Black PVC</span></div><button type="button">Use Template</button></div>
+        </article>
+        <article class="tg-card" data-template-id="government-id" data-template-tags="government idcard identity official white premium">
+          <div class="tg-preview government-id"><span class="tp-brand">GOVERNMENT OF SIERRA LEONE</span><div class="tp-photo"></div><div class="tp-lines"><b>IBRAHIM SESAY</b><span>CIVIL SERVANT</span><small>ID: GOV 25 0001</small><i></i></div><em>OFFICIAL ID</em></div>
+          <div class="tg-meta"><div><b>Government ID</b><span>Government • White PVC</span></div><button type="button">Use Template</button></div>
+        </article>
+        <article class="tg-card" data-template-id="driver-license" data-template-tags="government driver license idcard white premium road">
+          <div class="tg-preview driver-license"><span class="tp-brand">REPUBLIC OF SIERRA LEONE</span><div class="tp-photo"></div><div class="tp-lines"><b>MOHAMED KAMARA</b><span>DRIVER LICENCE</span><small>SL 25 1234567</small><i></i></div><em>CLASS B</em></div>
+          <div class="tg-meta"><div><b>Driver License</b><span>Government • White PVC</span></div><button type="button">Use Template</button></div>
+        </article>
+        <article class="tg-card" data-template-id="residence-permit" data-template-tags="government residence residential permit idcard white immigration premium">
+          <div class="tg-preview residence-permit"><span class="tp-brand">RESIDENCE PERMIT</span><div class="tp-photo"></div><div class="tp-lines"><b>AMADOU DIALLO</b><span>RESIDENT</span><small>RP-2026-00421</small><i></i></div><em>VALID 2028</em></div>
+          <div class="tg-meta"><div><b>Residence Permit</b><span>Identity • White PVC</span></div><button type="button">Use Template</button></div>
+        </article>
+        <article class="tg-card" data-template-id="doctor-card" data-template-tags="healthcare doctor hospital medical idcard white premium">
+          <div class="tg-preview doctor-card"><span class="tp-brand">CITY CARE HOSPITAL</span><div class="tp-photo round"></div><div class="tp-lines"><b>DR. SOPHIA LEE</b><span>CARDIOLOGIST</span><small>ID: HSP 5678</small><i></i></div><em>MEDICAL STAFF</em></div>
+          <div class="tg-meta"><div><b>Doctor Professional</b><span>Healthcare • White PVC</span></div><button type="button">Use Template</button></div>
+        </article>
+      </div>
+      <div id="templateEmpty" class="tg-empty" hidden><span>◇</span><h3>No matching designs</h3><p>Try another material, category or search term.</p></div>
+    </section>
+
+    <section id="printCenterWorkspace" class="module-workspace">
+      <div class="module-head"><div><span class="v8-kicker">PRODUCTION CONTROL</span><h2>Print Center</h2><p>Choose the printing workflow you need. Zebra settings and stable print engines remain protected.</p></div><span class="module-status ready">PRINTER READY</span></div>
+      <div class="module-grid three">
+        <button class="module-card featured" data-go="batch" data-feature="batch"><span class="module-icon">▦</span><b>Batch Printing</b><small>Upload Excel and print up to 50 employee cards in one production run.</small><em>Open Batch Wizard →</em></button>
+        <button class="module-card" data-go="quality" data-admin-only="true"><span class="module-icon">★</span><b>Print Quality</b><small>Professional photo enhancement and high-quality rendering controls.</small><em>Open Quality Controls →</em></button>
+        <button class="module-card" data-go="zebra" data-admin-only="true"><span class="module-icon">▣</span><b>Zebra Settings</b><small>ZC300 alignment, CR80 format and smart bleed calibration.</small><em>Open Zebra Settings →</em></button>
+      </div>
+      <div class="module-info-row"><div><span>Printer</span><b>Zebra ZC300</b><small>Local / USB</small></div><div><span>Card Format</span><b>CR80</b><small>85.60 × 53.98 mm</small></div><div><span>Stable Engine</span><b>Protected</b><small>No print logic changed</small></div></div>
+    </section>
+
+    <section id="reportsWorkspace" class="module-workspace">
+      <div class="module-head"><div><span class="v8-kicker">BUSINESS INTELLIGENCE</span><h2>Reports</h2><p>Production statistics and operational summaries in one dedicated module.</p></div><button type="button" class="module-export">Export Report</button></div>
+      <div class="report-metrics"><div><span>Cards Today</span><b id="reportCardsToday">0</b><small>Printed cards</small></div><div><span>Total Employees</span><b id="reportEmployees">0</b><small>Directory records</small></div><div><span>Print Jobs</span><b id="reportJobs">0</b><small>Recorded jobs</small></div><div><span>Templates</span><b id="reportTemplates">0</b><small>Saved designs</small></div></div>
+      <div class="module-grid two"><article class="report-panel"><span>PRODUCTION TREND</span><h3>Card output</h3><div class="report-placeholder"><i></i><i></i><i></i><i></i><i></i><i></i><small>Production activity will build automatically as print jobs are recorded.</small></div></article><article class="report-panel"><span>RECENT ACTIVITY</span><h3>Operational summary</h3><div class="report-list"><div><b>Workspace ready</b><small>Tabaja Solution V12.9.3.9</small></div><div><b>Stable print engine</b><small>Protected and unchanged</small></div><div><b>Reports module</b><small>Correct navigation restored</small></div></div></article></div>
+    </section>
+
+    <section id="nfcWorkspace" class="module-workspace" data-feature="nfc">
+      <div class="module-head"><div><span class="v8-kicker">SMART IDENTITY</span><h2>NFC Studio</h2><p>Dedicated workspace for ACS ACR122U card reading and website-link writing.</p></div><span id="nfcModuleStatus" class="module-status standby">BRIDGE OFFLINE</span></div>
+      <div class="nfc-layout">
+        <article class="nfc-reader-card">
+          <div class="nfc-visual"><span>NFC</span></div><h3>ACS ACR122U</h3>
+          <p>Start the local bridge, connect the reader, then place one NFC card in the center.</p>
+          <div class="nfc-device-line"><span>Reader status</span><b id="nfcReaderStatus">Waiting for bridge</b></div>
+          <div class="nfc-device-line"><span>Card status</span><b id="nfcCardStatus">No card detected</b></div>
+          <div class="nfc-device-line"><span>Card UID</span><b id="nfcCardUid">—</b></div>
+        </article>
+        <article class="nfc-actions-card">
+          <span>QUICK OPERATIONS</span><h3>Website link</h3>
+          <label for="nfcUrlInput" style="display:block;font-size:12px;font-weight:800;margin-bottom:7px">URL to write</label>
+          <input id="nfcUrlInput" type="url" value="https://www.dtasl.co" placeholder="https://www.example.com" style="width:100%;box-sizing:border-box;padding:13px;border:1px solid #d8e0ec;border-radius:12px;margin-bottom:8px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin:8px 0 12px"><input id="nfcAutoWrite" type="checkbox"> Auto-write the same link when the next card is placed</label>
+          <button id="nfcReadCardBtn" type="button" disabled>Read NFC Card</button>
+          <button id="nfcWriteCardBtn" type="button" class="primary" disabled>Write Website Link</button>
+          <button id="nfcVerifyCardBtn" type="button" disabled>Verify Written Card</button>
+          <p id="nfcBridgeHint">Run <b>NFC-Bridge\Start-NFC-Bridge.bat</b>. Keep the black PowerShell window open while writing cards.</p>
+        </article>
+        <article class="nfc-log-card"><span>ACTIVITY LOG</span><h3>Recent NFC operations</h3><div id="nfcActivityLog" class="cc-empty-row"><span>◇</span><div><b>No NFC operations yet</b><small>Read and write activity will appear here.</small></div></div></article>
+      </div>
+    </section>
+
+    <section id="employeeWorkspace" class="employee-workspace" aria-labelledby="employeeWorkspaceTitle">
+      <div class="employee-page-head">
+        <div>
+          <span class="v8-kicker">COMPANY DIRECTORY</span>
+          <h2 id="employeeWorkspaceTitle">Employee Manager</h2>
+          <p>Maintain employee records separately from the stable card-design and printing engine.</p>
+        </div>
+        <button id="addEmployeeBtn" class="primary employee-add-btn" type="button">+ Add Employee</button>
+      </div>
+
+      <div class="employee-stats" aria-label="Employee summary">
+        <div><span>Total Employees</span><b id="employeeTotal">0</b></div>
+        <div><span>Active</span><b id="employeeActive">0</b></div>
+        <div><span>Inactive</span><b id="employeeInactive">0</b></div>
+        <div><span>Departments</span><b id="employeeDepartments">0</b></div>
+      </div>
+
+      <div class="employee-toolbar">
+        <label class="employee-search"><span>⌕</span><input id="employeeSearch" type="search" placeholder="Search name, ID, department or job title"></label>
+        <select id="employeeStatusFilter" aria-label="Filter employee status"><option value="all">All statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
+        <button id="exportEmployeesBtn" type="button">Export Backup</button>
+        <button id="importEmployeesBtn" type="button">Import Backup</button>
+        <input id="importEmployeesFile" type="file" accept="application/json" hidden>
+      </div>
+
+      <div class="employee-table-card">
+        <div class="employee-table-wrap">
+          <table class="employee-table">
+            <thead><tr><th>Photo</th><th>Employee ID</th><th>Name</th><th>Department</th><th>Job Title</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="employeeTableBody"></tbody>
+          </table>
+        </div>
+        <div id="employeeEmptyState" class="employee-empty">
+          <div class="employee-empty-icon">👥</div><h3>No employees yet</h3><p>Add your first employee to start building the company directory.</p>
+          <button id="emptyAddEmployeeBtn" class="primary" type="button">+ Add First Employee</button>
+        </div>
+      </div>
+    </section>
+
+    <main id="v8Main">
+      <aside class="tools" data-v8-section="designer">
+        <h3>Tools</h3>
+        <button id="addTextBtn">Add Text</button>
+        <button id="addImageBtn">Add Image</button>
+        <button id="addLogoBtn">Add Logo</button>
+        <button id="openElementsBtn" hidden aria-hidden="true" tabindex="-1" style="display:none">☺ Emoji &amp; Flags</button>
+        <button id="backgroundBtn">Background Image</button>
+        <button id="fillBtn">Fill Card</button>
+        <button id="fitBtn">Fit Inside</button>
+        <button id="cropBtn">Crop Mode</button>
+        <button id="resetImageBtn">Reset Image</button>
+        <button id="rotateImageBtn">Rotate Image 90°</button>
+        <button id="qrBtn" data-feature="qr">QR Code</button>
+        <button id="barcodeBtn" data-feature="barcode">Barcode</button>
+        <button id="duplicateBtn">Duplicate</button>
+        <button id="nfcBtn" data-feature="nfc">NFC Link</button>
+        <hr>
+        <button id="frontBtn" class="active">Front</button>
+        <button id="backBtn">Back</button>
+        <hr>
+        <button id="deleteBtn">Delete Selected</button>
+        <button id="deleteAllBtn">Delete All</button>
+        <input id="imageInput" type="file" accept="image/*" hidden>
+        <input id="projectInput" type="file" accept=".tabaja,.json" hidden>
+      </aside>
+
+      <section class="workspace" data-v8-section="workspace">
+        <div class="workspace-bar">
+          <div id="cardInfo" class="card-info">CR80 • 85.60 × 53.98 mm • Landscape • 300 DPI</div>
+          <label class="orientation-label">Orientation
+            <select id="orientationSelect">
+              <option value="landscape">Landscape</option>
+              <option value="portrait">Portrait</option>
+            </select>
+          </label>
+        </div>
+        <div id="canvasShell" class="canvas-shell landscape">
+          <canvas id="cardCanvas" width="1011" height="638"></canvas>
+        </div>
+        <p id="status">Ready.</p>
+      </section>
+
+      <aside class="properties">
+
+        <div class="builder-panel background-panel" data-v8-panel="designer">
+          <div class="panel-heading-row"><div><h3>Background</h3><p class="panel-subtitle">Choose one clean background workflow.</p></div><span class="panel-badge">LIVE</span></div>
+          <div class="background-type-tabs" role="tablist" aria-label="Background type">
+            <button class="active" type="button" data-bg-type="solid">Solid</button>
+            <button type="button" data-bg-type="gradient">Gradient</button>
+            <button type="button" data-bg-type="image">Image</button>
+            <button type="button" data-bg-type="split">Split</button>
+          </div>
+          <div class="background-type-panel active" data-bg-panel="solid">
+            <label>Solid Colour</label>
+            <div class="background-color-row"><input id="cardBgSolidColor" type="color" value="#ffffff"><button id="applySolidBackgroundBtn">Apply Colour</button></div>
+            <div class="builder-actions background-actions"><button id="transparentBackgroundBtn">Transparent</button><button id="resetWhiteBackgroundBtn">Reset White</button></div>
+          </div>
+          <div class="background-type-panel" data-bg-panel="gradient">
+            <label>Gradient Colours</label>
+            <div class="background-gradient-colors"><input id="cardBgGradient1" type="color" value="#0d3155"><input id="cardBgGradient2" type="color" value="#1684e8"></div>
+            <label>Direction</label>
+            <select id="cardBgGradientDirection"><option value="horizontal">Left → Right</option><option value="vertical">Top → Bottom</option><option value="diagonal">Diagonal ↘</option><option value="diagonalReverse">Diagonal ↙</option></select>
+            <button class="background-full-button" id="applyGradientBackgroundBtn">Apply Gradient</button>
+          </div>
+          <div class="background-type-panel" data-bg-panel="image">
+            <div class="background-upload-card"><span>▧</span><b>Use a full-card image</b><small>Upload artwork, texture or a finished background.</small><button id="cardBackgroundImageBtn" type="button">Choose Background Image</button></div>
+          </div>
+          <div class="background-type-panel" data-bg-panel="split">
+            <div class="split-preview"><i></i><i></i></div>
+            <label>Split Colours</label>
+            <div class="background-gradient-colors">
+              <input id="cardBgSplitLeft" type="color" value="#123e66" title="Photo-side colour" aria-label="Photo-side colour">
+              <input id="cardBgSplitRight" type="color" value="#ffffff" title="Details-side colour" aria-label="Details-side colour">
+            </div>
+            <label for="cardBgSplitPosition">Photo Area <b id="cardBgSplitPositionValue">31%</b></label>
+            <input id="cardBgSplitPosition" type="range" min="15" max="45" value="31" step="1" style="width:100%">
+            <p class="builder-note">Move the slider or drag the divider line directly on the card. Left and right colours are independent.</p>
+            <button type="button" id="useSplitGradientBtn" class="background-full-button">Apply Split</button>
+          </div>
+          <label class="background-sync-option"><input id="syncBackgroundBothSides" type="checkbox" checked><span>Apply the same background to Front &amp; Back</span></label>
+          <p class="builder-note">Background output remains included in PNG, PDF and Zebra printing.</p>
+        </div>
+
+        <div class="builder-panel batch-panel" data-v8-panel="batch" data-feature="batch">
+          <h3>📥 Batch Printing Wizard — V8.1</h3>
+          <label>1. Upload Excel / CSV</label>
+          <input id="batchExcelInput" type="file" accept=".xlsx,.xls,.csv">
+          <label>2. Upload Employee Photos Folder (optional)</label>
+          <input id="batchPhotosInput" type="file" accept="image/*" webkitdirectory directory multiple>
+          <label class="background-sync-option"><input id="autoFaceCrop" type="checkbox" checked><span>Auto Face Center + Auto Crop</span></label>
+          <div id="faceCropStatus" class="batch-summary">ID matching: Excel ID → leading photo number. Crop: white-border trim + face/portrait centring ready.</div>
+          <label>3. Upload Company Logos Folder (optional)</label>
+          <input id="batchLogosInput" type="file" accept="image/*" webkitdirectory directory multiple>
+          <label>4. Upload Card Backgrounds Folder (optional)</label>
+          <input id="batchBackgroundsInput" type="file" accept="image/*" webkitdirectory directory multiple>
+          <div id="batchSummary" class="batch-summary">No batch loaded.</div>
+          <label>Name Column</label><select id="mapName"></select>
+          <label>ID Column</label><select id="mapId"></select>
+          <label>Job Title Column</label><select id="mapJob"></select>
+          <label>Company Column</label><select id="mapCompany"></select>
+          <label>Phone Column</label><select id="mapPhone"></select>
+          <label>WhatsApp Column</label><select id="mapWhatsApp"></select>
+          <label>Email Column</label><select id="mapEmail"></select>
+          <label>Website Column</label><select id="mapWebsite"></select>
+          <label>Facebook Column</label><select id="mapFacebook"></select>
+          <label>Instagram Column</label><select id="mapInstagram"></select>
+          <label>X / Twitter Column</label><select id="mapTwitter"></select>
+          <label>LinkedIn Column</label><select id="mapLinkedIn"></select>
+          <label>Photo Filename Column <small>(optional legacy override — normally leave Not used)</small></label><select id="mapPhoto"></select>
+          <label>Logo Filename Column (optional)</label><select id="mapLogo"></select>
+          <label>Background Filename Column (optional)</label><select id="mapBackground"></select>
+          <div class="batch-range">
+            <div><label>From</label><input id="batchFrom" type="number" min="1" value="1"></div>
+            <div><label>To</label><input id="batchTo" type="number" min="1" value="50"></div>
+          </div>
+          <label class="background-sync-option"><input id="batchBothSides" type="checkbox"><span>Print Front + Back</span></label>
+          <div class="builder-actions">
+            <button id="batchPreviewBtn">Preview Record</button>
+            <button id="batchPreflightBtn">Pre-flight Check</button>
+          </div>
+          <button id="batchPrint50Btn" class="primary background-full-button">Print This 50</button>
+          <div class="builder-actions">
+            <button id="batchPrev50Btn">Previous 50</button>
+            <button id="batchNext50Btn">Next 50</button>
+          </div>
+          <div class="builder-actions">
+            <button id="batchReprintBtn">Reprint Current</button>
+            <button id="batchResetBtn">Reset Batch</button>
+          </div>
+          <div id="batchProgress" class="batch-progress">Ready.</div>
+          <p class="builder-note">Missing photos are cleared and marked, never copied from another record. When a logo exists, only the logo is shown. Backgrounds reset for every record. Contact icons are added automatically only when a value exists. Photo matching: Employee ID (example 000001.jpg). Logo matching: company name (example B7S.png) or the optional Logo Filename column. One print dialog contains up to 50 cards.</p>
+        </div>
+
+        <div class="builder-panel" data-v8-panel="designer">
+          <h3>Card Properties</h3><p class="panel-subtitle">Edit the primary identity content without limiting the card to one industry.</p>
+          <label>Company Name</label><input id="builderCompany" placeholder="Company, school, club or organisation">
+          <label>Full Name</label><input id="builderName" placeholder="Enter full name">
+          <label>Job Title</label><input id="builderJob" placeholder="Enter job title">
+          <label>Issue Date</label><input id="builderIssueDate" type="date">
+<label>Expiry Date</label><input id="builderExpiryDate" type="date">
+<label><input id="builderShowDates" type="checkbox" checked> Show Dates on Card</label>
+          <label>Phone</label><input id="builderPhone" placeholder="Phone (optional)">
+          <label>WhatsApp</label><input id="builderWhatsApp" placeholder="WhatsApp (optional)">
+          <label>Email</label><input id="builderEmail" placeholder="Email (optional)">
+          <label>Website</label><input id="builderWebsite" placeholder="Website (optional)">
+          <label>Facebook</label><input id="builderFacebook" placeholder="Facebook username / link (optional)">
+          <label>Instagram</label><input id="builderInstagram" placeholder="Instagram username (optional)">
+          <label>X / Twitter</label><input id="builderTwitter" placeholder="X / Twitter username (optional)">
+          <label>LinkedIn</label><input id="builderLinkedIn" placeholder="LinkedIn username / link (optional)">
+          <label>Primary Photo</label><input id="builderPhoto" type="file" accept="image/*">
+          <label>Brand Logo</label><input id="builderLogo" type="file" accept="image/*">
+          <details class="quality-tools" id="qualityTools" open>
+            <summary>Advanced Image &amp; Print Quality</summary>
+            <label class="background-sync-option"><input id="autoEnhancePhotos" type="checkbox" checked><span>Auto-enhance primary photos</span></label>
+            <label>Photo brightness <span id="brightnessValue">3%</span></label>
+            <input id="photoBrightness" type="range" min="-20" max="20" value="3" step="1">
+            <label>Photo contrast <span id="contrastValue">6%</span></label>
+            <input id="photoContrast" type="range" min="-20" max="30" value="6" step="1">
+            <label>Photo saturation <span id="saturationValue">2%</span></label>
+            <input id="photoSaturation" type="range" min="-20" max="30" value="2" step="1">
+            <label>Photo sharpness <span id="sharpnessValue">Medium</span></label>
+            <input id="photoSharpness" type="range" min="0" max="3" value="2" step="1">
+            <label class="background-sync-option"><input id="highQualityOutput" type="checkbox" checked><span>600 DPI PNG / professional print rendering</span></label>
+            <div class="builder-actions">
+              <button id="applyEnhanceBtn" type="button">Apply to Current Photo</button>
+              <button id="resetEnhanceBtn" type="button">Reset Quality</button>
+            </div>
+            <p class="builder-note">Enhancement applies only to primary photos—not logos or backgrounds. High-quality text is automatic and remains enabled by default.</p>
+          </details>
+          <div class="builder-actions">
+            <button class="primary" id="generateEmployeeBtn">Generate / Update Design</button>
+            <button id="replacePhotoBtn">Replace Photo</button>
+          </div>
+          <div class="builder-actions">
+            <button id="saveTemplateBtn">Save Template</button>
+            <button id="loadTemplateBtn">Load Template</button>
+          </div>
+          <p class="builder-note">You can move and resize the generated elements. Updating the content keeps every element in its current position.</p>
+        </div>
+        <div id="v8QualityPanel" class="builder-panel v8-special-panel" data-v8-panel="quality">
+          <h3>★ Professional Print Quality</h3>
+          <p class="v8-panel-intro">Choose one quality mode. Professional is recommended for Zebra PVC cards.</p>
+          <div class="v8-quality-modes">
+            <button type="button" data-quality-mode="standard"><b>Standard</b><span>Fast preview</span></button>
+            <button type="button" class="active" data-quality-mode="professional"><b>Professional</b><span>Recommended</span></button>
+            <button type="button" data-quality-mode="ultra"><b>Ultra HD</b><span>Maximum detail</span></button>
+          </div>
+          <div id="qualityToolsHost"></div>
+          <div class="v8-quality-status"><b>Automatic:</b> high-quality text, photo enhancement and bleed-safe rendering.</div>
+        </div>
+
+        <div id="v8ZebraPanel" class="builder-panel v8-special-panel" data-v8-panel="zebra">
+          <h3>▣ Zebra ZC300 Settings</h3>
+          <p class="v8-panel-intro">Use the offsets only when a printed card shifts toward one edge.</p>
+          <label>Horizontal offset X (mm)</label><input id="zebraOffsetX" type="number" value="0" min="-3" max="3" step="0.1">
+          <label>Vertical offset Y (mm)</label><input id="zebraOffsetY" type="number" value="0" min="-3" max="3" step="0.1">
+          <label>Smart bleed</label><select id="zebraBleed"><option value="0.5">0.5 mm</option><option value="1" selected>1.0 mm</option><option value="1.5">1.5 mm</option></select>
+          <label>Card format</label><select><option>CR80 — 85.60 × 53.98 mm</option></select>
+          <div class="builder-actions"><button type="button" id="saveZebraSettings">Save Settings</button><button type="button" id="resetZebraSettings">Reset</button></div>
+          <button type="button" class="primary background-full-button" id="zebraTestCard">Prepare Test Card</button>
+          <div id="zebraSettingsStatus" class="batch-progress">Default Zebra settings loaded.</div>
+        </div>
+
+        <div data-v8-panel="designer" class="v8-properties-block">
+        <hr>
+        <h3>Properties</h3>
+        <label>Text</label>
+        <input id="textValue" placeholder="Selected text">
+        <label>Font size</label>
+        <input id="fontSize" type="number" min="6" max="200" value="34">
+        <label>Font family</label>
+        <select id="fontFamily">
+          <option>Arial</option><option>Calibri</option><option>Verdana</option>
+          <option>Georgia</option><option>Times New Roman</option>
+        </select>
+        <label>Text color</label>
+        <input id="textColor" type="color" value="#111111">
+        <div class="row">
+          <button id="boldBtn">Bold</button>
+          <button id="italicBtn">Italic</button>
+        </div>
+        <label>Background color</label>
+        <input id="cardColor" type="color" value="#ffffff">
+        <label>Opacity</label>
+        <input id="opacity" type="range" min="0" max="1" value="1" step="0.01">
+        <label>Rotation</label>
+        <input id="rotation" type="range" min="-180" max="180" value="0" step="1">
+        <div class="help">
+          <b>Image tools</b>
+          <p>Select an image first. Fill Card covers the card. Fit Inside shows the complete image. Crop Mode clips the image while you move or resize it.</p>
+        </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+
+  <div id="employeeModal" class="employee-modal hidden" role="dialog" aria-modal="true" aria-labelledby="employeeModalTitle">
+    <form id="employeeForm" class="employee-modal-card">
+      <button id="closeEmployeeModalBtn" class="employee-modal-close" type="button" aria-label="Close">×</button>
+      <span class="v8-kicker">EMPLOYEE RECORD</span>
+      <h2 id="employeeModalTitle">Add Employee</h2>
+      <input id="employeeRecordKey" type="hidden">
+      <div class="employee-form-layout">
+        <div class="employee-photo-column">
+          <div id="employeePhotoPreview" class="employee-photo-preview"><span>Photo</span></div>
+          <label class="employee-photo-button" for="employeePhotoInput">Choose Photo</label>
+          <input id="employeePhotoInput" type="file" accept="image/*" hidden>
+          <button id="removeEmployeePhotoBtn" class="link-button" type="button">Remove photo</button>
+        </div>
+        <div class="employee-form-grid">
+          <div><label for="employeeIdInput">Employee ID *</label><input id="employeeIdInput" required maxlength="40" placeholder="EMP-0001"></div>
+          <div><label for="employeeStatusInput">Status</label><select id="employeeStatusInput"><option>Active</option><option>Inactive</option></select></div>
+          <div><label for="employeeFirstNameInput">First Name *</label><input id="employeeFirstNameInput" required maxlength="80"></div>
+          <div><label for="employeeLastNameInput">Last Name</label><input id="employeeLastNameInput" maxlength="80"></div>
+          <div><label for="employeeDepartmentInput">Department</label><input id="employeeDepartmentInput" maxlength="100"></div>
+          <div><label for="employeeJobTitleInput">Job Title</label><input id="employeeJobTitleInput" maxlength="100"></div>
+          <div><label for="employeeCompanyInput">Company</label><input id="employeeCompanyInput" maxlength="120"></div>
+          <div><label for="employeePhoneInput">Phone</label><input id="employeePhoneInput" type="tel" maxlength="40"></div>
+          <div class="employee-span-2"><label for="employeeEmailInput">Email</label><input id="employeeEmailInput" type="email" maxlength="160"></div>
+          <div><label for="employeeIssueDateInput">Issue Date</label><input id="employeeIssueDateInput" type="date"></div>
+          <div><label for="employeeExpiryDateInput">Expiry Date</label><input id="employeeExpiryDateInput" type="date"></div>
+          <div class="employee-span-2"><label for="employeeNotesInput">Notes</label><textarea id="employeeNotesInput" rows="3" maxlength="500"></textarea></div>
+        </div>
+      </div>
+      <div id="employeeFormMessage" class="employee-form-message" aria-live="polite"></div>
+      <div class="employee-modal-actions"><button id="cancelEmployeeBtn" type="button">Cancel</button><button class="primary" type="submit">Save Employee</button></div>
+    </form>
+  </div>
+
+
+  <div id="companyManagerModal" class="company-manager-modal hidden" role="dialog" aria-modal="true" aria-labelledby="companyManagerTitle">
+    <div class="company-manager-card">
+      <button id="closeCompanyManagerBtn" class="company-manager-close" type="button">×</button>
+      <span class="v8-kicker">TABAJA ADMIN ONLY</span>
+      <h2 id="companyManagerTitle">Company Manager</h2>
+      <button id="companyManagerCreate" class="primary" type="button">+ Create Company</button>
+      <p>Control customer trials and paid feature access without changing the application code.</p>
+      <div class="company-manager-layout">
+        <div><label>Customer company</label><select id="companyManagerSelect"></select><div id="companyManagerSummary" class="company-manager-summary"></div></div>
+        <div class="company-manager-controls">
+          <label>Status<select id="companyManagerStatus"><option value="TRIAL">TRIAL</option><option value="ACTIVE">ACTIVE</option><option value="EXPIRED">EXPIRED</option><option value="SUSPENDED">SUSPENDED</option></select></label>
+          <div class="company-manager-actions"><button id="companyManagerResetTrial" type="button">Start / Reset 5-Day Trial</button><button id="companyManagerActivate" type="button">Activate Paid Account</button></div>
+          <div class="company-manager-extend"><span>Extend trial</span><button id="companyManagerPlus1" type="button">+1 Day</button><button id="companyManagerPlus2" type="button">+2 Days</button></div>
+          <fieldset><legend>Paid add-ons</legend><label class="company-feature-toggle"><input id="companyFeatureNfc" type="checkbox"> NFC Studio</label><label class="company-feature-toggle"><input id="companyFeatureBatch" type="checkbox"> Batch Printing</label><label class="company-feature-toggle"><input id="companyFeatureQr" type="checkbox"> QR Code</label><label class="company-feature-toggle"><input id="companyFeatureBarcode" type="checkbox"> Barcode</label><label class="company-feature-toggle"><input id="companyFeatureWorkforce" type="checkbox"> Workforce &amp; Payroll</label><label class="company-feature-toggle" hidden aria-hidden="true" style="display:none"><input id="companyFeatureElements" type="checkbox"> Emoji &amp; Flags</label></fieldset>
+          <button id="companyManagerSave" class="primary" type="button">Save Company Access</button>
+          <div id="companyManagerMessage" class="company-manager-message"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="cloudSetupModal" class="cloud-modal hidden" role="dialog" aria-modal="true" aria-labelledby="cloudSetupTitle">
+    <div class="cloud-modal-card">
+      <button id="closeCloudSetupBtn" class="cloud-modal-close" type="button">×</button>
+      <span class="v8-kicker">TABAJA CLOUD</span>
+      <h2 id="cloudSetupTitle">Connect secure cloud backend</h2>
+      <p>Paste the Supabase Project URL and anon/public key. Never use the service_role key here.</p>
+      <label for="cloudProjectUrl">Project URL</label>
+      <input id="cloudProjectUrl" type="url" placeholder="https://your-project.supabase.co">
+      <label for="cloudAnonKey">Anon / public key</label>
+      <textarea id="cloudAnonKey" rows="5" placeholder="eyJhbGciOi..."></textarea>
+      <div class="cloud-modal-actions">
+        <button id="testCloudBtn" class="primary" type="button">Test & Save</button>
+        <button id="disconnectCloudBtn" type="button">Use Local Preview</button>
+      </div>
+      <div id="cloudSetupMessage" class="cloud-setup-message"></div>
+      <small>First run <b>supabase-schema.sql</b> inside your Supabase SQL Editor.</small>
+    </div>
+  </div>
+
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <div id="pwaUpdateToast" class="pwa-update-toast" hidden>
+    <span>A new version is ready.</span>
+    <button id="pwaUpdateBtn" type="button">Update now</button>
+  </div>
+  <script defer src="cloud.js?v=12.9.3.16-fix5.7-rpc"></script>
+  <script defer src="workforce/workforce-launcher.js?v=1.2.0"></script>
+  <script defer src="app.js?v=12.9.3.22.2-workforce-entitlement"></script>
+  <script defer src="commercial-templates.js?v=12.9.3.16-fix5?v=12.7.0-fix2"></script>
+  <script defer src="v8-ui.js?v=12.9.3.16-fix5"></script>
+  <script defer src="employee-manager.js?v=12.9.3.16-cloud-employees-1"></script>
+  <script defer src="activity-store.js?v=12.9.3.2"></script>
+  <script defer src="command-center.js?v=12.9.3.16-cloud-templates-1"></script>
+  
+  <div id="appToast" class="app-toast" role="status" aria-live="polite"></div>
+<script defer src="nfc-studio.js?v=12.9.3-local-pwa-fix2"></script>
+<script defer src="pwa.js?v=12.9.3.16"></script>
+</body>
+</html>
