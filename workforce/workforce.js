@@ -1872,9 +1872,18 @@
     renderLeaveBalancePreview(null); if(!employee||!type||!year) return leaveBalanceMessage('Select employee, leave type and year to check the current balance.','info');
     try{
       const {data,error}=await state.client.rpc('wf_get_leave_balance',{target_company:state.workspace.companyId,target_employee:employee,target_leave_type:type,target_year:year}); if(error) throw error;
-      const row=Array.isArray(data)?data[0]:data; renderLeaveBalancePreview(row||null);
+      const row=Array.isArray(data)?data[0]:data;
       const {data:existing,error:existingError}=await state.client.from('wf_leave_balances').select('id,approval_status,opening_units,entitlement_units,carry_forward_units,adjustment_units').eq('company_id',state.workspace.companyId).eq('employee_id',employee).eq('leave_type_id',type).eq('leave_year',year).maybeSingle();
       if(existingError) throw existingError;
+      // The RPC return-column names can differ from the client labels. Keep the database calculation
+      // authoritative, but derive the display totals from the approved balance record when present.
+      if(row){
+        const totalFromBalance=existing ? Number(existing.opening_units||0)+Number(existing.entitlement_units||0)+Number(existing.carry_forward_units||0)+Number(existing.adjustment_units||0) : Number(row.total_units??row.total??0);
+        const available=Number(row.available_units??row.available??row.remaining_units??0);
+        const pending=Number(row.pending_units??row.pending_used??row.pending_requested_units??0);
+        const approved=Number(row.approved_units??row.approved_used??row.approved_requested_units??(totalFromBalance-available));
+        renderLeaveBalancePreview({total_units:totalFromBalance,approved_units:approved,pending_units:pending,available_units:available});
+      } else renderLeaveBalancePreview(null);
       if(existing){
         const st=String(existing.approval_status||'pending').toUpperCase(); const badge=$('wfLeaveBalanceStatus'); if(badge){badge.textContent=st;badge.className=`wf-badge ${st==='APPROVED'?'approved':st==='REJECTED'?'rejected':'open'}`;}
         $('wfLeaveBalanceEntitlement').value=String(existing.entitlement_units??0);
