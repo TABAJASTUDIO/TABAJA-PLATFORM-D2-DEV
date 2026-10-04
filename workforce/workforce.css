@@ -222,3 +222,6 @@ html,body{background:linear-gradient(135deg,#f8fbff 0%,#f3f7fc 55%,#f7f9fd 100%)
 /* V12.9.3.36.36 - make destructive bulk action unmistakably active only when selection exists */
 #wfApprovalRejectSelected:not(:disabled){background:#fff6f6!important;color:#9c2f2f!important;border-color:#c97979!important;box-shadow:0 3px 10px rgba(156,47,47,.08)!important;cursor:pointer!important}
 #wfApprovalRejectSelected:disabled,#wfApprovalApproveSelected:disabled{opacity:.45!important;cursor:not-allowed!important}
+
+/* V12.9.3.36.37 — Leave request entry */
+.wf-leave-request-card{padding:20px;margin-top:18px}.wf-leave-request-grid{display:grid;grid-template-columns:1.4fr 1.2fr repeat(3,minmax(130px,.7fr));gap:12px;margin-top:16px;align-items:end}.wf-leave-request-grid .wf-leave-reason{grid-column:1/-1}.wf-leave-request-actions{display:flex;justify-content:flex-end;margin-top:14px}.wf-leave-request-actions .wf-setup-primary{min-width:280px}.wf-leave-request-card .wf-message{margin-top:12px}@media(max-width:1000px){.wf-leave-request-grid{grid-template-columns:1fr 1fr}}@media(max-width:650px){.wf-leave-request-grid{grid-template-columns:1fr}.wf-leave-request-grid .wf-leave-reason{grid-column:auto}.wf-leave-request-actions .wf-setup-primary{width:100%;min-width:0}}

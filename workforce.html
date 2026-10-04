@@ -314,6 +314,19 @@
             <article class="wf-kpi-card attention"><span>PENDING</span><strong id="wfLeavePendingCount">—</strong><small>Waiting for approval</small></article>
             <article class="wf-kpi-card"><span>UNPAID LEAVE</span><strong id="wfLeaveUnpaidCount">—</strong><small>Requests identified as unpaid</small></article>
           </div>
+          <article class="wf-card wf-leave-request-card">
+            <div class="wf-card-head"><div><span>NEW REQUEST</span><h2>New Leave Request</h2><p>Create a leave request for approval. Nothing affects payroll until it is approved.</p></div><span class="wf-badge neutral">PENDING FIRST</span></div>
+            <div class="wf-leave-request-grid">
+              <label class="wf-field"><span>Employee</span><select id="wfLeaveRequestEmployee"><option value="">Select employee</option></select></label>
+              <label class="wf-field"><span>Leave Type</span><select id="wfLeaveRequestType"><option value="">Select leave type</option></select></label>
+              <label class="wf-field"><span>From</span><input id="wfLeaveRequestFrom" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10"></label>
+              <label class="wf-field"><span>To</span><input id="wfLeaveRequestTo" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10"></label>
+              <label class="wf-field"><span>Units</span><input id="wfLeaveRequestUnits" type="number" min="0.5" step="0.5" value="1"></label>
+              <label class="wf-field wf-leave-reason"><span>Reason</span><input id="wfLeaveRequestReason" type="text" maxlength="250" placeholder="Reason / note"></label>
+            </div>
+            <div class="wf-leave-request-actions"><button id="wfLeaveRequestSubmit" class="wf-setup-primary" type="button">Submit Leave for Approval</button></div>
+            <div id="wfLeaveRequestMessage" class="wf-message info">Select an employee and leave type, then enter dates as DD/MM/YYYY.</div>
+          </article>
           <article class="wf-card wf-leave-control-card">
             <div class="wf-leave-toolbar">
               <button id="wfLeavePrev" type="button">← Previous</button>

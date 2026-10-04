@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.36-approval-visible-count';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.37-leave-request';
 const APP_SHELL = [
   './',
   './index.html',
@@ -12,8 +12,8 @@ const APP_SHELL = [
   './pwa.js?v=12.9.3.16',
   './nfc-studio.js?v=12.9.3-local-pwa-fix2',
   './workforce.html',
-  './workforce/workforce.css?v=12.9.3.36.36-approval-visible-count',
-  './workforce/workforce.js?v=12.9.3.36.36-approval-visible-count',
+  './workforce/workforce.css?v=12.9.3.36.37-leave-request',
+  './workforce/workforce.js?v=12.9.3.36.37-leave-request',
   './workforce/workforce-visuals.js?v=12.9.3.36.23',
   './workforce/workforce-launcher.js?v=2.3.0-initial-focus-fix',
   './manifest.webmanifest',

@@ -1804,6 +1804,55 @@
   }
 
 
+  function leaveRequestMessage(text, tone = 'info') {
+    const el = $('wfLeaveRequestMessage'); if (!el) return;
+    el.className = `wf-message ${tone}`; el.textContent = text;
+  }
+
+  async function loadLeaveRequestForm() {
+    if (!state.workspace?.companyId || !$('wfLeaveRequestEmployee')) return;
+    try {
+      const [empRes,typeRes]=await Promise.all([
+        state.client.from('employees').select('id,employee_code,full_name,status,is_deleted').eq('company_id',state.workspace.companyId).eq('is_deleted',false).eq('status','active').order('employee_code',{ascending:true}),
+        state.client.from('wf_leave_types').select('*').eq('company_id',state.workspace.companyId)
+      ]);
+      if(empRes.error) throw empRes.error; if(typeRes.error) throw typeRes.error;
+      $('wfLeaveRequestEmployee').innerHTML='<option value="">Select employee</option>'+((empRes.data||[]).map(e=>`<option value="${escapeHtml(e.id)}">${escapeHtml((e.employee_code||'')+' • '+(e.full_name||'Employee'))}</option>`).join(''));
+      $('wfLeaveRequestType').innerHTML='<option value="">Select leave type</option>'+((typeRes.data||[]).map(t=>`<option value="${escapeHtml(t.id)}">${escapeHtml(t.name||t.leave_type_name||t.code||t.leave_code||'Leave')}</option>`).join(''));
+      const today=formatDateDMY(new Date().toISOString().slice(0,10));
+      if(!$('wfLeaveRequestFrom').value) $('wfLeaveRequestFrom').value=today;
+      if(!$('wfLeaveRequestTo').value) $('wfLeaveRequestTo').value=today;
+    } catch(error) { leaveRequestMessage(error?.message||'Unable to load leave request form.','error'); }
+  }
+
+  function syncLeaveRequestUnits() {
+    const start=parseDateDMY($('wfLeaveRequestFrom')?.value||''), end=parseDateDMY($('wfLeaveRequestTo')?.value||'');
+    if(!start||!end||end<start) return;
+    const days=Math.round((new Date(end+'T12:00:00')-new Date(start+'T12:00:00'))/86400000)+1;
+    if(days>0 && $('wfLeaveRequestUnits')) $('wfLeaveRequestUnits').value=String(days);
+  }
+
+  async function submitLeaveRequest() {
+    if(state.leaveBusy) return;
+    const employee_id=$('wfLeaveRequestEmployee')?.value||'', leave_type_id=$('wfLeaveRequestType')?.value||'';
+    const start_date=parseDateDMY($('wfLeaveRequestFrom')?.value||''), end_date=parseDateDMY($('wfLeaveRequestTo')?.value||'');
+    const requested_units=Number($('wfLeaveRequestUnits')?.value||0), reason=String($('wfLeaveRequestReason')?.value||'').trim();
+    if(!employee_id) return leaveRequestMessage('Select an employee.','warning');
+    if(!leave_type_id) return leaveRequestMessage('Select a leave type.','warning');
+    if(!start_date||!end_date) return leaveRequestMessage('Enter valid From and To dates as DD/MM/YYYY.','warning');
+    if(end_date<start_date) return leaveRequestMessage('To date cannot be before From date.','warning');
+    if(!(requested_units>0)) return leaveRequestMessage('Units must be greater than zero.','warning');
+    state.leaveBusy=true; $('wfLeaveRequestSubmit').disabled=true; leaveRequestMessage('Submitting leave request…','info');
+    try {
+      const payload={company_id:state.workspace.companyId,employee_id,leave_type_id,start_date,end_date,requested_units,reason,approval_status:'pending',created_by:state.session.user.id,updated_by:state.session.user.id};
+      const {error}=await state.client.from('wf_leave_requests').insert(payload); if(error) throw error;
+      leaveRequestMessage('Leave request submitted as PENDING for approval.','success');
+      $('wfLeaveRequestReason').value='';
+      await Promise.all([loadLeaveCalendar(),loadApprovalCenter()]);
+    } catch(error) { leaveRequestMessage(error?.message||'Unable to submit leave request.','error'); }
+    finally { state.leaveBusy=false; $('wfLeaveRequestSubmit').disabled=false; }
+  }
+
   function leaveMessage(text, tone = 'info') {
     const el = $('wfLeaveMessage'); if (!el) return;
     el.className = `wf-message ${tone}`; el.textContent = text;
@@ -2483,7 +2532,7 @@
       $('wfPageTitle').textContent = 'Leave Calendar';
       $('wfPageSubtitle').textContent = 'Employee leave visibility, approval status and auditable dates.';
       window.location.hash = 'leave';
-      if (state.workspace?.companyId) loadLeaveCalendar();
+      if (state.workspace?.companyId) { loadLeaveCalendar(); loadLeaveRequestForm(); }
     } else if (target === 'overtime') {
       $('wfPageTitle').textContent = 'Overtime';
       $('wfPageSubtitle').textContent = 'Automatic overtime policy, approval and payroll-ready history.';
@@ -2538,6 +2587,9 @@
     $('wfLeaveRefresh')?.addEventListener('click', loadLeaveCalendar);
     $('wfLeavePrev')?.addEventListener('click', () => moveLeaveMonth(-1));
     $('wfLeaveNext')?.addEventListener('click', () => moveLeaveMonth(1));
+    $('wfLeaveRequestSubmit')?.addEventListener('click', submitLeaveRequest);
+    $('wfLeaveRequestFrom')?.addEventListener('change', syncLeaveRequestUnits);
+    $('wfLeaveRequestTo')?.addEventListener('change', syncLeaveRequestUnits);
     $('wfOvertimeRefresh')?.addEventListener('click', loadOvertime);
     $('wfOtEmployee')?.addEventListener('change', resolveOvertimePolicyPreview);
     $('wfOtDate')?.addEventListener('change', resolveOvertimePolicyPreview);
