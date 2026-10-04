@@ -35,6 +35,14 @@
     document.querySelectorAll('[data-wf-back-main]').forEach((control) => {
       control.addEventListener('click', returnToIdentityPlatform);
     });
+    if (!document.documentElement.dataset.wfEscapeBound) {
+      document.documentElement.dataset.wfEscapeBound = '1';
+      window.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape' || event.defaultPrevented) return;
+        event.preventDefault();
+        returnToIdentityPlatform(event);
+      });
+    }
   }
 
   const IMPORTS = Object.freeze({
@@ -2246,6 +2254,7 @@
       bindIdentityReturnButtons();
       await loadCurrentAccessProfile();
       applyDirectorViewMode();
+      document.documentElement.classList.remove('wf-access-pending');
 
       const hash = String(window.location.hash || '').toLowerCase();
       const initialSection = hash === '#import' ? 'import' : (hash === '#approvals' ? 'approvals' : (hash === '#leave' ? 'leave' : (hash === '#overtime' ? 'overtime' : (hash === '#setup' ? 'setup' : (hash === '#payroll' ? 'payroll' : 'dashboard')))));

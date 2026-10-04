@@ -96,6 +96,37 @@
     document.body.style.overflow = '';
   });
 
+
+  function installMainEscapeGuard() {
+    if (document.documentElement.dataset.tabajaMainEscapeBound === '1') return;
+    document.documentElement.dataset.tabajaMainEscapeBound = '1';
+    window.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      const shell = document.getElementById('tabajaWorkforceShell');
+      if (shell && shell.style.display !== 'none') return; // Workforce iframe owns Escape while open.
+      let modal = document.getElementById('tabajaExitConfirm');
+      if (modal && !modal.hidden) {
+        event.preventDefault();
+        modal.hidden = true;
+        return;
+      }
+      event.preventDefault();
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'tabajaExitConfirm';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:rgba(10,18,32,.46);display:grid;place-items:center;padding:20px';
+        modal.innerHTML = '<div role="dialog" aria-modal="true" aria-labelledby="tabajaExitTitle" style="width:min(390px,92vw);background:#fff;border-radius:18px;padding:24px;box-shadow:0 24px 70px rgba(0,0,0,.28);font-family:inherit;color:#172033"><h3 id="tabajaExitTitle" style="margin:0 0 8px">Exit Tabaja Solution DEV?</h3><p style="margin:0 0 20px;color:#667085">Press Esc again or Cancel to stay on Command Center.</p><div style="display:flex;justify-content:flex-end;gap:10px"><button type="button" data-exit-cancel style="padding:10px 16px;border-radius:10px;border:1px solid #d0d5dd;background:#fff">Cancel</button><button type="button" data-exit-yes style="padding:10px 16px;border-radius:10px;border:0;background:#172033;color:#fff">Yes, Exit</button></div></div>';
+        document.body.appendChild(modal);
+        modal.querySelector('[data-exit-cancel]').addEventListener('click', () => { modal.hidden = true; });
+        modal.querySelector('[data-exit-yes]').addEventListener('click', () => {
+          modal.hidden = true;
+          window.close();
+        });
+      }
+      modal.hidden = false;
+    }, true);
+  }
+
   async function sync() {
     const link = document.getElementById('workforceNavLink');
     if (!link) return;
@@ -132,6 +163,7 @@
 
   // Initial load + SPA login/account changes + PWA return-to-page.
   window.addEventListener('DOMContentLoaded', () => {
+    installMainEscapeGuard();
     sync();
     setTimeout(sync, 500);
     setTimeout(sync, 1500);

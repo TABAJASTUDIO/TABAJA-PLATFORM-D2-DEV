@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="wf-access-pending">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -11,7 +11,22 @@
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="cloud.js?v=12.9.3.16-fix5.7-rpc"></script>
-  <script defer src="workforce/workforce.js?v=1.8.1-single-window"></script>
+  <script defer src="workforce/workforce.js?v=1.8.2-esc-no-flash"></script>
+  <style>
+    /* Fail-closed role paint: never flash write/admin controls before access profile resolves. */
+    .wf-access-pending .wf-nav button[data-section="import"],
+    .wf-access-pending .wf-nav button[data-section="setup"],
+    .wf-access-pending .wf-nav button[data-section="access"],
+    .wf-access-pending #wfDashboardOpenImport,
+    .wf-access-pending #wfPayrollNewBtn,
+    .wf-access-pending #wfPayrollPreflightBtn,
+    .wf-access-pending #wfPayrollCalculateBtn,
+    .wf-access-pending #wfPayrollSubmitBtn,
+    .wf-access-pending #wfPayrollApproveBtn,
+    .wf-access-pending #wfPayrollRejectBtn,
+    .wf-access-pending #wfPayrollFinalizeBtn,
+    .wf-access-pending #wfPayrollReopenBtn { display:none !important; }
+  </style>
 </head>
 <body>
   <div class="wf-shell">
@@ -32,12 +47,6 @@
         <button type="button" data-section="access"><span>♙</span><b>Users & Access</b><em id="wfNavSeatStatus"></em></button>
       </nav>
 
-      <div class="wf-sidebar-return">
-        <button id="wfSidebarBackDashboard" class="wf-return-main" type="button" data-wf-back-dashboard>
-          <span>←</span><b>Back to Workforce Dashboard</b>
-        </button>
-      </div>
-
       <div class="wf-sidebar-foot">
         <span class="wf-dev-dot"></span>
         <div><b>DEV Workspace</b><small>Isolated Workforce module</small></div>
@@ -54,7 +63,6 @@
         <div class="wf-account">
           <span id="wfEntitlementBadge" class="wf-badge checking">CHECKING</span>
           <div class="wf-account-copy"><b id="wfCompanyName">Loading company…</b><small id="wfUserEmail">Checking session…</small></div>
-          <button class="wf-back" type="button" data-wf-back-main>← Back to Main</button>
         </div>
       </header>
 

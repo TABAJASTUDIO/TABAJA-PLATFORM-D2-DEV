@@ -235,7 +235,6 @@ $("loginForm").addEventListener("submit", async e => {
       localStorage.removeItem(LOGIN_KEY);
       sessionStorage.removeItem(LOGIN_KEY);
       ($('rememberLogin').checked ? localStorage : sessionStorage).setItem(LOGIN_KEY, "1");
-      sessionStorage.removeItem(LOGIN_KEY);
       showApp();
       return;
     }
@@ -1313,16 +1312,51 @@ sides.front = snapshot();
 sides.back = snapshot();
 updateCardInfo();
 status("V5.0 VECTOR TEST — stable engine kept, vector PDF added.");
-if (isLoggedIn()) {
-  const startupAccount = readAccount();
-  const startupAccessError = accountAccessError(startupAccount);
-  if (startupAccessError) {
+async function restoreStartupSession() {
+  try {
+    // Cloud session is the source of truth after F5 / Ctrl+F5 / hard refresh.
+    // Do not throw a valid Supabase user back to Sign In just because a local UI flag was lost.
+    if (cloudMode() && window.TabajaCloud?.getSession) {
+      const session = await window.TabajaCloud.getSession();
+      if (session?.user?.id) {
+        let workspace = await window.TabajaCloud.loadWorkspace(session.user.id);
+        if (!workspace) workspace = await window.TabajaCloud.createWorkspaceForUser(session.user);
+        if (workspace) {
+          const restored = workspace.cloudAdmin ? defaultAccount : {
+            ...workspace,
+            owner: session.user.user_metadata?.full_name || session.user.email,
+            email: session.user.email,
+            cloud: true
+          };
+          const accessError = accountAccessError(restored);
+          if (accessError) throw new Error(accessError);
+          setActiveAccount(restored);
+          // Session-only marker is enough; Supabase persists the real authenticated session.
+          sessionStorage.setItem(LOGIN_KEY, "1");
+          showApp();
+          return;
+        }
+      }
+    }
+
+    if (isLoggedIn()) {
+      const startupAccount = readAccount();
+      const startupAccessError = accountAccessError(startupAccount);
+      if (startupAccessError) throw new Error(startupAccessError);
+      showApp();
+      return;
+    }
+    showLogin();
+  } catch (error) {
     localStorage.removeItem(LOGIN_KEY);
     sessionStorage.removeItem(LOGIN_KEY);
     showLogin();
-    $("loginError").textContent = startupAccessError;
-  } else showApp();
-} else showLogin();
+    if ($("loginError")) $("loginError").textContent = error?.message || "Please sign in again.";
+  } finally {
+    document.documentElement.classList.remove('tabaja-auth-booting');
+  }
+}
+restoreStartupSession();
 
 
 // ===== V6.1 BETA: Employee Card Builder — working canvas generator =====
