@@ -1,11 +1,11 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.6-fixed-parent-nav';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.7-initial-focus-fix';
 const APP_SHELL = [
   './',
   './index.html',
   './style.css?v=12.9.3.14',
   './app.js?v=12.9.3.36.4-refresh-session',
   './cloud.js?v=12.9.3.16-fix5.7-rpc',
-  './v8-ui.js?v=12.9.3.36.6-fixed-parent-nav',
+  './v8-ui.js?v=12.9.3.36.7-initial-focus-fix',
   './employee-manager.js?v=12.9.3.2',
   './activity-store.js?v=12.9.3.2',
   './command-center.js?v=12.9.3.5',
@@ -13,8 +13,8 @@ const APP_SHELL = [
   './nfc-studio.js?v=12.9.3-local-pwa-fix2',
   './workforce.html',
   './workforce/workforce.css?v=1.7.0',
-  './workforce/workforce.js?v=12.9.3.36.6-fixed-parent-nav',
-  './workforce/workforce-launcher.js?v=2.3.0-fixed-parent-nav',
+  './workforce/workforce.js?v=12.9.3.36.7-initial-focus-fix',
+  './workforce/workforce-launcher.js?v=2.3.0-initial-focus-fix',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',

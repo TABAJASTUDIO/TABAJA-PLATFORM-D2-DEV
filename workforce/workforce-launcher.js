@@ -88,6 +88,22 @@
       shell.style.display = 'block';
       document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
+
+      // The iframe must own keyboard focus immediately on first entry.
+      // Otherwise Escape is received by the Main shell until the user clicks
+      // a Workforce control once (Approval/Leave/Payroll/etc.).
+      const workforceFrame = document.getElementById('tabajaWorkforceFrame');
+      const focusWorkforce = () => {
+        try { workforceFrame?.contentWindow?.focus(); } catch (_) {}
+        try { workforceFrame?.focus(); } catch (_) {}
+      };
+      focusWorkforce();
+      requestAnimationFrame(focusWorkforce);
+      setTimeout(focusWorkforce, 0);
+      if (workforceFrame && !workforceFrame.dataset.wfFocusLoadBound) {
+        workforceFrame.dataset.wfFocusLoadBound = '1';
+        workforceFrame.addEventListener('load', focusWorkforce);
+      }
     }, true);
   }
 
