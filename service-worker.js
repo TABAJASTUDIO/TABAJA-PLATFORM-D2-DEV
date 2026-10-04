@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.27-master-employment-assignment';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.36.30-hire-date-single-source';
 const APP_SHELL = [
   './',
   './index.html',

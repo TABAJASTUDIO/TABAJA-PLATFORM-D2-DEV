@@ -1607,8 +1607,9 @@
           assignmentMeta.textContent=`Current assignment: ${area} → ${site} • ${post} • ACTIVE`;
         }
       }
-      $('wfSetupHireDate').value=formatDateDMY(profile?.hire_date||'');
-      $('wfSetupHireDateSave').disabled=!profile;
+      // Employee Center / active Workforce assignment is the single editable source for employment start date.
+      // Payroll Setup only mirrors it read-only; never maintain a second editable hire date here.
+      $('wfSetupHireDate').value=formatDateDMY(assignment?.start_date||'');
       const salApproved=salaries.find(r=>r.approval_status==='approved'), salPending=salaries.find(r=>r.approval_status==='pending');
       const trApproved=transports.find(r=>r.approval_status==='approved' && r.is_active!==false), trPending=transports.find(r=>r.approval_status==='pending');
       const attApproved=attendance.filter(r=>r.approval_status==='approved').length, attPending=attendance.filter(r=>r.approval_status==='pending').length;
@@ -1622,20 +1623,6 @@
     } catch(error){console.error('[Payroll Setup employee]',error);setupMessage(error?.message||'Unable to read employee payroll setup.','error');}
   }
 
-  async function saveSetupHireDate(){
-    const emp=selectedSetupEmployee(), rawDate=$('wfSetupHireDate').value, date=parseDateDMY(rawDate);
-    if(!emp)return setupMessage('Select an employee first.','warning');
-    if(!date)return setupMessage('Enter hire date as DD/MM/YYYY.','warning');
-    try{
-      state.setupBusy=true;
-      const {data,error}=await state.client.from('wf_employee_profiles').update({hire_date:date}).eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).select('hire_date').maybeSingle();
-      if(error)throw error;
-      if(!data)throw new Error('No Workforce profile was updated for this employee.');
-      await loadSelectedPayrollSetup();
-      setupMessage(`✓ Hire date saved: ${formatDateDMY(data.hire_date || date)}. Monthly payroll will prorate the first employment month automatically.`,'success');
-    }catch(error){setupMessage(error?.message||'Unable to save hire date.','error');}
-    finally{state.setupBusy=false;}
-  }
 
   async function saveSetupSalary(){
     const emp=selectedSetupEmployee(), amount=Number($('wfSetupSalaryAmount').value), date=parseDateDMY($('wfSetupSalaryDate').value), basis=$('wfSetupPayBasis').value;
@@ -2406,7 +2393,6 @@
     $('wfOtRows')?.addEventListener('click', (event) => { const btn=event.target.closest('[data-ot-action]'); if(btn) reviewOvertime(btn.dataset.id,btn.dataset.otAction); });
     $('wfSetupRefresh')?.addEventListener('click', loadPayrollSetup);
     $('wfSetupEmployee')?.addEventListener('change', loadSelectedPayrollSetup);
-    $('wfSetupHireDateSave')?.addEventListener('click', saveSetupHireDate);
     $('wfSetupSalarySave')?.addEventListener('click', saveSetupSalary);
     $('wfSetupTransportSave')?.addEventListener('click', saveSetupTransport);
     $('wfSetupAttendanceSave')?.addEventListener('click', saveSetupAttendance);

@@ -1,0 +1,8 @@
+TABAJA PLATFORM D2 DEV — V12.9.3.36.30
+Hire Date Single Source
+
+- Payroll Setup no longer has an editable duplicate Hire Date.
+- Removed Save Hire Date from Payroll Setup.
+- Payroll Setup now displays the active Workforce assignment start date read-only.
+- Employee Center / Workforce assignment remains the editable source.
+- No Identity, salary, transport, attendance, assignment history, navigation, roles, scope, or payroll amount logic changed.

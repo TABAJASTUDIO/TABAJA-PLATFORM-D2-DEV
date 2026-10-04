@@ -225,9 +225,8 @@
               <label class="wf-field"><span>Select employee</span><select id="wfSetupEmployee"><option value="">Loading employees…</option></select></label>
               <div id="wfSetupEmployeeMeta" class="wf-setup-meta">Choose an employee to review payroll setup.</div>
               <div id="wfSetupAssignmentMeta" class="wf-setup-meta">Current assignment: —</div>
-              <label class="wf-field"><span>Hire date</span><input id="wfSetupHireDate" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" autocomplete="off"></label>
-              <button id="wfSetupHireDateSave" class="wf-setup-primary" type="button">Save Hire Date</button>
-              <small>Monthly payroll prorates the first employment month from this date. Smart Identity employee data is not changed.</small>
+              <label class="wf-field"><span>Hire date • Live from Employee Center</span><input id="wfSetupHireDate" type="text" placeholder="—" readonly aria-readonly="true"></label>
+              <small>This date comes from the employee’s current Workforce assignment in Employee Center and cannot be edited here. Payroll uses it as the employment start date.</small>
             </article>
             <article class="wf-card wf-setup-card">
               <span class="wf-kicker">CURRENT POSITION</span><h2>Readiness</h2>
