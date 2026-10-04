@@ -158,6 +158,37 @@ let loadedCompanyId = null;
     } catch (e) { console.warn('Unable to load payment profile:', e); }
   }
 
+  function setReadinessValue(id, value) {
+    const el = $(id); if (!el) return;
+    const status = String(value || 'missing').toLowerCase();
+    el.textContent = status.toUpperCase();
+    el.className = `employee-readiness-value ${status}`;
+  }
+
+  async function loadPayrollReadiness(employee) {
+    setReadinessValue('employeeSalaryReadiness', 'loading');
+    setReadinessValue('employeeTransportReadiness', 'loading');
+    setReadinessValue('employeePaymentReadiness', 'loading');
+    setReadinessValue('employeeOverallReadiness', 'loading');
+    const account = JSON.parse(localStorage.getItem('tabaja_card_designer_account_dev_v10') || 'null');
+    const companyId = account?.companyId || account?.id;
+    const employeeId = employee?.id || employee?.key;
+    if (!account?.cloud || !companyId || !employeeId || !window.TabajaCloud?.loadEmployeePayrollReadiness) {
+      ['employeeSalaryReadiness','employeeTransportReadiness','employeePaymentReadiness','employeeOverallReadiness'].forEach(id => setReadinessValue(id, 'not available'));
+      return;
+    }
+    try {
+      const r = await window.TabajaCloud.loadEmployeePayrollReadiness(companyId, employeeId);
+      setReadinessValue('employeeSalaryReadiness', r?.salary || 'missing');
+      setReadinessValue('employeeTransportReadiness', r?.transport || 'missing');
+      setReadinessValue('employeePaymentReadiness', r?.paymentMethod || 'missing');
+      setReadinessValue('employeeOverallReadiness', r?.ready ? 'ready' : 'not ready');
+    } catch (e) {
+      console.warn('Unable to load payroll readiness:', e);
+      ['employeeSalaryReadiness','employeeTransportReadiness','employeePaymentReadiness','employeeOverallReadiness'].forEach(id => setReadinessValue(id, 'unavailable'));
+    }
+  }
+
   function openModal(employee = null) {
     resetForm();
     if (employee) {
@@ -178,6 +209,7 @@ let loadedCompanyId = null;
       photoData = employee.photo || '';
       renderPhotoPreview();
       loadPaymentProfile(employee);
+      loadPayrollReadiness(employee);
     } else { syncPaymentFields(); }
     $('employeeModal').classList.remove('hidden');
     setTimeout(() => $('employeeIdInput').focus(), 50);

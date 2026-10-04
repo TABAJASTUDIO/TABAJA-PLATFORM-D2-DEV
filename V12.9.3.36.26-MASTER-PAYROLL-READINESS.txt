@@ -1,0 +1,6 @@
+V12.9.3.36.26 — MASTER EMPLOYEE PAYROLL READINESS
+
+Adds read-only live Payroll Readiness to Employee Center.
+Reads existing Workforce salary and transport approval status plus saved payment destination.
+Does not move or edit salary/transport.
+Does not modify Identity/Card Designer, Payroll calculation, approvals, navigation, roles or scopes.

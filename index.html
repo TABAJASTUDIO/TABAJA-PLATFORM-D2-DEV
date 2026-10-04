@@ -716,6 +716,16 @@
               <div id="employeeBankAccountField" class="employee-span-2"><label for="employeeBankAccountInput">Bank Account Number</label><input id="employeeBankAccountInput" maxlength="80"></div>
             </div>
             <p class="employee-payment-note">Salary and transport amounts stay in Workforce → Payroll Setup. This section stores only where the employee is paid.</p>
+            <div class="employee-payroll-readiness">
+              <div class="employee-section-head"><div><span>PAYROLL READINESS</span><h3>Workforce status</h3></div><small>Live from Workforce</small></div>
+              <div class="employee-readiness-grid">
+                <div><span>Salary</span><b id="employeeSalaryReadiness" class="employee-readiness-value">—</b></div>
+                <div><span>Transport</span><b id="employeeTransportReadiness" class="employee-readiness-value">—</b></div>
+                <div><span>Payment Method</span><b id="employeePaymentReadiness" class="employee-readiness-value">—</b></div>
+                <div><span>Payroll Status</span><b id="employeeOverallReadiness" class="employee-readiness-value">—</b></div>
+              </div>
+              <p class="employee-payment-note">Read-only live status. Salary and transport are still controlled by Workforce → Payroll Setup and Approval Center.</p>
+            </div>
           </section>
         </div>
       </div>

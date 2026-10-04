@@ -512,6 +512,28 @@ async function loadTemplateFromCloud(companyId, name = 'Identity Card') {
   return data || null;
 }
 
+async function loadEmployeePayrollReadiness(companyId, employeeId) {
+  const supabase = getClient();
+  if (!supabase || !companyId || !employeeId) return null;
+  const [salaryResult, transportResult, paymentResult] = await Promise.all([
+    supabase.from('wf_employee_salary_history').select('approval_status,effective_from').eq('company_id', companyId).eq('employee_id', employeeId).order('effective_from', { ascending: false }).limit(1),
+    supabase.from('wf_transport_employee_overrides').select('approval_status,effective_from,is_active').eq('company_id', companyId).eq('employee_id', employeeId).order('effective_from', { ascending: false }).limit(1),
+    supabase.from('employee_payment_profiles').select('payment_method').eq('company_id', companyId).eq('employee_id', employeeId).maybeSingle()
+  ]);
+  if (salaryResult.error) throw salaryResult.error;
+  if (transportResult.error) throw transportResult.error;
+  if (paymentResult.error) throw paymentResult.error;
+  const salary = salaryResult.data?.[0]?.approval_status || 'missing';
+  const transport = transportResult.data?.[0]?.approval_status || 'missing';
+  const paymentMethod = paymentResult.data?.payment_method || '';
+  return {
+    salary,
+    transport,
+    paymentMethod,
+    ready: salary === 'approved' && transport === 'approved' && !!paymentMethod
+  };
+}
+
 async function saveEmployeePaymentProfile(companyId, employeeId, profile) {
   const supabase = getClient();
   if (!supabase) throw new Error('Cloud is not configured.');
@@ -623,6 +645,7 @@ async function saveEmployeePaymentProfile(companyId, employeeId, profile) {
     connectionTest,
     saveEmployeeToCloud,
     loadEmployeePaymentProfile,
+    loadEmployeePayrollReadiness,
     saveEmployeePaymentProfile,
     archiveEmployeeInCloud,
     loadEmployeesFromCloud,
