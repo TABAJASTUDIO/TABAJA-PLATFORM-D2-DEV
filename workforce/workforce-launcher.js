@@ -177,6 +177,16 @@
           (document.activeElement === cancel ? cancel : yes)?.click();
           return;
         }
+        if (event.key === 'y' || event.key === 'Y') {
+          event.preventDefault(); event.stopPropagation();
+          yes?.click();
+          return;
+        }
+        if (event.key === 'c' || event.key === 'C') {
+          event.preventDefault(); event.stopPropagation();
+          cancel?.click();
+          return;
+        }
         return;
       }
       if (event.key !== 'Escape' || event.defaultPrevented) return;
