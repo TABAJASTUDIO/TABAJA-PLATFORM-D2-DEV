@@ -1975,7 +1975,7 @@
     if (editor) editor.hidden = true;
   }
 
-  function populateScopeTargets(type, selectedIds = []) {
+  async function populateScopeTargets(type, selectedIds = []) {
     const wrap = $('wfScopeTargetsWrap');
     const select = $('wfScopeTargets');
     if (!wrap || !select) return;
@@ -1985,7 +1985,29 @@
       return;
     }
     wrap.hidden = false;
-    const options = Array.isArray(state.accessScopeData?.options?.[type]) ? state.accessScopeData.options[type] : [];
+    let options = Array.isArray(state.accessScopeData?.options?.[type]) ? state.accessScopeData.options[type] : [];
+
+    // V12.9.3.36.12.1: if the aggregate scope payload has no targets,
+    // fetch the selected scope type directly from the protected DEV RPC.
+    // This changes scope-option loading only; role/navigation/payroll logic stays untouched.
+    if (!options.length) {
+      select.innerHTML = '<option value="" disabled>Loading active records…</option>';
+      try {
+        const { data, error } = await state.client.rpc('wf_get_scope_options', {
+          target_company: state.workspace.companyId,
+          target_scope_type: type
+        });
+        if (error) throw error;
+        options = Array.isArray(data) ? data : [];
+        state.accessScopeData.options = state.accessScopeData.options || {};
+        state.accessScopeData.options[type] = options;
+      } catch (error) {
+        console.error('[Workforce Scope Options]', error);
+        select.innerHTML = '<option value="" disabled>Unable to load active records</option>';
+        return;
+      }
+    }
+
     const chosen = new Set(selectedIds.map(String));
     select.innerHTML = options.map(item => `<option value="${escapeHtml(item.id)}" ${chosen.has(String(item.id)) ? 'selected' : ''}>${escapeHtml(item.label || item.name || item.id)}</option>`).join('');
     if (!options.length) select.innerHTML = '<option value="" disabled>No active records available</option>';
