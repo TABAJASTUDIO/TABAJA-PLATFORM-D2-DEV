@@ -397,24 +397,23 @@
             <article class="wf-kpi-card"><span>ACCESS MODEL</span><strong class="wf-access-model">ROLE + SCOPE</strong><small>What + where / who</small></article>
           </div>
           <div id="wfAccessMessage" class="wf-message info">Loading Workforce seat allocation…</div>
-          <div class="wf-access-grid">
+          <div class="wf-access-grid wf-access-grid-manage">
             <article class="wf-card wf-access-card">
-              <span class="wf-kicker">FOUNDATION</span><h2>Connected HR team</h2>
-              <p>Multiple HR users work inside the same company workspace while permissions and scopes keep duties separated.</p>
-              <div class="wf-role-list">
-                <div><b>HR Manager / Supervisor</b><small>Operational control and review</small></div>
-                <div><b>Payroll Officer</b><small>Payroll preparation and processing</small></div>
-                <div><b>Attendance Officer</b><small>Attendance operations</small></div>
-                <div><b>Leave Officer</b><small>Leave operations</small></div>
-                <div><b>Overtime Officer</b><small>Overtime entry and workflow</small></div>
-                <div><b>Director</b><small>View-only management visibility</small></div>
+              <div class="wf-card-head"><div><span>TEAM ACCESS</span><h2>Workforce users</h2></div><span id="wfAccessUserCount" class="wf-badge neutral">0 USERS</span></div>
+              <p>Manage Workforce access for users already connected to this company. Seat limits are enforced by the database.</p>
+              <div class="wf-access-add-row">
+                <label class="wf-field"><span>Company user</span><select id="wfAccessMemberSelect"><option value="">Select company user…</option></select></label>
+                <label class="wf-field"><span>Workforce role</span><select id="wfAccessRoleSelect"><option value="">Select role…</option></select></label>
+                <button id="wfAccessAssignBtn" class="primary" type="button">Assign Access</button>
               </div>
+              <div class="wf-table-wrap wf-access-table-wrap"><table class="wf-table"><thead><tr><th>User</th><th>Role</th><th>Scope</th><th>Status</th><th>Action</th></tr></thead><tbody id="wfAccessUsers"><tr><td colspan="5" class="empty">Loading company users…</td></tr></tbody></table></div>
             </article>
             <article class="wf-card wf-access-card">
               <span class="wf-kicker">ACCESS LAW</span><h2>Permission + Scope</h2>
               <div class="wf-access-law"><b>PERMISSION</b><span>WHAT the user can do</span></div>
               <div class="wf-access-law"><b>SCOPE</b><span>WHERE / WHO the user can do it for</span></div>
-              <small>This screen is the seat/access foundation. User invitation, role assignment, custom roles and scope editing are the next controlled layer.</small>
+              <div class="wf-access-law"><b>SEAT</b><span>One active Workforce user = one seat</span></div>
+              <small>V12.9.3.34 manages real Workforce role access for existing company users. New account invitation and advanced scope editing remain isolated follow-up layers.</small>
             </article>
           </div>
         </section>

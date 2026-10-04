@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'tabaja-dev-v12.9.3.33-workforce-multi-user-foundation';
+const CACHE_VERSION = 'tabaja-dev-v12.9.3.34-workforce-user-access-management';
 const APP_SHELL = [
   './',
   './index.html',

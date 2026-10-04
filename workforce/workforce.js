@@ -1888,13 +1888,56 @@
     } catch(error){ console.error('[Overtime Review]',error); overtimeMessage(error?.message||'Unable to review overtime.','error'); }
   }
 
+  function accessRoleLabel(role) {
+    return role?.role_name || role?.role_code || role?.role_id || 'Workforce role';
+  }
+
+  function renderAccessUsers(payload) {
+    const body = $('wfAccessUsers');
+    if (!body) return;
+    const users = Array.isArray(payload?.users) ? payload.users : [];
+    if ($('wfAccessUserCount')) $('wfAccessUserCount').textContent = `${users.filter(u => u.has_workforce_access).length} USERS`;
+    if (!users.length) {
+      body.innerHTML = '<tr><td colspan="5" class="empty">No company users found.</td></tr>';
+      return;
+    }
+    body.innerHTML = users.map(user => {
+      const roles = Array.isArray(user.roles) ? user.roles : [];
+      const roleText = roles.length ? roles.map(accessRoleLabel).join(', ') : 'No Workforce role';
+      const active = user.has_workforce_access === true;
+      const scope = user.scope_summary || (active ? 'Company / configured scope' : '—');
+      const action = active
+        ? `<button class="wf-mini-action danger" data-access-revoke="${escapeHtml(user.user_id)}">Remove Access</button>`
+        : '<span class="wf-muted-small">Not assigned</span>';
+      return `<tr><td><b>${escapeHtml(user.email || 'User')}</b><small>${escapeHtml(user.core_role || 'company member')}</small></td><td>${escapeHtml(roleText)}</td><td>${escapeHtml(scope)}</td><td><span class="wf-badge ${active ? 'enabled' : 'neutral'}">${active ? 'ACTIVE' : 'NO ACCESS'}</span></td><td>${action}</td></tr>`;
+    }).join('');
+  }
+
+  function populateAccessSelectors(payload) {
+    const members = $('wfAccessMemberSelect');
+    const roles = $('wfAccessRoleSelect');
+    const users = Array.isArray(payload?.users) ? payload.users : [];
+    const roleRows = Array.isArray(payload?.roles) ? payload.roles : [];
+    if (members) {
+      const available = users.filter(u => !u.has_workforce_access);
+      members.innerHTML = '<option value="">Select company user…</option>' + available.map(u => `<option value="${escapeHtml(u.user_id)}">${escapeHtml(u.email || u.user_id)}</option>`).join('');
+    }
+    if (roles) {
+      roles.innerHTML = '<option value="">Select role…</option>' + roleRows.map(r => `<option value="${escapeHtml(r.role_id)}">${escapeHtml(accessRoleLabel(r))}</option>`).join('');
+    }
+  }
+
   async function loadAccessFoundation() {
     const msg = $('wfAccessMessage');
     try {
-      if (msg) { msg.className = 'wf-message info'; msg.textContent = 'Loading Workforce seat allocation…'; }
-      const { data, error } = await state.client.rpc('wf_get_seat_summary', { target_company: state.workspace.companyId });
-      if (error) throw error;
-      const row = Array.isArray(data) ? data[0] : data;
+      if (msg) { msg.className = 'wf-message info'; msg.textContent = 'Loading Workforce users, roles and seat allocation…'; }
+      const [{ data: seatData, error: seatError }, { data: accessData, error: accessError }] = await Promise.all([
+        state.client.rpc('wf_get_seat_summary', { target_company: state.workspace.companyId }),
+        state.client.rpc('wf_get_access_management', { target_company: state.workspace.companyId })
+      ]);
+      if (seatError) throw seatError;
+      if (accessError) throw accessError;
+      const row = Array.isArray(seatData) ? seatData[0] : seatData;
       const limit = Number(row?.seat_limit ?? 1);
       const assigned = Number(row?.assigned_users ?? 0);
       const available = Math.max(0, Number(row?.available_seats ?? (limit - assigned)));
@@ -1902,16 +1945,49 @@
       if ($('wfSeatAssigned')) $('wfSeatAssigned').textContent = assigned;
       if ($('wfSeatAvailable')) $('wfSeatAvailable').textContent = available;
       if ($('wfNavSeatStatus')) $('wfNavSeatStatus').textContent = `${assigned}/${limit}`;
+      renderAccessUsers(accessData || {});
+      populateAccessSelectors(accessData || {});
       if (msg) {
         msg.className = `wf-message ${available > 0 ? 'success' : 'info'}`;
-        msg.textContent = `${assigned} of ${limit} Workforce seat${limit === 1 ? '' : 's'} assigned • ${available} available.`;
+        msg.textContent = `${assigned} of ${limit} Workforce seats assigned • ${available} available.`;
       }
     } catch (error) {
       console.error('[Workforce Access]', error);
       if ($('wfSeatLimit')) $('wfSeatLimit').textContent = '—';
       if ($('wfSeatAssigned')) $('wfSeatAssigned').textContent = '—';
       if ($('wfSeatAvailable')) $('wfSeatAvailable').textContent = '—';
-      if (msg) { msg.className = 'wf-message error'; msg.textContent = error?.message || 'Unable to load seat allocation. Apply the V12.9.3.33 Supabase migration first.'; }
+      if ($('wfAccessUsers')) $('wfAccessUsers').innerHTML = '<tr><td colspan="5" class="empty">Unable to load access management.</td></tr>';
+      if (msg) { msg.className = 'wf-message error'; msg.textContent = error?.message || 'Unable to load Workforce access management. Apply the V12.9.3.34 Supabase migration first.'; }
+    }
+  }
+
+  async function assignWorkforceAccess() {
+    const userId = $('wfAccessMemberSelect')?.value || '';
+    const roleId = $('wfAccessRoleSelect')?.value || '';
+    if (!userId || !roleId) { alert('Select a company user and Workforce role first.'); return; }
+    const button = $('wfAccessAssignBtn');
+    try {
+      if (button) { button.disabled = true; button.textContent = 'Assigning…'; }
+      const { error } = await state.client.rpc('wf_assign_user_access', { target_company: state.workspace.companyId, target_user: userId, target_role: roleId });
+      if (error) throw error;
+      await loadAccessFoundation();
+    } catch (error) {
+      console.error('[Workforce Access Assign]', error);
+      alert(error?.message || 'Unable to assign Workforce access.');
+    } finally {
+      if (button) { button.disabled = false; button.textContent = 'Assign Access'; }
+    }
+  }
+
+  async function revokeWorkforceAccess(userId) {
+    if (!userId || !confirm('Remove this user’s Workforce access? Their Tabaja company account will remain active.')) return;
+    try {
+      const { error } = await state.client.rpc('wf_revoke_user_access', { target_company: state.workspace.companyId, target_user: userId });
+      if (error) throw error;
+      await loadAccessFoundation();
+    } catch (error) {
+      console.error('[Workforce Access Revoke]', error);
+      alert(error?.message || 'Unable to remove Workforce access.');
     }
   }
 
@@ -1991,6 +2067,8 @@
     });
     $('wfDashboardRefresh')?.addEventListener('click', loadDashboard);
     $('wfAccessRefresh')?.addEventListener('click', loadAccessFoundation);
+    $('wfAccessAssignBtn')?.addEventListener('click', assignWorkforceAccess);
+    $('wfAccessUsers')?.addEventListener('click', event => { const btn = event.target.closest('[data-access-revoke]'); if (btn) revokeWorkforceAccess(btn.dataset.accessRevoke); });
     $('wfSidebarBackDashboard')?.addEventListener('click', () => showSection('dashboard'));
     $('wfDashboardOpenImport')?.addEventListener('click', () => showSection('import'));
     $('wfApprovalRefresh')?.addEventListener('click', loadApprovalCenter);
