@@ -1,0 +1,11 @@
+V12.9.3.36.34 — Approval Center Bulk Review
+- Checkbox selection per pending item
+- Select All Visible / Clear Selection
+- Approve Selected / Reject Selected
+- Search, DD/MM/YYYY date, Area, Site and existing Type filters
+- Employee names sorted A–Z
+- Select All applies only to visible filtered items
+- Existing individual Approve/Reject remains
+- Maker-checker and Director view-only rules preserved
+- No database/schema changes
+- Identity untouched

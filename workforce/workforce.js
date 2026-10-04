@@ -855,14 +855,47 @@
     return '';
   }
 
+  function approvalItemDate(item) {
+    const r = item.record || {};
+    return formatDateDMY(r.work_date || r.effective_from || r.start_date || r.issue_date || '') || '';
+  }
+
+  function approvalVisibleItems() {
+    const filter = $('wfApprovalFilter')?.value || 'all';
+    const search = String($('wfApprovalSearch')?.value || '').trim().toLowerCase();
+    const date = String($('wfApprovalDate')?.value || '').trim();
+    const area = $('wfApprovalArea')?.value || 'all';
+    const site = $('wfApprovalSite')?.value || 'all';
+    return (state.approvals || []).filter(item => {
+      const employee = item.employee || {};
+      const assignment = item.assignment || {};
+      const itemSite = item.record?.site_id || assignment.site_id || '';
+      const itemArea = item.site?.area_id || assignment.area_id || '';
+      const hay = `${employee.full_name || ''} ${employee.employee_code || ''}`.toLowerCase();
+      return (filter === 'all' || item.kind === filter)
+        && (!search || hay.includes(search))
+        && (!date || approvalItemDate(item) === date)
+        && (area === 'all' || itemArea === area)
+        && (site === 'all' || itemSite === site);
+    }).sort((a,b) => String(a.employee?.full_name || a.employee?.employee_code || '').localeCompare(String(b.employee?.full_name || b.employee?.employee_code || ''), undefined, {sensitivity:'base'}));
+  }
+
+  function updateApprovalSelectedCount() {
+    if (!(state.approvalSelected instanceof Set)) state.approvalSelected = new Set();
+    const visibleIds = new Set(approvalVisibleItems().map(x => `${x.kind}:${x.record?.id}`));
+    const count = [...state.approvalSelected].filter(x => visibleIds.has(x)).length;
+    if ($('wfApprovalSelectedCount')) $('wfApprovalSelectedCount').textContent = `${count} selected`;
+  }
+
   function renderApprovalQueue() {
     const host = $('wfApprovalQueue');
     if (!host) return;
-    const filter = $('wfApprovalFilter')?.value || 'all';
-    const items = (state.approvals || []).filter(item => filter === 'all' || item.kind === filter);
+    if (!(state.approvalSelected instanceof Set)) state.approvalSelected = new Set();
+    const items = approvalVisibleItems();
 
     if (!items.length) {
       host.innerHTML = '<div class="wf-empty-card">No pending items in this view.</div>';
+      updateApprovalSelectedCount();
       return;
     }
 
@@ -873,11 +906,15 @@
       const selfMade = !!(state.makerCheckerRequired && r.created_by && state.session?.user?.id && r.created_by === state.session.user.id);
       const created = r.created_at ? new Date(r.created_at).toLocaleString() : '';
       const disabled = selfMade ? 'disabled' : '';
+      const key = `${item.kind}:${r.id}`;
+      const checked = state.approvalSelected.has(key) ? 'checked' : '';
       const checkerText = selfMade ? '<span class="wf-checker-note">Maker-checker: another authorised user must review this item.</span>' : '';
       const approvalActions = state.accessProfile?.isDirector
         ? '<div class="wf-approval-actions"><span class="wf-checker-note">VIEW ONLY</span></div>'
         : `<div class="wf-approval-actions"><button class="approve" type="button" data-approval-action="approved" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(r.id)}" ${disabled}>Approve</button><button class="reject" type="button" data-approval-action="rejected" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(r.id)}" ${disabled}>Reject</button></div>`;
-      return `<article class="wf-approval-item" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(r.id)}">
+      const select = state.accessProfile?.isDirector ? '<div class="wf-approval-select"></div>' : `<div class="wf-approval-select"><input type="checkbox" data-approval-select="1" data-key="${escapeHtml(key)}" ${checked} ${disabled}></div>`;
+      return `<article class="wf-approval-item ${checked ? 'is-selected' : ''}" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(r.id)}">
+        ${select}
         <div class="wf-approval-item-main">
           <div class="wf-approval-item-top">
             <span class="wf-type-pill ${escapeHtml(item.kind)}">${escapeHtml(item.label)}</span>
@@ -886,12 +923,13 @@
           <h3>${escapeHtml(employeeLabel)}</h3>
           <p class="wf-approval-detail">${escapeHtml(approvalDetail(item))}</p>
           <p class="wf-approval-secondary">${escapeHtml(approvalSecondary(item))}</p>
-          <div class="wf-approval-meta">${employee.employee_code ? `<span>${escapeHtml(employee.employee_code)}</span>` : ''}${created ? `<span>${escapeHtml(created)}</span>` : ''}</div>
+          <div class="wf-approval-meta">${employee.employee_code ? `<span>${escapeHtml(employee.employee_code)}</span>` : ''}${item.site?.name ? `<span>${escapeHtml(item.site.name)}</span>` : ''}${created ? `<span>${escapeHtml(created)}</span>` : ''}</div>
           ${checkerText}
         </div>
         ${approvalActions}
       </article>`;
     }).join('');
+    updateApprovalSelectedCount();
   }
 
   async function fetchApprovalSource(source) {
@@ -933,7 +971,23 @@
       const employeeIds = [...new Set(queue.map(item => item.record?.employee_id).filter(Boolean))];
       const employeeMap = await fetchNameMap('employees', employeeIds, 'id,employee_code,full_name');
       queue.forEach(item => { item.employee = employeeMap.get(item.record?.employee_id) || null; });
+      const { data: assignments } = employeeIds.length ? await state.client.from('wf_employee_assignments').select('employee_id,area_id,site_id,status,start_date').eq('company_id', state.workspace.companyId).in('employee_id', employeeIds).eq('status','active') : { data: [] };
+      const assignmentMap = new Map((assignments || []).map(a => [a.employee_id, a]));
+      const siteIds = [...new Set(queue.map(item => item.record?.site_id || assignmentMap.get(item.record?.employee_id)?.site_id).filter(Boolean))];
+      const siteMap = await fetchNameMap('wf_sites', siteIds, 'id,name,area_id');
+      queue.forEach(item => {
+        item.assignment = assignmentMap.get(item.record?.employee_id) || null;
+        item.site = siteMap.get(item.record?.site_id || item.assignment?.site_id) || null;
+      });
       state.approvals = queue;
+      state.approvalSelected = new Set();
+      const areaSelect = $('wfApprovalArea'), siteSelect = $('wfApprovalSite');
+      if (areaSelect || siteSelect) {
+        const areaIds = [...new Set(queue.map(item => item.site?.area_id || item.assignment?.area_id).filter(Boolean))];
+        const areaMap = await fetchNameMap('wf_areas', areaIds, 'id,name');
+        if (areaSelect) areaSelect.innerHTML = '<option value="all">All Areas</option>' + [...areaMap.values()].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''))).map(a=>`<option value="${escapeHtml(a.id)}">${escapeHtml(a.name||'Area')}</option>`).join('');
+        if (siteSelect) siteSelect.innerHTML = '<option value="all">All Sites</option>' + [...siteMap.values()].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''))).map(x=>`<option value="${escapeHtml(x.id)}">${escapeHtml(x.name||'Site')}</option>`).join('');
+      }
 
       const count = kind => queue.filter(item => item.kind === kind).length;
       const salary = count('salary');
@@ -999,6 +1053,42 @@
       approvalMessage(error?.message || 'Approval action failed.', 'error');
       renderApprovalQueue();
     }
+  }
+
+
+  function setApprovalSelection(selectVisible) {
+    if (!(state.approvalSelected instanceof Set)) state.approvalSelected = new Set();
+    approvalVisibleItems().forEach(item => {
+      const key = `${item.kind}:${item.record?.id}`;
+      const selfMade = !!(state.makerCheckerRequired && item.record?.created_by === state.session?.user?.id);
+      if (selectVisible && !selfMade) state.approvalSelected.add(key); else state.approvalSelected.delete(key);
+    });
+    renderApprovalQueue();
+  }
+
+  async function bulkActOnApprovals(action) {
+    if (state.accessProfile?.isDirector) return approvalMessage('Company Director is view only.', 'info');
+    if (!['approved','rejected'].includes(action)) return;
+    if (!(state.approvalSelected instanceof Set)) state.approvalSelected = new Set();
+    const chosen = (state.approvals || []).filter(item => state.approvalSelected.has(`${item.kind}:${item.record?.id}`));
+    if (!chosen.length) return approvalMessage('Select at least one pending item first.', 'warning');
+    const eligible = chosen.filter(item => !(state.makerCheckerRequired && item.record?.created_by === state.session?.user?.id));
+    if (!eligible.length) return approvalMessage('Selected items require another authorised checker.', 'warning');
+    const verb = action === 'approved' ? 'Approve' : 'Reject';
+    if (!window.confirm(`${verb} ${eligible.length} selected pending item(s)?`)) return;
+    approvalMessage(`${verb} selected items in progress…`, 'info');
+    document.querySelectorAll('[data-approval-action], [data-approval-select], #wfApprovalApproveSelected, #wfApprovalRejectSelected').forEach(el => { el.disabled = true; });
+    let changed = 0, failed = 0;
+    for (const item of eligible) {
+      try {
+        const payload = { approval_status: action, reviewed_by: state.session.user.id, reviewed_at: new Date().toISOString(), updated_by: state.session.user.id };
+        const { data, error } = await state.client.from(item.table).update(payload).eq('company_id', state.workspace.companyId).eq('id', item.record.id).eq('approval_status','pending').select('id').maybeSingle();
+        if (error || !data) failed++; else changed++;
+      } catch (_) { failed++; }
+    }
+    state.approvalSelected = new Set();
+    await Promise.all([loadApprovalCenter(), loadApprovalBreakdown()]);
+    approvalMessage(`${changed} item(s) ${action}.` + (failed ? ` ${failed} could not be changed.` : ''), failed ? 'warning' : 'success');
   }
 
   async function loadDashboard() {
@@ -2461,7 +2551,20 @@
     $('wfPayrollRejectBtn')?.addEventListener('click', () => reviewPayroll('rejected'));
     $('wfPayrollFinalizeBtn')?.addEventListener('click', finalizePayroll);
     $('wfPayrollReopenBtn')?.addEventListener('click', reopenPayroll);
-    $('wfApprovalFilter')?.addEventListener('change', renderApprovalQueue);
+    ['wfApprovalFilter','wfApprovalArea','wfApprovalSite'].forEach(id => $(id)?.addEventListener('change', renderApprovalQueue));
+    ['wfApprovalSearch','wfApprovalDate'].forEach(id => $(id)?.addEventListener('input', renderApprovalQueue));
+    $('wfApprovalSelectAll')?.addEventListener('click', () => setApprovalSelection(true));
+    $('wfApprovalClearSelection')?.addEventListener('click', () => setApprovalSelection(false));
+    $('wfApprovalApproveSelected')?.addEventListener('click', () => bulkActOnApprovals('approved'));
+    $('wfApprovalRejectSelected')?.addEventListener('click', () => bulkActOnApprovals('rejected'));
+    $('wfApprovalQueue')?.addEventListener('change', (event) => {
+      const box = event.target.closest('[data-approval-select]');
+      if (!box) return;
+      if (!(state.approvalSelected instanceof Set)) state.approvalSelected = new Set();
+      if (box.checked) state.approvalSelected.add(box.dataset.key); else state.approvalSelected.delete(box.dataset.key);
+      box.closest('.wf-approval-item')?.classList.toggle('is-selected', box.checked);
+      updateApprovalSelectedCount();
+    });
     $('wfApprovalQueue')?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-approval-action]');
       if (!button || button.disabled) return;

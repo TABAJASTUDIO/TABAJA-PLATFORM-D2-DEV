@@ -205,6 +205,19 @@
                 </select>
               </label>
             </div>
+            <div class="wf-approval-bulk-tools">
+              <label>Search<input id="wfApprovalSearch" type="search" placeholder="Name or employee code"></label>
+              <label>Date<input id="wfApprovalDate" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10"></label>
+              <label>Area<select id="wfApprovalArea"><option value="all">All Areas</option></select></label>
+              <label>Site<select id="wfApprovalSite"><option value="all">All Sites</option></select></label>
+            </div>
+            <div class="wf-approval-bulk-actions">
+              <button id="wfApprovalSelectAll" class="wf-soft-btn" type="button">✓ Select All Visible</button>
+              <button id="wfApprovalClearSelection" class="wf-soft-btn" type="button">Clear Selection</button>
+              <span id="wfApprovalSelectedCount">0 selected</span>
+              <button id="wfApprovalApproveSelected" class="wf-setup-primary" type="button">Approve Selected</button>
+              <button id="wfApprovalRejectSelected" class="wf-soft-btn wf-danger-btn" type="button">Reject Selected</button>
+            </div>
             <div id="wfApprovalMessage" class="wf-message info">Loading pending approvals…</div>
             <div id="wfApprovalQueue" class="wf-approval-queue">
               <div class="wf-empty-card">No approval items loaded yet.</div>
