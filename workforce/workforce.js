@@ -7,14 +7,18 @@
   async function returnToIdentityPlatform(event) {
     if (event) event.preventDefault();
 
-    // When Workforce is hosted inside the Identity PWA shell, close only the embedded view.
-    if (window.parent && window.parent !== window) {
-      window.parent.postMessage({ type: 'tabaja:workforce:close' }, window.location.origin);
-      return;
-    }
-
-    // Workforce is part of the same PWA window. Never use opener/close here.
+    // Preferred no-flash route: Workforce was opened from the live Identity
+    // shell in a separate same-origin window. Closing this window reveals the
+    // still-rendered Identity Platform instantly, so no Sign In screen repaints.
     try {
+      if (window.opener && !window.opener.closed) {
+        try { window.opener.focus(); } catch (_) {}
+        window.close();
+        // If the host refuses window.close(), continue to the safe fallback.
+        await new Promise(resolve => setTimeout(resolve, 80));
+        if (window.closed) return;
+      }
+
       let liveSession = state.session || null;
       if (state.client?.auth?.getSession) {
         const { data, error } = await state.client.auth.getSession();
@@ -35,29 +39,6 @@
     document.querySelectorAll('[data-wf-back-main]').forEach((control) => {
       control.addEventListener('click', returnToIdentityPlatform);
     });
-    if (!document.documentElement.dataset.wfEscapeBound) {
-      document.documentElement.dataset.wfEscapeBound = '1';
-      window.addEventListener('keydown', (event) => {
-        if (event.key !== 'Escape') return;
-        event.preventDefault();
-        event.stopPropagation();
-        // Sequential Workforce Back: move one step backward through the currently
-        // visible sidebar order. Hidden role-restricted sections are skipped automatically.
-        const current = state.currentSection || 'dashboard';
-        if (current !== 'dashboard') {
-          const visibleSections = Array.from(document.querySelectorAll('.wf-nav button[data-section]'))
-            .filter((btn) => !btn.hidden && btn.getAttribute('aria-hidden') !== 'true' && getComputedStyle(btn).display !== 'none')
-            .map((btn) => btn.dataset.section)
-            .filter(Boolean);
-          const index = visibleSections.indexOf(current);
-          const previous = index > 0 ? visibleSections[index - 1] : 'dashboard';
-          showSection(previous);
-          return;
-        }
-        // Only the Workforce Dashboard exits the embedded Workforce shell to Command Center.
-        returnToIdentityPlatform(event);
-      }, true);
-    }
   }
 
   const IMPORTS = Object.freeze({
@@ -129,9 +110,7 @@
     overtimeBusy: false,
     overtimeEmployees: [],
     overtimePermissions: { view: false, manage: false, approve: false },
-    accessProfile: { roleCodes: [], isDirector: false },
-    accessScopeData: { scopes: [], options: {}, can_manage: false },
-    scopeEditorUserId: null
+    accessProfile: { roleCodes: [], isDirector: false }
   };
 
   const $ = id => document.getElementById(id);
@@ -688,7 +667,6 @@
       ['Transport overrides', 'wf_transport_employee_overrides'],
       ['Attendance', 'wf_attendance_records'],
       ['Leave requests', 'wf_leave_requests'],
-      ['Leave balances', 'wf_leave_balances'],
       ['Advances / loans', 'wf_advances']
     ];
     const results = await Promise.all(definitions.map(async ([label, table]) => [label, await safeCount(table, [['eq', 'approval_status', 'pending']])]));
@@ -825,9 +803,7 @@
     { kind: 'salary', label: 'Salary', table: 'wf_employee_salary_history' },
     { kind: 'transport', label: 'Transport', table: 'wf_transport_employee_overrides' },
     { kind: 'attendance', label: 'Attendance', table: 'wf_attendance_records' },
-    { kind: 'overtime', label: 'Overtime', table: 'wf_overtime_entries' },
     { kind: 'leave', label: 'Leave', table: 'wf_leave_requests' },
-    { kind: 'leave_balance', label: 'Leave Balance', table: 'wf_leave_balances' },
     { kind: 'advance', label: 'Advance / Loan', table: 'wf_advances' }
   ]);
 
@@ -843,9 +819,7 @@
     if (item.kind === 'salary') return `${formatMoney(r.base_amount, r.currency_code || '')} • ${String(r.pay_basis || 'salary').replaceAll('_',' ')} • effective ${formatDateDMY(r.effective_from) || '—'}`;
     if (item.kind === 'transport') return `${String(r.method || 'transport').replaceAll('_',' ')} • ${r.amount === null || r.amount === undefined ? 'Rule-based amount' : formatMoney(r.amount)} • effective ${formatDateDMY(r.effective_from) || '—'}`;
     if (item.kind === 'attendance') return `${formatDateDMY(r.work_date) || '—'} • ${String(r.attendance_status || 'attendance').replaceAll('_',' ')} • ${r.worked_minutes ?? 0} worked min • ${r.overtime_minutes ?? 0} OT min`;
-    if (item.kind === 'overtime') { const total = Number(r.overtime_minutes || 0); return `${formatDateDMY(r.work_date) || '—'} • ${Math.floor(total / 60)}h ${total % 60}m overtime`; }
     if (item.kind === 'leave') return `${formatDateDMY(r.start_date) || '—'} → ${formatDateDMY(r.end_date) || '—'} • ${r.requested_units ?? '—'} unit(s)`;
-    if (item.kind === 'leave_balance') return `${r.leave_year || '—'} • entitlement ${r.entitlement_units ?? 0} unit(s) • opening ${r.opening_units ?? 0} • carry ${r.carry_forward_units ?? 0} • adjustment ${r.adjustment_units ?? 0}`;
     if (item.kind === 'advance') return `${formatMoney(r.principal_amount, r.currency_code || '')} • ${String(r.advance_type || 'advance').replaceAll('_',' ')} • ${formatDateDMY(r.issue_date) || '—'}`;
     return 'Pending Workforce item';
   }
@@ -855,70 +829,19 @@
     if (item.kind === 'salary') return r.notes || 'Salary change awaiting checker review.';
     if (item.kind === 'transport') return r.reason || 'Transport override awaiting checker review.';
     if (item.kind === 'attendance') return r.notes || 'Attendance record awaiting approval.';
-    if (item.kind === 'overtime') return r.reason || 'Overtime entry awaiting approval.';
     if (item.kind === 'leave') return r.reason || 'Leave request awaiting approval.';
     if (item.kind === 'advance') return r.purpose || r.notes || 'Advance / loan awaiting approval.';
     return '';
   }
 
-  function approvalItemDate(item) {
-    const r = item.record || {};
-    return formatDateDMY(r.work_date || r.effective_from || r.start_date || r.issue_date || '') || '';
-  }
-
-  function approvalVisibleItems() {
-    const filter = $('wfApprovalFilter')?.value || 'all';
-    const search = String($('wfApprovalSearch')?.value || '').trim().toLowerCase();
-    const date = String($('wfApprovalDate')?.value || '').trim();
-    const area = $('wfApprovalArea')?.value || 'all';
-    const site = $('wfApprovalSite')?.value || 'all';
-    return (state.approvals || []).filter(item => {
-      const employee = item.employee || {};
-      const assignment = item.assignment || {};
-      const itemSite = item.record?.site_id || assignment.site_id || '';
-      const itemArea = item.site?.area_id || assignment.area_id || '';
-      const hay = `${employee.full_name || ''} ${employee.employee_code || ''}`.toLowerCase();
-      return (filter === 'all' || item.kind === filter)
-        && (!search || hay.includes(search))
-        && (!date || approvalItemDate(item) === date)
-        && (area === 'all' || itemArea === area)
-        && (site === 'all' || itemSite === site);
-    }).sort((a,b) => String(a.employee?.full_name || a.employee?.employee_code || '').localeCompare(String(b.employee?.full_name || b.employee?.employee_code || ''), undefined, {sensitivity:'base'}));
-  }
-
-  function updateApprovalSelectedCount() {
-    if (!(state.approvalSelected instanceof Set)) state.approvalSelected = new Set();
-    const visibleIds = new Set(approvalVisibleItems().map(x => `${x.kind}:${x.record?.id}`));
-    const count = [...state.approvalSelected].filter(x => visibleIds.has(x)).length;
-    if ($('wfApprovalSelectedCount')) $('wfApprovalSelectedCount').textContent = `${count} selected`;
-    const canBulkAct = count > 0 && !state.accessProfile?.isDirector;
-    if ($('wfApprovalApproveSelected')) $('wfApprovalApproveSelected').disabled = !canBulkAct;
-    if ($('wfApprovalRejectSelected')) $('wfApprovalRejectSelected').disabled = !canBulkAct;
-  }
-
   function renderApprovalQueue() {
     const host = $('wfApprovalQueue');
     if (!host) return;
-    if (!(state.approvalSelected instanceof Set)) state.approvalSelected = new Set();
-    const items = approvalVisibleItems();
-    const totalPending = (state.approvals || []).length;
-    const visiblePending = items.length;
-    const message = $('wfApprovalMessage');
-    if (message) {
-      const hasActiveFilter = ($('wfApprovalFilter')?.value || 'all') !== 'all'
-        || String($('wfApprovalSearch')?.value || '').trim()
-        || String($('wfApprovalDate')?.value || '').trim()
-        || ($('wfApprovalArea')?.value || 'all') !== 'all'
-        || ($('wfApprovalSite')?.value || 'all') !== 'all';
-      if (hasActiveFilter) {
-        message.textContent = `${visiblePending} visible · ${totalPending} total pending`;
-        message.className = 'wf-message success';
-      }
-    }
+    const filter = $('wfApprovalFilter')?.value || 'all';
+    const items = (state.approvals || []).filter(item => filter === 'all' || item.kind === filter);
 
     if (!items.length) {
       host.innerHTML = '<div class="wf-empty-card">No pending items in this view.</div>';
-      updateApprovalSelectedCount();
       return;
     }
 
@@ -929,15 +852,11 @@
       const selfMade = !!(state.makerCheckerRequired && r.created_by && state.session?.user?.id && r.created_by === state.session.user.id);
       const created = r.created_at ? new Date(r.created_at).toLocaleString() : '';
       const disabled = selfMade ? 'disabled' : '';
-      const key = `${item.kind}:${r.id}`;
-      const checked = state.approvalSelected.has(key) ? 'checked' : '';
       const checkerText = selfMade ? '<span class="wf-checker-note">Maker-checker: another authorised user must review this item.</span>' : '';
       const approvalActions = state.accessProfile?.isDirector
         ? '<div class="wf-approval-actions"><span class="wf-checker-note">VIEW ONLY</span></div>'
         : `<div class="wf-approval-actions"><button class="approve" type="button" data-approval-action="approved" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(r.id)}" ${disabled}>Approve</button><button class="reject" type="button" data-approval-action="rejected" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(r.id)}" ${disabled}>Reject</button></div>`;
-      const select = state.accessProfile?.isDirector ? '<div class="wf-approval-select"></div>' : `<div class="wf-approval-select"><input type="checkbox" data-approval-select="1" data-key="${escapeHtml(key)}" ${checked} ${disabled}></div>`;
-      return `<article class="wf-approval-item ${checked ? 'is-selected' : ''}" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(r.id)}">
-        ${select}
+      return `<article class="wf-approval-item" data-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(r.id)}">
         <div class="wf-approval-item-main">
           <div class="wf-approval-item-top">
             <span class="wf-type-pill ${escapeHtml(item.kind)}">${escapeHtml(item.label)}</span>
@@ -946,13 +865,12 @@
           <h3>${escapeHtml(employeeLabel)}</h3>
           <p class="wf-approval-detail">${escapeHtml(approvalDetail(item))}</p>
           <p class="wf-approval-secondary">${escapeHtml(approvalSecondary(item))}</p>
-          <div class="wf-approval-meta">${employee.employee_code ? `<span>${escapeHtml(employee.employee_code)}</span>` : ''}${item.site?.name ? `<span>${escapeHtml(item.site.name)}</span>` : ''}${created ? `<span>${escapeHtml(created)}</span>` : ''}</div>
+          <div class="wf-approval-meta">${employee.employee_code ? `<span>${escapeHtml(employee.employee_code)}</span>` : ''}${created ? `<span>${escapeHtml(created)}</span>` : ''}</div>
           ${checkerText}
         </div>
         ${approvalActions}
       </article>`;
     }).join('');
-    updateApprovalSelectedCount();
   }
 
   async function fetchApprovalSource(source) {
@@ -979,12 +897,12 @@
     approvalMessage('Refreshing pending approvals…', 'info');
     try {
       try {
-        const { data: settings, error: policyError } = await state.client.rpc('wf_get_approval_policy', {
-          target_company: state.workspace.companyId
-        });
-        if (policyError) throw policyError;
-        const policy = Array.isArray(settings) ? settings[0] : settings;
-        state.makerCheckerRequired = policy?.maker_checker_required !== false;
+        const { data: settings } = await state.client
+          .from('wf_company_settings')
+          .select('maker_checker_required')
+          .eq('company_id', state.workspace.companyId)
+          .maybeSingle();
+        state.makerCheckerRequired = settings?.maker_checker_required !== false;
       } catch (_) {
         state.makerCheckerRequired = true;
       }
@@ -994,28 +912,12 @@
       const employeeIds = [...new Set(queue.map(item => item.record?.employee_id).filter(Boolean))];
       const employeeMap = await fetchNameMap('employees', employeeIds, 'id,employee_code,full_name');
       queue.forEach(item => { item.employee = employeeMap.get(item.record?.employee_id) || null; });
-      const { data: assignments } = employeeIds.length ? await state.client.from('wf_employee_assignments').select('employee_id,area_id,site_id,status,start_date').eq('company_id', state.workspace.companyId).in('employee_id', employeeIds).eq('status','active') : { data: [] };
-      const assignmentMap = new Map((assignments || []).map(a => [a.employee_id, a]));
-      const siteIds = [...new Set(queue.map(item => item.record?.site_id || assignmentMap.get(item.record?.employee_id)?.site_id).filter(Boolean))];
-      const siteMap = await fetchNameMap('wf_sites', siteIds, 'id,name,area_id');
-      queue.forEach(item => {
-        item.assignment = assignmentMap.get(item.record?.employee_id) || null;
-        item.site = siteMap.get(item.record?.site_id || item.assignment?.site_id) || null;
-      });
       state.approvals = queue;
-      state.approvalSelected = new Set();
-      const areaSelect = $('wfApprovalArea'), siteSelect = $('wfApprovalSite');
-      if (areaSelect || siteSelect) {
-        const areaIds = [...new Set(queue.map(item => item.site?.area_id || item.assignment?.area_id).filter(Boolean))];
-        const areaMap = await fetchNameMap('wf_areas', areaIds, 'id,name');
-        if (areaSelect) areaSelect.innerHTML = '<option value="all">All Areas</option>' + [...areaMap.values()].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''))).map(a=>`<option value="${escapeHtml(a.id)}">${escapeHtml(a.name||'Area')}</option>`).join('');
-        if (siteSelect) siteSelect.innerHTML = '<option value="all">All Sites</option>' + [...siteMap.values()].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''))).map(x=>`<option value="${escapeHtml(x.id)}">${escapeHtml(x.name||'Site')}</option>`).join('');
-      }
 
       const count = kind => queue.filter(item => item.kind === kind).length;
       const salary = count('salary');
       const transport = count('transport');
-      const other = count('attendance') + count('overtime') + count('leave') + count('leave_balance') + count('advance');
+      const other = count('attendance') + count('leave') + count('advance');
       $('wfApprovalKpiTotal').textContent = String(queue.length);
       $('wfApprovalKpiSalary').textContent = String(salary);
       $('wfApprovalKpiTransport').textContent = String(transport);
@@ -1052,9 +954,22 @@
     approvalMessage(`${verb} in progress…`, 'info');
     document.querySelectorAll('[data-approval-action]').forEach(btn => { btn.disabled = true; });
     try {
-      const payload = item.kind === 'overtime'
-        ? { approval_status: action, updated_by: state.session.user.id }
-        : { approval_status: action, reviewed_by: state.session.user.id, reviewed_at: new Date().toISOString(), updated_by: state.session.user.id };
+      if (action === 'approved' && kind === 'transport') {
+        const r=item.record||{};
+        const {data: existing,error: overlapError}=await state.client.from('wf_transport_employee_overrides')
+          .select('id,effective_from,effective_to').eq('company_id',state.workspace.companyId)
+          .eq('employee_id',r.employee_id).eq('approval_status','approved').eq('is_active',true);
+        if(overlapError) throw overlapError;
+        const ns=String(r.effective_from||'').slice(0,10), ne=String(r.effective_to||'9999-12-31').slice(0,10);
+        const clash=(existing||[]).find(x=>String(x.effective_from||'').slice(0,10)<=ne && String(x.effective_to||'9999-12-31').slice(0,10)>=ns);
+        if(clash) throw new Error(`Cannot approve: another approved transport override already overlaps this employee from ${formatDateDMY(clash.effective_from)}. Use Correct / Void first.`);
+      }
+      const payload = {
+        approval_status: action,
+        reviewed_by: state.session.user.id,
+        reviewed_at: new Date().toISOString(),
+        updated_by: state.session.user.id
+      };
       const { data, error } = await state.client
         .from(item.table)
         .update(payload)
@@ -1073,42 +988,6 @@
       approvalMessage(error?.message || 'Approval action failed.', 'error');
       renderApprovalQueue();
     }
-  }
-
-
-  function setApprovalSelection(selectVisible) {
-    if (!(state.approvalSelected instanceof Set)) state.approvalSelected = new Set();
-    approvalVisibleItems().forEach(item => {
-      const key = `${item.kind}:${item.record?.id}`;
-      const selfMade = !!(state.makerCheckerRequired && item.record?.created_by === state.session?.user?.id);
-      if (selectVisible && !selfMade) state.approvalSelected.add(key); else state.approvalSelected.delete(key);
-    });
-    renderApprovalQueue();
-  }
-
-  async function bulkActOnApprovals(action) {
-    if (state.accessProfile?.isDirector) return approvalMessage('Company Director is view only.', 'info');
-    if (!['approved','rejected'].includes(action)) return;
-    if (!(state.approvalSelected instanceof Set)) state.approvalSelected = new Set();
-    const chosen = (state.approvals || []).filter(item => state.approvalSelected.has(`${item.kind}:${item.record?.id}`));
-    if (!chosen.length) return approvalMessage('Select at least one pending item first.', 'warning');
-    const eligible = chosen.filter(item => !(state.makerCheckerRequired && item.record?.created_by === state.session?.user?.id));
-    if (!eligible.length) return approvalMessage('Selected items require another authorised checker.', 'warning');
-    const verb = action === 'approved' ? 'Approve' : 'Reject';
-    if (!window.confirm(`${verb} ${eligible.length} selected pending item(s)?`)) return;
-    approvalMessage(`${verb} selected items in progress…`, 'info');
-    document.querySelectorAll('[data-approval-action], [data-approval-select], #wfApprovalApproveSelected, #wfApprovalRejectSelected').forEach(el => { el.disabled = true; });
-    let changed = 0, failed = 0;
-    for (const item of eligible) {
-      try {
-        const payload = item.kind === 'overtime' ? { approval_status: action, updated_by: state.session.user.id } : { approval_status: action, reviewed_by: state.session.user.id, reviewed_at: new Date().toISOString(), updated_by: state.session.user.id };
-        const { data, error } = await state.client.from(item.table).update(payload).eq('company_id', state.workspace.companyId).eq('id', item.record.id).eq('approval_status','pending').select('id').maybeSingle();
-        if (error || !data) failed++; else changed++;
-      } catch (_) { failed++; }
-    }
-    state.approvalSelected = new Set();
-    await Promise.all([loadApprovalCenter(), loadApprovalBreakdown()]);
-    approvalMessage(`${changed} item(s) ${action}.` + (failed ? ` ${failed} could not be changed.` : ''), failed ? 'warning' : 'success');
   }
 
   async function loadDashboard() {
@@ -1664,9 +1543,16 @@
   function setupHistory(rows, type) {
     if (!rows?.length) return `No ${type} records yet.`;
     return rows.slice(0,5).map(r => {
-      if (type === 'salary') return `<div class="row"><b>${escapeHtml(r.pay_basis)} • ${escapeHtml(r.base_amount)} ${escapeHtml(r.currency_code||'SLE')}</b><br>${escapeHtml(formatDateDMY(r.effective_from))} • ${escapeHtml(String(r.approval_status||'').toUpperCase())}</div>`;
-      if (type === 'transport') return `<div class="row"><b>${escapeHtml(String(r.method||'').replaceAll('_',' '))} • ${escapeHtml(r.amount ?? '—')}</b><br>${escapeHtml(formatDateDMY(r.effective_from))} • ${escapeHtml(String(r.approval_status||'').toUpperCase())}</div>`;
-      return `<div class="row"><b>${escapeHtml(formatDateDMY(r.work_date))} • ${escapeHtml(String(r.attendance_status||'').replaceAll('_',' '))}</b><br>${escapeHtml(r.attendance_units ?? 0)} unit • ${escapeHtml(String(r.approval_status||'').toUpperCase())}</div>`;
+      const approved = String(r.approval_status||'').toLowerCase() === 'approved';
+      const voidButton = approved ? `<br><button type="button" class="wf-record-void-btn" data-record-void="${escapeHtml(r.id)}" data-record-type="${escapeHtml(type)}">Void</button>` : '';
+      if (type === 'salary') return `<div class="row"><b>${escapeHtml(r.pay_basis)} • ${escapeHtml(r.base_amount)} ${escapeHtml(r.currency_code||'SLE')}</b><br>${escapeHtml(formatDateDMY(r.effective_from))} • ${escapeHtml(String(r.approval_status||'').toUpperCase())}${voidButton}</div>`;
+      if (type === 'transport') {
+        const voided = r.is_active === false;
+        const status = voided ? 'VOIDED' : String(r.approval_status||'').toUpperCase();
+        const btn = (!voided && approved) ? `<br><button type="button" class="wf-record-void-btn" data-record-void="${escapeHtml(r.id)}" data-record-type="transport">Void</button>` : '';
+        return `<div class="row"><b>${escapeHtml(String(r.method||'').replaceAll('_',' '))} • ${escapeHtml(r.amount ?? '—')}</b><br>${escapeHtml(formatDateDMY(r.effective_from))} • ${escapeHtml(status)}${btn}</div>`;
+      }
+      return `<div class="row"><b>${escapeHtml(formatDateDMY(r.work_date))} • ${escapeHtml(String(r.attendance_status||'').replaceAll('_',' '))}</b><br>${escapeHtml(r.attendance_units ?? 0)} unit • ${escapeHtml(String(r.approval_status||'').toUpperCase())}${voidButton}</div>`;
     }).join('');
   }
 
@@ -1695,31 +1581,16 @@
     $('wfSetupEmployeeMeta').textContent=`${emp.employee_code||'NO CODE'} • ${emp.full_name||'Unnamed Employee'} • ${emp.department||'No department'} • ${emp.job_title||'No job title'}`;
     setupMessage('Reading approved and pending payroll inputs…','info');
     try {
-      const [profileRes,salaryRes,transportRes,attendanceRes,assignmentRes]=await Promise.all([
+      const [profileRes,salaryRes,transportRes,attendanceRes]=await Promise.all([
         state.client.from('wf_employee_profiles').select('hire_date,payroll_eligible,employment_status').eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).maybeSingle(),
         state.client.from('wf_employee_salary_history').select('*').eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).order('effective_from',{ascending:false}),
         state.client.from('wf_transport_employee_overrides').select('*').eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).order('effective_from',{ascending:false}),
-        state.client.from('wf_attendance_records').select('*').eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).order('work_date',{ascending:false}).limit(31),
-        state.client.from('wf_employee_assignments').select('id,area_id,site_id,post_id,start_date,end_date,status').eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).eq('status','active').order('start_date',{ascending:false}).limit(1).maybeSingle()
+        state.client.from('wf_attendance_records').select('*').eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).order('work_date',{ascending:false}).limit(31)
       ]);
-      if(profileRes.error)throw profileRes.error;if(salaryRes.error)throw salaryRes.error;if(transportRes.error)throw transportRes.error;if(attendanceRes.error)throw attendanceRes.error;if(assignmentRes.error)throw assignmentRes.error;
-      const profile=profileRes.data||null, salaries=salaryRes.data||[], transports=transportRes.data||[], attendance=attendanceRes.data||[], assignment=assignmentRes.data||null;
-      const assignmentMeta=$('wfSetupAssignmentMeta');
-      if(assignmentMeta){
-        if(!assignment){ assignmentMeta.textContent='Current assignment: Not assigned'; }
-        else {
-          const [areaRes,siteRes,postRes]=await Promise.all([
-            assignment.area_id ? state.client.from('wf_areas').select('name').eq('company_id',state.workspace.companyId).eq('id',assignment.area_id).maybeSingle() : Promise.resolve({data:null,error:null}),
-            assignment.site_id ? state.client.from('wf_sites').select('name').eq('company_id',state.workspace.companyId).eq('id',assignment.site_id).maybeSingle() : Promise.resolve({data:null,error:null}),
-            assignment.post_id ? state.client.from('wf_posts').select('name').eq('company_id',state.workspace.companyId).eq('id',assignment.post_id).maybeSingle() : Promise.resolve({data:null,error:null})
-          ]);
-          const area=areaRes.data?.name||'No area', site=siteRes.data?.name||'No site', post=postRes.data?.name||'No post';
-          assignmentMeta.textContent=`Current assignment: ${area} → ${site} • ${post} • ACTIVE`;
-        }
-      }
-      // Employee Center / active Workforce assignment is the single editable source for employment start date.
-      // Payroll Setup only mirrors it read-only; never maintain a second editable hire date here.
-      $('wfSetupHireDate').value=formatDateDMY(assignment?.start_date||'');
+      if(profileRes.error)throw profileRes.error;if(salaryRes.error)throw salaryRes.error;if(transportRes.error)throw transportRes.error;if(attendanceRes.error)throw attendanceRes.error;
+      const profile=profileRes.data||null, salaries=salaryRes.data||[], transports=transportRes.data||[], attendance=attendanceRes.data||[];
+      $('wfSetupHireDate').value=formatDateDMY(profile?.hire_date||'');
+      $('wfSetupHireDateSave').disabled=!profile;
       const salApproved=salaries.find(r=>r.approval_status==='approved'), salPending=salaries.find(r=>r.approval_status==='pending');
       const trApproved=transports.find(r=>r.approval_status==='approved' && r.is_active!==false), trPending=transports.find(r=>r.approval_status==='pending');
       const attApproved=attendance.filter(r=>r.approval_status==='approved').length, attPending=attendance.filter(r=>r.approval_status==='pending').length;
@@ -1733,12 +1604,63 @@
     } catch(error){console.error('[Payroll Setup employee]',error);setupMessage(error?.message||'Unable to read employee payroll setup.','error');}
   }
 
+  async function saveSetupHireDate(){
+    const emp=selectedSetupEmployee(), rawDate=$('wfSetupHireDate').value, date=parseDateDMY(rawDate);
+    if(!emp)return setupMessage('Select an employee first.','warning');
+    if(!date)return setupMessage('Enter hire date as DD/MM/YYYY.','warning');
+    try{
+      state.setupBusy=true;
+      const {data,error}=await state.client.from('wf_employee_profiles').update({hire_date:date}).eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).select('hire_date').maybeSingle();
+      if(error)throw error;
+      if(!data)throw new Error('No Workforce profile was updated for this employee.');
+      await loadSelectedPayrollSetup();
+      setupMessage(`✓ Hire date saved: ${formatDateDMY(data.hire_date || date)}. Monthly payroll will prorate the first employment month automatically.`,'success');
+    }catch(error){setupMessage(error?.message||'Unable to save hire date.','error');}
+    finally{state.setupBusy=false;}
+  }
 
   async function saveSetupSalary(){
     const emp=selectedSetupEmployee(), amount=Number($('wfSetupSalaryAmount').value), date=parseDateDMY($('wfSetupSalaryDate').value), basis=$('wfSetupPayBasis').value;
     if(!emp)return setupMessage('Select an employee first.','warning'); if(!date||!Number.isFinite(amount)||amount<0)return setupMessage('Enter a valid salary amount and date as DD/MM/YYYY.','warning');
     if(basis==='monthly' && !date.endsWith('-01'))return setupMessage('Monthly salary changes must start on the first day of a payroll month.','warning');
     try{state.setupBusy=true;const {error}=await state.client.from('wf_employee_salary_history').insert({company_id:state.workspace.companyId,employee_id:emp.id,pay_basis:basis,base_amount:amount,currency_code:'SLE',effective_from:date,effective_to:null,approval_status:'pending',notes:'Created from Workforce Payroll Setup'});if(error)throw error;$('wfSetupSalaryAmount').value='';setupMessage('Salary submitted as PENDING. Approve it from Approval Center with another authorised user when maker-checker applies.','success');await loadSelectedPayrollSetup();await loadApprovalCenter();}catch(error){setupMessage(error?.message||'Unable to submit salary.','error');}finally{state.setupBusy=false;}
+  }
+
+  async function voidApprovedSetupRecord(type,id){
+    const emp=selectedSetupEmployee();
+    if(!emp || !id) return;
+    const labels={salary:'salary',transport:'transport',attendance:'attendance'};
+    if(!labels[type]) return setupMessage('This record type cannot be voided here.','warning');
+    const reason=window.prompt(`Reason for voiding this approved ${labels[type]} record:`,'Entered by mistake / duplicate');
+    if(!reason?.trim()) return setupMessage('Void cancelled. A reason is required.','warning');
+    if(!window.confirm(`Void this approved ${labels[type]} record? It will stay in history for audit.`)) return;
+    try{
+      state.setupBusy=true;
+      let q;
+      if(type==='transport'){
+        q=state.client.from('wf_transport_employee_overrides')
+          .update({is_active:false,reason:`VOIDED: ${reason.trim()}`,updated_by:state.session.user.id})
+          .eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).eq('id',id)
+          .eq('approval_status','approved').eq('is_active',true).select('id').maybeSingle();
+      } else if(type==='salary') {
+        q=state.client.from('wf_employee_salary_history')
+          .update({approval_status:'rejected',notes:`VOIDED AFTER APPROVAL: ${reason.trim()}`,updated_by:state.session.user.id})
+          .eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).eq('id',id)
+          .eq('approval_status','approved').select('id').maybeSingle();
+      } else {
+        q=state.client.from('wf_attendance_records')
+          .update({approval_status:'rejected',notes:`VOIDED AFTER APPROVAL: ${reason.trim()}`,updated_by:state.session.user.id})
+          .eq('company_id',state.workspace.companyId).eq('employee_id',emp.id).eq('id',id)
+          .eq('approval_status','approved').select('id').maybeSingle();
+      }
+      const {data,error}=await q;
+      if(error) throw error;
+      if(!data) throw new Error('Record was not voided. It may already be changed or your role cannot change it.');
+      setupMessage(`${labels[type][0].toUpperCase()+labels[type].slice(1)} record VOIDED. Audit history preserved.`,'success');
+      await loadSelectedPayrollSetup();
+      await loadApprovalCenter();
+    }catch(error){setupMessage(error?.message||'Unable to void approved record.','error');}
+    finally{state.setupBusy=false;}
   }
 
   async function saveSetupTransport(){
@@ -1756,165 +1678,9 @@
   async function saveSetupAttendance(){
     const emp=selectedSetupEmployee(), date=parseDateDMY($('wfSetupAttendanceDate').value), status=$('wfSetupAttendanceStatus').value, units=Number($('wfSetupAttendanceUnits').value);
     if(!emp)return setupMessage('Select an employee first.','warning'); if(!date||!Number.isFinite(units)||units<0||units>1)return setupMessage('Enter a valid attendance date and units from 0 to 1.','warning');
-    try{state.setupBusy=true;const period=await ensureAttendancePeriod(date);const {error}=await state.client.from('wf_attendance_records').insert({company_id:state.workspace.companyId,employee_id:emp.id,attendance_period_id:period.id,work_date:date,attendance_status:status,attendance_units:units,worked_minutes:0,late_minutes:0,early_leave_minutes:0,overtime_minutes:0,source:'manual',approval_status:'pending',notes:'Created from Workforce Payroll Setup'});if(error)throw error;setupMessage('Attendance submitted as PENDING for approval.','success');await loadSelectedPayrollSetup();await loadApprovalCenter();}catch(error){const msg=String(error?.message||''); if(error?.code==='23505'||msg.toLowerCase().includes('duplicate key')||msg.includes('wf_attendance_employee_date_no_shift_unique')) setupMessage(`Attendance already exists for this employee on ${$('wfSetupAttendanceDate').value}. Please edit the existing attendance record instead.`,'warning'); else setupMessage(msg||'Unable to submit attendance.','error');}finally{state.setupBusy=false;}
+    try{state.setupBusy=true;const period=await ensureAttendancePeriod(date);const {error}=await state.client.from('wf_attendance_records').insert({company_id:state.workspace.companyId,employee_id:emp.id,attendance_period_id:period.id,work_date:date,attendance_status:status,attendance_units:units,worked_minutes:0,late_minutes:0,early_leave_minutes:0,overtime_minutes:0,source:'manual',approval_status:'pending',notes:'Created from Workforce Payroll Setup'});if(error)throw error;setupMessage('Attendance submitted as PENDING for approval.','success');await loadSelectedPayrollSetup();await loadApprovalCenter();}catch(error){setupMessage(error?.message||'Unable to submit attendance.','error');}finally{state.setupBusy=false;}
   }
 
-
-  const attendanceCenter = { rows: [], areas: [], sites: [] };
-  function attendanceCenterMessage(text,tone='info'){const el=$('wfAttendanceCenterMessage');if(!el)return;el.className=`wf-message ${tone}`;el.textContent=text;}
-  function attendanceUnitsForStatus(status){return status==='half_day'?0.5:(['absent','no_show'].includes(status)?0:1);}
-  function attendanceStatusOptions(selected='present'){return ['present','late','half_day','absent','no_show','leave','off','holiday'].map(v=>`<option value="${v}"${v===selected?' selected':''}>${v.split('_').map(x=>x[0].toUpperCase()+x.slice(1)).join(' ')}</option>`).join('');}
-  async function loadAttendanceCenterFoundation(){
-    if(!state.workspace?.companyId)return;
-    const today=formatDateDMY(new Date().toISOString().slice(0,10)); if($('wfAttendanceCenterDate')&&!$('wfAttendanceCenterDate').value)$('wfAttendanceCenterDate').value=today;
-    try{
-      const [areasRes,sitesRes]=await Promise.all([
-        state.client.from('wf_areas').select('id,name').eq('company_id',state.workspace.companyId).order('name',{ascending:true}),
-        state.client.from('wf_sites').select('id,name,area_id').eq('company_id',state.workspace.companyId).order('name',{ascending:true})
-      ]);
-      if(areasRes.error)throw areasRes.error;if(sitesRes.error)throw sitesRes.error;
-      attendanceCenter.areas=areasRes.data||[];attendanceCenter.sites=sitesRes.data||[];
-      $('wfAttendanceCenterArea').innerHTML='<option value="">All Areas</option>'+attendanceCenter.areas.map(x=>`<option value="${escapeHtml(x.id)}">${escapeHtml(x.name||'Unnamed Area')}</option>`).join('');
-      refreshAttendanceCenterSites();
-    }catch(error){attendanceCenterMessage(error?.message||'Unable to load Attendance Center filters.','error');}
-  }
-  function refreshAttendanceCenterSites(){const area=$('wfAttendanceCenterArea')?.value||'';const site=$('wfAttendanceCenterSite');if(!site)return;const rows=attendanceCenter.sites.filter(x=>!area||x.area_id===area);site.innerHTML='<option value="">All Sites</option>'+rows.map(x=>`<option value="${escapeHtml(x.id)}">${escapeHtml(x.name||'Unnamed Site')}</option>`).join('');}
-  async function loadAttendanceCenterEmployees(){
-    const date=parseDateDMY($('wfAttendanceCenterDate')?.value||''); if(!date)return attendanceCenterMessage('Enter a valid Work date as DD/MM/YYYY.','warning');
-    attendanceCenterMessage('Loading active employees and current assignments…','info');
-    try{
-      let q=state.client.from('wf_employee_assignments').select('employee_id,area_id,site_id,post_id,start_date,end_date,status').eq('company_id',state.workspace.companyId).eq('status','active');
-      const area=$('wfAttendanceCenterArea').value,site=$('wfAttendanceCenterSite').value;if(area)q=q.eq('area_id',area);if(site)q=q.eq('site_id',site);
-      const ares=await q;if(ares.error)throw ares.error;const assignments=ares.data||[];const ids=[...new Set(assignments.map(x=>x.employee_id).filter(Boolean))];
-      if(!ids.length){attendanceCenter.rows=[];renderAttendanceCenter();return attendanceCenterMessage('No active employees found for this Area/Site.','warning');}
-      const [empRes,postRes]=await Promise.all([
-        state.client.from('employees').select('id,employee_code,full_name,phone,job_title,status,is_deleted').eq('company_id',state.workspace.companyId).in('id',ids).eq('is_deleted',false).eq('status','active'),
-        state.client.from('wf_posts').select('id,name').eq('company_id',state.workspace.companyId)
-      ]);if(empRes.error)throw empRes.error;if(postRes.error)throw postRes.error;
-      const em=new Map((empRes.data||[]).map(x=>[x.id,x])),pm=new Map((postRes.data||[]).map(x=>[x.id,x.name])),sm=new Map(attendanceCenter.sites.map(x=>[x.id,x.name]));
-      attendanceCenter.rows=assignments.map(a=>{const e=em.get(a.employee_id);if(!e)return null;return {employee_id:e.id,code:e.employee_code||'',name:e.full_name||'Unnamed Employee',phone:e.phone||'',post:pm.get(a.post_id)||e.job_title||'No post',site:sm.get(a.site_id)||'No site',selected:false,status:'present',units:1};}).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
-      renderAttendanceCenter();attendanceCenterMessage(`${attendanceCenter.rows.length} active employees loaded A–Z. Mark attendance, then submit the selected rows.`,'success');
-    }catch(error){attendanceCenterMessage(error?.message||'Unable to load employees.','error');}
-  }
-  function renderAttendanceCenter(){const body=$('wfAttendanceCenterBody');if(!body)return;const term=($('wfAttendanceCenterSearch')?.value||'').trim().toLowerCase();const rows=attendanceCenter.rows.filter(r=>!term||`${r.name} ${r.code} ${r.phone} ${r.post} ${r.site}`.toLowerCase().includes(term));$('wfAttendanceCenterCount').textContent=`${rows.length} employee${rows.length===1?'':'s'}`;body.innerHTML=rows.length?rows.map(r=>`<tr data-att-employee="${escapeHtml(r.employee_id)}"><td><input type="checkbox" data-att-select ${r.selected?'checked':''}></td><td><b>${escapeHtml(r.name)}</b><small class="wf-cell-sub">${escapeHtml(r.code||'NO CODE')}</small></td><td>${escapeHtml(r.post)}</td><td>${escapeHtml(r.site)}</td><td><select data-att-status>${attendanceStatusOptions(r.status)}</select></td><td><input data-att-units type="number" min="0" max="1" step="0.5" value="${r.units}"></td></tr>`).join(''):'<tr><td colspan="6" class="empty">No matching employees.</td></tr>';}
-  function updateAttendanceCenterRow(event){const tr=event.target.closest('[data-att-employee]');if(!tr)return;const r=attendanceCenter.rows.find(x=>x.employee_id===tr.dataset.attEmployee);if(!r)return;if(event.target.matches('[data-att-select]'))r.selected=event.target.checked;if(event.target.matches('[data-att-status]')){r.status=event.target.value;r.units=attendanceUnitsForStatus(r.status);tr.querySelector('[data-att-units]').value=r.units;}if(event.target.matches('[data-att-units]'))r.units=Number(event.target.value);}
-  function markAllAttendance(present){attendanceCenter.rows.forEach(r=>{r.selected=present;if(present){r.status='present';r.units=1;}});renderAttendanceCenter();}
-  async function submitAttendanceCenter(){
-    const date=parseDateDMY($('wfAttendanceCenterDate')?.value||'');const selected=attendanceCenter.rows.filter(r=>r.selected);if(!date)return attendanceCenterMessage('Enter a valid Work date as DD/MM/YYYY.','warning');if(!selected.length)return attendanceCenterMessage('Select at least one employee first.','warning');
-    try{const period=await ensureAttendancePeriod(date);const ids=selected.map(r=>r.employee_id);const existingRes=await state.client.from('wf_attendance_records').select('employee_id').eq('company_id',state.workspace.companyId).eq('work_date',date).in('employee_id',ids);if(existingRes.error)throw existingRes.error;const existing=new Set((existingRes.data||[]).map(x=>x.employee_id));const fresh=selected.filter(r=>!existing.has(r.employee_id));if(!fresh.length)return attendanceCenterMessage(`Attendance already exists for all selected employees on ${$('wfAttendanceCenterDate').value}. Nothing was duplicated.`,'warning');
-      let submitted=0;const failed=[];for(const r of fresh){const payload={company_id:state.workspace.companyId,employee_id:r.employee_id,attendance_period_id:period.id,work_date:date,attendance_status:r.status,attendance_units:r.units,worked_minutes:0,late_minutes:0,early_leave_minutes:0,overtime_minutes:0,source:'manual',approval_status:'pending',notes:'Created from Workforce Attendance Center'};const {error}=await state.client.from('wf_attendance_records').insert(payload);if(error){if(error.code==='23505'||String(error.message||'').toLowerCase().includes('duplicate key')){existing.add(r.employee_id);continue;}failed.push({row:r,error});continue;}submitted++;}if(failed.length){const first=failed[0].error;throw new Error(`${submitted} submitted, ${failed.length} failed. ${first?.message||'Unable to submit attendance.'}`);}attendanceCenterMessage(`${submitted} attendance record${submitted===1?'':'s'} submitted as PENDING.${existing.size?` ${existing.size} existing record${existing.size===1?' was':'s were'} skipped.`:''}`,'success');attendanceCenter.rows.forEach(r=>r.selected=false);renderAttendanceCenter();await loadApprovalCenter();
-    }catch(error){const msg=String(error?.message||'');attendanceCenterMessage((error?.code==='23505'||msg.toLowerCase().includes('duplicate key'))?'One or more attendance records already exist for this date. Existing records were protected; nothing should be duplicated.':(msg.includes('wf_attendance_source_check')?'Attendance could not be submitted because the attendance source is not accepted. Please refresh and try again.':(msg||'Unable to submit bulk attendance.')),'error');}
-  }
-
-
-  function leaveRequestMessage(text, tone = 'info') {
-    const el = $('wfLeaveRequestMessage'); if (!el) return;
-    el.className = `wf-message ${tone}`; el.textContent = text;
-  }
-
-  async function loadLeaveRequestForm() {
-    if (!state.workspace?.companyId || !$('wfLeaveRequestEmployee')) return;
-    try {
-      const [empRes,typeRes]=await Promise.all([
-        state.client.from('employees').select('id,employee_code,full_name,status,is_deleted').eq('company_id',state.workspace.companyId).eq('is_deleted',false).eq('status','active').order('employee_code',{ascending:true}),
-        state.client.from('wf_leave_types').select('*').eq('company_id',state.workspace.companyId)
-      ]);
-      if(empRes.error) throw empRes.error; if(typeRes.error) throw typeRes.error;
-      $('wfLeaveRequestEmployee').innerHTML='<option value="">Select employee</option>'+((empRes.data||[]).map(e=>`<option value="${escapeHtml(e.id)}">${escapeHtml((e.employee_code||'')+' • '+(e.full_name||'Employee'))}</option>`).join(''));
-      $('wfLeaveRequestType').innerHTML='<option value="">Select leave type</option>'+((typeRes.data||[]).map(t=>`<option value="${escapeHtml(t.id)}">${escapeHtml(t.name||t.leave_type_name||t.code||t.leave_code||'Leave')}</option>`).join(''));
-      const today=formatDateDMY(new Date().toISOString().slice(0,10));
-      if(!$('wfLeaveRequestFrom').value) $('wfLeaveRequestFrom').value=today;
-      if(!$('wfLeaveRequestTo').value) $('wfLeaveRequestTo').value=today;
-    } catch(error) { leaveRequestMessage(error?.message||'Unable to load leave request form.','error'); }
-  }
-
-  function syncLeaveRequestUnits() {
-    const start=parseDateDMY($('wfLeaveRequestFrom')?.value||''), end=parseDateDMY($('wfLeaveRequestTo')?.value||'');
-    if(!start||!end||end<start) return;
-    const days=Math.round((new Date(end+'T12:00:00')-new Date(start+'T12:00:00'))/86400000)+1;
-    if(days>0 && $('wfLeaveRequestUnits')) $('wfLeaveRequestUnits').value=String(days);
-  }
-
-  async function submitLeaveRequest() {
-    if(state.leaveBusy) return;
-    const employee_id=$('wfLeaveRequestEmployee')?.value||'', leave_type_id=$('wfLeaveRequestType')?.value||'';
-    const start_date=parseDateDMY($('wfLeaveRequestFrom')?.value||''), end_date=parseDateDMY($('wfLeaveRequestTo')?.value||'');
-    const requested_units=Number($('wfLeaveRequestUnits')?.value||0), reason=String($('wfLeaveRequestReason')?.value||'').trim();
-    if(!employee_id) return leaveRequestMessage('Select an employee.','warning');
-    if(!leave_type_id) return leaveRequestMessage('Select a leave type.','warning');
-    if(!start_date||!end_date) return leaveRequestMessage('Enter valid From and To dates as DD/MM/YYYY.','warning');
-    if(end_date<start_date) return leaveRequestMessage('To date cannot be before From date.','warning');
-    if(!(requested_units>0)) return leaveRequestMessage('Units must be greater than zero.','warning');
-    state.leaveBusy=true; $('wfLeaveRequestSubmit').disabled=true; leaveRequestMessage('Submitting leave request…','info');
-    try {
-      const payload={company_id:state.workspace.companyId,employee_id,leave_type_id,start_date,end_date,requested_units,reason,approval_status:'pending',created_by:state.session.user.id,updated_by:state.session.user.id};
-      const {error}=await state.client.from('wf_leave_requests').insert(payload); if(error) throw error;
-      leaveRequestMessage('Leave request submitted as PENDING for approval.','success');
-      $('wfLeaveRequestReason').value='';
-      await Promise.all([loadLeaveCalendar(),loadApprovalCenter()]);
-    } catch(error) { leaveRequestMessage(error?.message||'Unable to submit leave request.','error'); }
-    finally { state.leaveBusy=false; $('wfLeaveRequestSubmit').disabled=false; }
-  }
-
-  function leaveBalanceMessage(text, tone = 'info') {
-    const el=$('wfLeaveBalanceMessage'); if(!el) return;
-    el.className=`wf-message ${tone}`; el.textContent=text;
-  }
-  function renderLeaveBalancePreview(row) {
-    const host=$('wfLeaveBalancePreview'), badge=$('wfLeaveBalanceStatus'); if(!host) return;
-    if(!row){host.innerHTML='<span>TOTAL</span><b>—</b><span>APPROVED USED</span><b>—</b><span>PENDING USED</span><b>—</b><span>AVAILABLE</span><b>—</b>'; if(badge){badge.textContent='NO BALANCE';badge.className='wf-badge neutral';} return;}
-    const total=Number(row.total_units??0), approved=Number(row.approved_units??0), pending=Number(row.pending_units??0), available=Number(row.available_units??(total-approved));
-    host.innerHTML=`<span>TOTAL</span><b>${escapeHtml(total)}</b><span>APPROVED USED</span><b>${escapeHtml(approved)}</b><span>PENDING USED</span><b>${escapeHtml(pending)}</b><span>AVAILABLE</span><b>${escapeHtml(available)}</b>`;
-    if(badge){badge.textContent='APPROVED BALANCE';badge.className='wf-badge approved';}
-  }
-  async function loadLeaveBalancePreview(){
-    const employee=$('wfLeaveBalanceEmployee')?.value||'', type=$('wfLeaveBalanceType')?.value||'', year=Number($('wfLeaveBalanceYear')?.value||0);
-    renderLeaveBalancePreview(null); if(!employee||!type||!year) return leaveBalanceMessage('Select employee, leave type and year to check the current balance.','info');
-    try{
-      const {data,error}=await state.client.rpc('wf_get_leave_balance',{target_company:state.workspace.companyId,target_employee:employee,target_leave_type:type,target_year:year}); if(error) throw error;
-      const row=Array.isArray(data)?data[0]:data;
-      const {data:existing,error:existingError}=await state.client.from('wf_leave_balances').select('id,approval_status,opening_units,entitlement_units,carry_forward_units,adjustment_units').eq('company_id',state.workspace.companyId).eq('employee_id',employee).eq('leave_type_id',type).eq('leave_year',year).maybeSingle();
-      if(existingError) throw existingError;
-      // The RPC return-column names can differ from the client labels. Keep the database calculation
-      // authoritative, but derive the display totals from the approved balance record when present.
-      if(row){
-        const totalFromBalance=existing ? Number(existing.opening_units||0)+Number(existing.entitlement_units||0)+Number(existing.carry_forward_units||0)+Number(existing.adjustment_units||0) : Number(row.total_units??row.total??0);
-        const available=Number(row.available_units??row.available??row.remaining_units??0);
-        const pending=Number(row.pending_units??row.pending_used??row.pending_requested_units??0);
-        const approved=Number(row.approved_units??row.approved_used??row.approved_requested_units??(totalFromBalance-available));
-        renderLeaveBalancePreview({total_units:totalFromBalance,approved_units:approved,pending_units:pending,available_units:available});
-      } else renderLeaveBalancePreview(null);
-      if(existing){
-        const st=String(existing.approval_status||'pending').toUpperCase(); const badge=$('wfLeaveBalanceStatus'); if(badge){badge.textContent=st;badge.className=`wf-badge ${st==='APPROVED'?'approved':st==='REJECTED'?'rejected':'open'}`;}
-        $('wfLeaveBalanceEntitlement').value=String(existing.entitlement_units??0);
-        leaveBalanceMessage(`A ${st} leave balance already exists for this employee, leave type and year.` , st==='APPROVED'?'success':'warning');
-      } else leaveBalanceMessage('No balance exists yet. Enter the annual entitlement and submit it for approval.','info');
-    }catch(error){leaveBalanceMessage(error?.message||'Unable to load leave balance.','error');}
-  }
-  async function loadLeaveBalanceForm(){
-    if(!state.workspace?.companyId||!$('wfLeaveBalanceEmployee')) return;
-    try{
-      const [empRes,typeRes]=await Promise.all([
-        state.client.from('employees').select('id,employee_code,full_name').eq('company_id',state.workspace.companyId).eq('is_deleted',false).eq('status','active').order('full_name'),
-        state.client.from('wf_leave_types').select('*').eq('company_id',state.workspace.companyId).order('name')
-      ]); if(empRes.error) throw empRes.error; if(typeRes.error) throw typeRes.error;
-      $('wfLeaveBalanceEmployee').innerHTML='<option value="">Select employee</option>'+((empRes.data||[]).map(e=>`<option value="${escapeHtml(e.id)}">${escapeHtml((e.employee_code||'')+' • '+(e.full_name||'Employee'))}</option>`).join(''));
-      $('wfLeaveBalanceType').innerHTML='<option value="">Select leave type</option>'+((typeRes.data||[]).filter(t=>t.requires_balance!==false).map(t=>`<option value="${escapeHtml(t.id)}">${escapeHtml(t.name||t.code||'Leave')}</option>`).join(''));
-      if(!$('wfLeaveBalanceYear').value) $('wfLeaveBalanceYear').value=String(new Date().getFullYear());
-    }catch(error){leaveBalanceMessage(error?.message||'Unable to load leave balance form.','error');}
-  }
-  async function submitLeaveBalance(){
-    const employee_id=$('wfLeaveBalanceEmployee')?.value||'', leave_type_id=$('wfLeaveBalanceType')?.value||'', leave_year=Number($('wfLeaveBalanceYear')?.value||0), entitlement_units=Number($('wfLeaveBalanceEntitlement')?.value||0);
-    if(!employee_id) return leaveBalanceMessage('Select an employee.','warning'); if(!leave_type_id) return leaveBalanceMessage('Select a leave type.','warning'); if(!leave_year) return leaveBalanceMessage('Enter a valid leave year.','warning'); if(entitlement_units<0) return leaveBalanceMessage('Entitlement cannot be negative.','warning');
-    const btn=$('wfLeaveBalanceSubmit'); if(btn) btn.disabled=true; leaveBalanceMessage('Submitting leave balance…','info');
-    try{
-      const {data:existing,error:checkError}=await state.client.from('wf_leave_balances').select('id,approval_status').eq('company_id',state.workspace.companyId).eq('employee_id',employee_id).eq('leave_type_id',leave_type_id).eq('leave_year',leave_year).maybeSingle(); if(checkError) throw checkError;
-      if(existing) throw new Error(`A ${String(existing.approval_status||'pending').toUpperCase()} leave balance already exists for this employee, leave type and year.`);
-      const payload={company_id:state.workspace.companyId,employee_id,leave_type_id,leave_year,opening_units:0,entitlement_units,carry_forward_units:0,adjustment_units:0,approval_status:'pending',created_by:state.session.user.id,updated_by:state.session.user.id};
-      const {error}=await state.client.from('wf_leave_balances').insert(payload); if(error) throw error;
-      leaveBalanceMessage('Leave balance submitted as PENDING. Approve it from Approval Center.','success'); await Promise.all([loadLeaveBalancePreview(),loadApprovalCenter()]);
-    }catch(error){leaveBalanceMessage(error?.message||'Unable to submit leave balance.','error');}finally{if(btn) btn.disabled=false;}
-  }
 
   function leaveMessage(text, tone = 'info') {
     const el = $('wfLeaveMessage'); if (!el) return;
@@ -2223,125 +1989,10 @@
       .forEach(id => { const el = $(id); if (el) { el.disabled = true; el.hidden = true; } });
   }
 
-  function scopeTypeLabel(type) {
-    return ({ company:'Company', area:'Area', site:'Site', post:'Post', department:'Department', employee:'Employee' })[type] || type || 'Scope';
-  }
-
-  function scopeSummaryForUser(userId, fallback) {
-    const rows = (state.accessScopeData?.scopes || []).filter(row => String(row.user_id) === String(userId) && row.is_active !== false);
-    if (!rows.length || rows.some(row => row.scope_type === 'company')) return 'Company scope';
-    const grouped = {};
-    rows.forEach(row => { (grouped[row.scope_type] ||= []).push(String(row.scope_id)); });
-    const parts = Object.entries(grouped).map(([type, ids]) => {
-      const options = Array.isArray(state.accessScopeData?.options?.[type]) ? state.accessScopeData.options[type] : [];
-      const names = ids.map(id => { const option = options.find(item => String(item.id) === id); return option?.label || option?.name; }).filter(Boolean);
-      if (names.length === ids.length && names.length) {
-        if (names.length <= 2) return names.join(', ');
-        return `${names.slice(0,2).join(', ')} +${names.length - 2}`;
-      }
-      return `${ids.length} ${scopeTypeLabel(type)}${ids.length > 1 ? 's' : ''}`;
-    });
-    return parts.join(' • ') || fallback || 'Scoped access';
-  }
-
-  function closeScopeEditor() {
-    state.scopeEditorUserId = null;
-    const editor = $('wfScopeEditor');
-    if (editor) editor.hidden = true;
-  }
-
-  async function populateScopeTargets(type, selectedIds = []) {
-    const wrap = $('wfScopeTargetsWrap');
-    const select = $('wfScopeTargets');
-    if (!wrap || !select) return;
-    if (type === 'company') {
-      wrap.hidden = true;
-      select.innerHTML = '';
-      return;
-    }
-    wrap.hidden = false;
-    let options = Array.isArray(state.accessScopeData?.options?.[type]) ? state.accessScopeData.options[type] : [];
-
-    // V12.9.3.36.12.1: if the aggregate scope payload has no targets,
-    // fetch the selected scope type directly from the protected DEV RPC.
-    // This changes scope-option loading only; role/navigation/payroll logic stays untouched.
-    if (!options.length) {
-      select.innerHTML = '<option value="" disabled>Loading active records…</option>';
-      try {
-        const { data, error } = await state.client.rpc('wf_get_scope_options', {
-          target_company: state.workspace.companyId,
-          target_scope_type: type
-        });
-        if (error) throw error;
-        options = Array.isArray(data) ? data : [];
-        state.accessScopeData.options = state.accessScopeData.options || {};
-        state.accessScopeData.options[type] = options;
-      } catch (error) {
-        console.error('[Workforce Scope Options]', error);
-        select.innerHTML = '<option value="" disabled>Unable to load active records</option>';
-        return;
-      }
-    }
-
-    const chosen = new Set(selectedIds.map(String));
-    select.innerHTML = options.map(item => `<option value="${escapeHtml(item.id)}" ${chosen.has(String(item.id)) ? 'selected' : ''}>${escapeHtml(item.label || item.name || item.id)}</option>`).join('');
-    if (!options.length) select.innerHTML = '<option value="" disabled>No active records available</option>';
-  }
-
-  function openScopeEditor(userId) {
-    const editor = $('wfScopeEditor');
-    if (!editor) return;
-    const accessUsers = Array.isArray(state.accessScopeData?.users) ? state.accessScopeData.users : [];
-    const user = accessUsers.find(row => String(row.user_id) === String(userId));
-    const rows = (state.accessScopeData?.scopes || []).filter(row => String(row.user_id) === String(userId) && row.is_active !== false);
-    state.scopeEditorUserId = userId;
-    $('wfScopeEditorUser').textContent = user?.email || userId;
-    const type = !rows.length || rows.some(row => row.scope_type === 'company') ? 'company' : (rows[0]?.scope_type || 'site');
-    $('wfScopeType').value = type;
-    populateScopeTargets(type, rows.filter(row => row.scope_type === type).map(row => row.scope_id));
-    $('wfScopeEditorMessage').className = 'wf-message info';
-    $('wfScopeEditorMessage').textContent = type === 'company' ? 'Company scope gives access across the company, subject to the user’s role permissions.' : 'Choose one or more records. Role permissions still control what the user can do.';
-    editor.hidden = false;
-    editor.scrollIntoView({behavior:'smooth',block:'nearest'});
-  }
-
-  async function saveWorkforceScope() {
-    const userId = state.scopeEditorUserId;
-    const type = $('wfScopeType')?.value || 'company';
-    const ids = type === 'company' ? [state.workspace.companyId] : Array.from($('wfScopeTargets')?.selectedOptions || []).map(option => option.value).filter(Boolean);
-    if (!userId) return;
-    if (type !== 'company' && !ids.length) {
-      $('wfScopeEditorMessage').className = 'wf-message error';
-      $('wfScopeEditorMessage').textContent = `Select at least one ${scopeTypeLabel(type).toLowerCase()}.`;
-      return;
-    }
-    const button = $('wfScopeSave');
-    try {
-      if (button) { button.disabled = true; button.textContent = 'Saving…'; }
-      const { error } = await state.client.rpc('wf_set_user_scopes', {
-        target_company: state.workspace.companyId,
-        target_user: userId,
-        target_scope_type: type,
-        target_scope_ids: ids
-      });
-      if (error) throw error;
-      closeScopeEditor();
-      await loadAccessFoundation();
-    } catch (error) {
-      console.error('[Workforce Scope Save]', error);
-      $('wfScopeEditorMessage').className = 'wf-message error';
-      $('wfScopeEditorMessage').textContent = error?.message || 'Unable to save Workforce scope.';
-    } finally {
-      if (button) { button.disabled = false; button.textContent = 'Save Scope'; }
-    }
-  }
-
   function renderAccessUsers(payload) {
     const body = $('wfAccessUsers');
     if (!body) return;
     const users = Array.isArray(payload?.users) ? payload.users : [];
-    const roleRows = Array.isArray(payload?.roles) ? payload.roles : [];
-    const canManage = payload?.can_manage === true;
     if ($('wfAccessUserCount')) $('wfAccessUserCount').textContent = `${users.filter(u => u.has_workforce_access).length} USERS`;
     if (!users.length) {
       body.innerHTML = '<tr><td colspan="5" class="empty">No company users found.</td></tr>';
@@ -2349,97 +2000,27 @@
     }
     body.innerHTML = users.map(user => {
       const roles = Array.isArray(user.roles) ? user.roles : [];
-      const active = user.has_workforce_access === true;
-      const currentRoleId = roles[0]?.role_id || '';
       const roleText = roles.length ? roles.map(accessRoleLabel).join(', ') : 'No Workforce role';
-      const scope = active ? scopeSummaryForUser(user.user_id, user.scope_summary) : '—';
-      const roleCell = active && canManage
-        ? `<select class="wf-access-role-inline" data-access-role-user="${escapeHtml(user.user_id)}" aria-label="Workforce role for ${escapeHtml(user.email || 'user')}">${roleRows.map(r => `<option value="${escapeHtml(r.role_id)}" ${String(r.role_id) === String(currentRoleId) ? 'selected' : ''}>${escapeHtml(accessRoleLabel(r))}</option>`).join('')}</select><small>${escapeHtml(roleText)}</small>`
-        : escapeHtml(roleText);
-      const action = active && canManage
-        ? `<div class="wf-access-actions"><button class="wf-mini-action" data-access-save-role="${escapeHtml(user.user_id)}" data-current-role="${escapeHtml(currentRoleId)}">Save Role</button><button class="wf-mini-action scope" data-access-edit-scope="${escapeHtml(user.user_id)}">Edit Scope</button><button class="wf-mini-action danger" data-access-revoke="${escapeHtml(user.user_id)}">Remove Access</button></div>`
-        : active ? '<span class="wf-muted-small">View only</span>' : '<span class="wf-muted-small">Not assigned</span>';
-      return `<tr><td><b>${escapeHtml(user.email || 'User')}</b><small>${escapeHtml(user.core_role || 'company member')}</small></td><td>${roleCell}</td><td>${escapeHtml(scope)}</td><td><span class="wf-badge ${active ? 'enabled' : 'neutral'}">${active ? 'ACTIVE' : 'NO ACCESS'}</span></td><td>${action}</td></tr>`;
+      const active = user.has_workforce_access === true;
+      const scope = user.scope_summary || (active ? 'Company / configured scope' : '—');
+      const action = active
+        ? `<button class="wf-mini-action danger" data-access-revoke="${escapeHtml(user.user_id)}">Remove Access</button>`
+        : '<span class="wf-muted-small">Not assigned</span>';
+      return `<tr><td><b>${escapeHtml(user.email || 'User')}</b><small>${escapeHtml(user.core_role || 'company member')}</small></td><td>${escapeHtml(roleText)}</td><td>${escapeHtml(scope)}</td><td><span class="wf-badge ${active ? 'enabled' : 'neutral'}">${active ? 'ACTIVE' : 'NO ACCESS'}</span></td><td>${action}</td></tr>`;
     }).join('');
   }
 
   function populateAccessSelectors(payload) {
     const members = $('wfAccessMemberSelect');
     const roles = $('wfAccessRoleSelect');
-    const assignButton = $('wfAccessAssignBtn');
     const users = Array.isArray(payload?.users) ? payload.users : [];
     const roleRows = Array.isArray(payload?.roles) ? payload.roles : [];
-    const canManage = payload?.can_manage === true;
     if (members) {
       const available = users.filter(u => !u.has_workforce_access);
       members.innerHTML = '<option value="">Select company user…</option>' + available.map(u => `<option value="${escapeHtml(u.user_id)}">${escapeHtml(u.email || u.user_id)}</option>`).join('');
-      members.disabled = !canManage;
     }
     if (roles) {
       roles.innerHTML = '<option value="">Select role…</option>' + roleRows.map(r => `<option value="${escapeHtml(r.role_id)}">${escapeHtml(accessRoleLabel(r))}</option>`).join('');
-      roles.disabled = !canManage;
-    }
-    if (assignButton) assignButton.disabled = !canManage;
-  }
-
-  async function loadApprovalPolicySetting(canManage = false) {
-    const select = $('wfApprovalPolicySelect');
-    const save = $('wfApprovalPolicySave');
-    const badge = $('wfApprovalPolicyBadge');
-    const msg = $('wfApprovalPolicyMessage');
-    if (!select || !save) return;
-    try {
-      const { data, error } = await state.client.rpc('wf_get_approval_policy', {
-        target_company: state.workspace.companyId
-      });
-      if (error) throw error;
-      const policy = Array.isArray(data) ? data[0] : data;
-      state.makerCheckerRequired = policy?.maker_checker_required !== false;
-      select.value = state.makerCheckerRequired ? 'maker_checker' : 'single_admin';
-      select.disabled = !canManage;
-      save.disabled = !canManage;
-      if (badge) {
-        badge.textContent = state.makerCheckerRequired ? 'MAKER–CHECKER' : 'SINGLE ADMIN';
-        badge.className = `wf-badge ${state.makerCheckerRequired ? 'open' : 'enabled'}`;
-      }
-      if (msg) {
-        msg.className = 'wf-message info';
-        msg.textContent = state.makerCheckerRequired
-          ? 'Another authorised user must review items created by the maker.'
-          : 'Authorised Workforce administrators may review their own items.';
-      }
-    } catch (error) {
-      if (msg) { msg.className = 'wf-message error'; msg.textContent = error?.message || 'Unable to read approval policy.'; }
-    }
-  }
-
-  async function saveApprovalPolicySetting() {
-    const select = $('wfApprovalPolicySelect');
-    const save = $('wfApprovalPolicySave');
-    const msg = $('wfApprovalPolicyMessage');
-    if (!select || !state.workspace?.companyId) return;
-    const makerCheckerRequired = select.value === 'maker_checker';
-    try {
-      save.disabled = true;
-      save.textContent = 'Saving…';
-      if (msg) { msg.className = 'wf-message info'; msg.textContent = 'Saving approval policy…'; }
-      const { data, error } = await state.client.rpc('wf_set_approval_policy', {
-        target_company: state.workspace.companyId,
-        maker_checker: makerCheckerRequired
-      });
-      if (error) throw error;
-      const saved = Array.isArray(data) ? data[0] : data;
-      if (!saved) throw new Error('Approval policy was not changed. Your account may not have permission to manage Workforce access.');
-      state.makerCheckerRequired = saved.maker_checker_required !== false;
-      await loadApprovalPolicySetting(true);
-      if (msg) { msg.className = 'wf-message success'; msg.textContent = state.makerCheckerRequired ? 'Maker–Checker policy saved.' : 'Single Admin policy saved. Self approval is now allowed for authorised reviewers.'; }
-      if (state.currentSection === 'approvals') await loadApprovalCenter();
-    } catch (error) {
-      console.error('[Approval Policy Save]', error);
-      if (msg) { msg.className = 'wf-message error'; msg.textContent = error?.message || 'Unable to save approval policy.'; }
-    } finally {
-      save.disabled = false;
-      save.textContent = 'Save Policy';
     }
   }
 
@@ -2447,36 +2028,12 @@
     const msg = $('wfAccessMessage');
     try {
       if (msg) { msg.className = 'wf-message info'; msg.textContent = 'Loading Workforce users, roles and seat allocation…'; }
-      const [{ data: seatData, error: seatError }, { data: accessData, error: accessError }, { data: scopeData, error: scopeError }] = await Promise.all([
+      const [{ data: seatData, error: seatError }, { data: accessData, error: accessError }] = await Promise.all([
         state.client.rpc('wf_get_seat_summary', { target_company: state.workspace.companyId }),
-        state.client.rpc('wf_get_access_management', { target_company: state.workspace.companyId }),
-        state.client.rpc('wf_get_scope_management', { target_company: state.workspace.companyId })
+        state.client.rpc('wf_get_access_management', { target_company: state.workspace.companyId })
       ]);
       if (seatError) throw seatError;
       if (accessError) throw accessError;
-      if (scopeError) throw scopeError;
-      state.accessScopeData = { ...(scopeData || {}), users: Array.isArray(accessData?.users) ? accessData.users : [] };
-
-      // V12.9.3.36.12.2: resolve saved scope IDs to human-readable names on load.
-      // Read-only enhancement: no scope/role mutation and no navigation/payroll changes.
-      const activeScopeTypes = [...new Set((state.accessScopeData.scopes || [])
-        .filter(scope => scope?.is_active !== false && scope?.scope_type && scope.scope_type !== 'company')
-        .map(scope => scope.scope_type))];
-      state.accessScopeData.options = state.accessScopeData.options || {};
-      await Promise.all(activeScopeTypes.map(async type => {
-        if (Array.isArray(state.accessScopeData.options[type]) && state.accessScopeData.options[type].length) return;
-        try {
-          const { data, error } = await state.client.rpc('wf_get_scope_options', {
-            target_company: state.workspace.companyId,
-            target_scope_type: type
-          });
-          if (error) throw error;
-          state.accessScopeData.options[type] = Array.isArray(data) ? data : [];
-        } catch (error) {
-          console.warn('[Workforce Scope Labels]', type, error);
-        }
-      }));
-
       const row = Array.isArray(seatData) ? seatData[0] : seatData;
       const limit = Number(row?.seat_limit ?? 1);
       const assigned = Number(row?.assigned_users ?? 0);
@@ -2487,11 +2044,9 @@
       if ($('wfNavSeatStatus')) $('wfNavSeatStatus').textContent = `${assigned}/${limit}`;
       renderAccessUsers(accessData || {});
       populateAccessSelectors(accessData || {});
-      await loadApprovalPolicySetting(accessData?.can_manage === true);
       if (msg) {
-        const canManage = accessData?.can_manage === true;
         msg.className = `wf-message ${available > 0 ? 'success' : 'info'}`;
-        msg.textContent = `${assigned} of ${limit} Workforce seats assigned • ${available} available${canManage ? ' • Role + Scope changes enabled.' : ' • View only.'}`;
+        msg.textContent = `${assigned} of ${limit} Workforce seats assigned • ${available} available.`;
       }
     } catch (error) {
       console.error('[Workforce Access]', error);
@@ -2518,27 +2073,6 @@
       alert(error?.message || 'Unable to assign Workforce access.');
     } finally {
       if (button) { button.disabled = false; button.textContent = 'Assign Access'; }
-    }
-  }
-
-  async function changeWorkforceRole(userId, button) {
-    const select = document.querySelector(`[data-access-role-user="${CSS.escape(userId)}"]`);
-    const roleId = select?.value || '';
-    const currentRole = button?.dataset?.currentRole || '';
-    if (!userId || !roleId) return;
-    if (String(roleId) === String(currentRole)) {
-      if (button) { button.textContent = 'No Change'; setTimeout(() => { button.textContent = 'Save Role'; }, 900); }
-      return;
-    }
-    try {
-      if (button) { button.disabled = true; button.textContent = 'Saving…'; }
-      const { error } = await state.client.rpc('wf_assign_user_access', { target_company: state.workspace.companyId, target_user: userId, target_role: roleId });
-      if (error) throw error;
-      await loadAccessFoundation();
-    } catch (error) {
-      console.error('[Workforce Access Role Change]', error);
-      alert(error?.message || 'Unable to change Workforce role.');
-      if (button) { button.disabled = false; button.textContent = 'Save Role'; }
     }
   }
 
@@ -2595,7 +2129,7 @@
       $('wfPageTitle').textContent = 'Leave Calendar';
       $('wfPageSubtitle').textContent = 'Employee leave visibility, approval status and auditable dates.';
       window.location.hash = 'leave';
-      if (state.workspace?.companyId) { loadLeaveCalendar(); loadLeaveRequestForm(); loadLeaveBalanceForm(); }
+      if (state.workspace?.companyId) loadLeaveCalendar();
     } else if (target === 'overtime') {
       $('wfPageTitle').textContent = 'Overtime';
       $('wfPageSubtitle').textContent = 'Automatic overtime policy, approval and payroll-ready history.';
@@ -2605,7 +2139,7 @@
       $('wfPageTitle').textContent = 'Employee Payroll Setup';
       $('wfPageSubtitle').textContent = 'Prepare salary, transport and attendance inputs for payroll.';
       window.location.hash = 'setup';
-      if (state.workspace?.companyId) { loadPayrollSetup(); loadAttendanceCenterFoundation(); }
+      if (state.workspace?.companyId) loadPayrollSetup();
     } else if (target === 'payroll') {
       $('wfPageTitle').textContent = 'Payroll';
       $('wfPageSubtitle').textContent = 'Preflight, calculate, review, approve and finalize payroll safely.';
@@ -2631,30 +2165,14 @@
     });
     $('wfDashboardRefresh')?.addEventListener('click', loadDashboard);
     $('wfAccessRefresh')?.addEventListener('click', loadAccessFoundation);
-    $('wfApprovalPolicySave')?.addEventListener('click', saveApprovalPolicySetting);
     $('wfAccessAssignBtn')?.addEventListener('click', assignWorkforceAccess);
-    $('wfScopeType')?.addEventListener('change', event => { populateScopeTargets(event.target.value, []); $('wfScopeEditorMessage').className='wf-message info'; $('wfScopeEditorMessage').textContent = event.target.value === 'company' ? 'Company scope gives access across the company, subject to the user’s role permissions.' : 'Choose one or more records. Role permissions still control what the user can do.'; });
-    $('wfScopeSave')?.addEventListener('click', saveWorkforceScope);
-    $('wfScopeCancel')?.addEventListener('click', closeScopeEditor);
-    $('wfAccessUsers')?.addEventListener('click', event => {
-      const save = event.target.closest('[data-access-save-role]');
-      if (save) return changeWorkforceRole(save.dataset.accessSaveRole, save);
-      const scope = event.target.closest('[data-access-edit-scope]');
-      if (scope) return openScopeEditor(scope.dataset.accessEditScope);
-      const revoke = event.target.closest('[data-access-revoke]');
-      if (revoke) revokeWorkforceAccess(revoke.dataset.accessRevoke);
-    });
+    $('wfAccessUsers')?.addEventListener('click', event => { const btn = event.target.closest('[data-access-revoke]'); if (btn) revokeWorkforceAccess(btn.dataset.accessRevoke); });
     $('wfSidebarBackDashboard')?.addEventListener('click', () => showSection('dashboard'));
     $('wfDashboardOpenImport')?.addEventListener('click', () => showSection('import'));
     $('wfApprovalRefresh')?.addEventListener('click', loadApprovalCenter);
     $('wfLeaveRefresh')?.addEventListener('click', loadLeaveCalendar);
     $('wfLeavePrev')?.addEventListener('click', () => moveLeaveMonth(-1));
     $('wfLeaveNext')?.addEventListener('click', () => moveLeaveMonth(1));
-    $('wfLeaveBalanceSubmit')?.addEventListener('click', submitLeaveBalance);
-    ['wfLeaveBalanceEmployee','wfLeaveBalanceType','wfLeaveBalanceYear'].forEach(id=>$(id)?.addEventListener('change',loadLeaveBalancePreview));
-    $('wfLeaveRequestSubmit')?.addEventListener('click', submitLeaveRequest);
-    $('wfLeaveRequestFrom')?.addEventListener('change', syncLeaveRequestUnits);
-    $('wfLeaveRequestTo')?.addEventListener('change', syncLeaveRequestUnits);
     $('wfOvertimeRefresh')?.addEventListener('click', loadOvertime);
     $('wfOtEmployee')?.addEventListener('change', resolveOvertimePolicyPreview);
     $('wfOtDate')?.addEventListener('change', resolveOvertimePolicyPreview);
@@ -2664,16 +2182,11 @@
     $('wfOtRows')?.addEventListener('click', (event) => { const btn=event.target.closest('[data-ot-action]'); if(btn) reviewOvertime(btn.dataset.id,btn.dataset.otAction); });
     $('wfSetupRefresh')?.addEventListener('click', loadPayrollSetup);
     $('wfSetupEmployee')?.addEventListener('change', loadSelectedPayrollSetup);
+    $('wfSetupHireDateSave')?.addEventListener('click', saveSetupHireDate);
     $('wfSetupSalarySave')?.addEventListener('click', saveSetupSalary);
     $('wfSetupTransportSave')?.addEventListener('click', saveSetupTransport);
+    ['wfSetupSalaryHistory','wfSetupTransportHistory','wfSetupAttendanceHistory'].forEach(id=>$(id)?.addEventListener('click', e=>{ const b=e.target.closest('[data-record-void]'); if(b) voidApprovedSetupRecord(b.dataset.recordType,b.dataset.recordVoid); }));
     $('wfSetupAttendanceSave')?.addEventListener('click', saveSetupAttendance);
-    $('wfAttendanceCenterArea')?.addEventListener('change', refreshAttendanceCenterSites);
-    $('wfAttendanceCenterSearch')?.addEventListener('input', renderAttendanceCenter);
-    $('wfAttendanceCenterLoad')?.addEventListener('click', loadAttendanceCenterEmployees);
-    $('wfAttendanceMarkAll')?.addEventListener('click', () => markAllAttendance(true));
-    $('wfAttendanceClearAll')?.addEventListener('click', () => markAllAttendance(false));
-    $('wfAttendanceCenterBody')?.addEventListener('change', updateAttendanceCenterRow);
-    $('wfAttendanceCenterSubmit')?.addEventListener('click', submitAttendanceCenter);
     $('wfPayrollRefresh')?.addEventListener('click', loadPayroll);
     $('wfPayrollRunSelect')?.addEventListener('change', loadPayrollRunDetail);
     if ($('wfPayrollNewBtn')) $('wfPayrollNewBtn').textContent = '+ New Month';
@@ -2685,20 +2198,7 @@
     $('wfPayrollRejectBtn')?.addEventListener('click', () => reviewPayroll('rejected'));
     $('wfPayrollFinalizeBtn')?.addEventListener('click', finalizePayroll);
     $('wfPayrollReopenBtn')?.addEventListener('click', reopenPayroll);
-    ['wfApprovalFilter','wfApprovalArea','wfApprovalSite'].forEach(id => $(id)?.addEventListener('change', renderApprovalQueue));
-    ['wfApprovalSearch','wfApprovalDate'].forEach(id => $(id)?.addEventListener('input', renderApprovalQueue));
-    $('wfApprovalSelectAll')?.addEventListener('click', () => setApprovalSelection(true));
-    $('wfApprovalClearSelection')?.addEventListener('click', () => setApprovalSelection(false));
-    $('wfApprovalApproveSelected')?.addEventListener('click', () => bulkActOnApprovals('approved'));
-    $('wfApprovalRejectSelected')?.addEventListener('click', () => bulkActOnApprovals('rejected'));
-    $('wfApprovalQueue')?.addEventListener('change', (event) => {
-      const box = event.target.closest('[data-approval-select]');
-      if (!box) return;
-      if (!(state.approvalSelected instanceof Set)) state.approvalSelected = new Set();
-      if (box.checked) state.approvalSelected.add(box.dataset.key); else state.approvalSelected.delete(box.dataset.key);
-      box.closest('.wf-approval-item')?.classList.toggle('is-selected', box.checked);
-      updateApprovalSelectedCount();
-    });
+    $('wfApprovalFilter')?.addEventListener('change', renderApprovalQueue);
     $('wfApprovalQueue')?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-approval-action]');
       if (!button || button.disabled) return;
@@ -2805,7 +2305,6 @@
       bindIdentityReturnButtons();
       await loadCurrentAccessProfile();
       applyDirectorViewMode();
-      document.documentElement.classList.remove('wf-access-pending');
 
       const hash = String(window.location.hash || '').toLowerCase();
       const initialSection = hash === '#import' ? 'import' : (hash === '#approvals' ? 'approvals' : (hash === '#leave' ? 'leave' : (hash === '#overtime' ? 'overtime' : (hash === '#setup' ? 'setup' : (hash === '#payroll' ? 'payroll' : 'dashboard')))));
