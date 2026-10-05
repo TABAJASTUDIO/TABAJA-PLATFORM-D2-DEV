@@ -1,0 +1,7 @@
+V12.9.3.36.41 — Overtime Approval Center Integration
+
+- Adds Overtime to Approval Center filter.
+- Loads pending wf_overtime_entries into the central approval queue.
+- Supports individual and bulk Approve/Reject using the existing overtime table/approval rules.
+- Counts Overtime under Attendance + Other.
+- Does not change overtime calculation/policy resolution, payroll engine, Identity, or database schema.

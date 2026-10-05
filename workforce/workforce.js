@@ -825,6 +825,7 @@
     { kind: 'salary', label: 'Salary', table: 'wf_employee_salary_history' },
     { kind: 'transport', label: 'Transport', table: 'wf_transport_employee_overrides' },
     { kind: 'attendance', label: 'Attendance', table: 'wf_attendance_records' },
+    { kind: 'overtime', label: 'Overtime', table: 'wf_overtime_entries' },
     { kind: 'leave', label: 'Leave', table: 'wf_leave_requests' },
     { kind: 'leave_balance', label: 'Leave Balance', table: 'wf_leave_balances' },
     { kind: 'advance', label: 'Advance / Loan', table: 'wf_advances' }
@@ -842,6 +843,7 @@
     if (item.kind === 'salary') return `${formatMoney(r.base_amount, r.currency_code || '')} • ${String(r.pay_basis || 'salary').replaceAll('_',' ')} • effective ${formatDateDMY(r.effective_from) || '—'}`;
     if (item.kind === 'transport') return `${String(r.method || 'transport').replaceAll('_',' ')} • ${r.amount === null || r.amount === undefined ? 'Rule-based amount' : formatMoney(r.amount)} • effective ${formatDateDMY(r.effective_from) || '—'}`;
     if (item.kind === 'attendance') return `${formatDateDMY(r.work_date) || '—'} • ${String(r.attendance_status || 'attendance').replaceAll('_',' ')} • ${r.worked_minutes ?? 0} worked min • ${r.overtime_minutes ?? 0} OT min`;
+    if (item.kind === 'overtime') { const total = Number(r.overtime_minutes || 0); return `${formatDateDMY(r.work_date) || '—'} • ${Math.floor(total / 60)}h ${total % 60}m overtime`; }
     if (item.kind === 'leave') return `${formatDateDMY(r.start_date) || '—'} → ${formatDateDMY(r.end_date) || '—'} • ${r.requested_units ?? '—'} unit(s)`;
     if (item.kind === 'leave_balance') return `${r.leave_year || '—'} • entitlement ${r.entitlement_units ?? 0} unit(s) • opening ${r.opening_units ?? 0} • carry ${r.carry_forward_units ?? 0} • adjustment ${r.adjustment_units ?? 0}`;
     if (item.kind === 'advance') return `${formatMoney(r.principal_amount, r.currency_code || '')} • ${String(r.advance_type || 'advance').replaceAll('_',' ')} • ${formatDateDMY(r.issue_date) || '—'}`;
@@ -853,6 +855,7 @@
     if (item.kind === 'salary') return r.notes || 'Salary change awaiting checker review.';
     if (item.kind === 'transport') return r.reason || 'Transport override awaiting checker review.';
     if (item.kind === 'attendance') return r.notes || 'Attendance record awaiting approval.';
+    if (item.kind === 'overtime') return r.reason || 'Overtime entry awaiting approval.';
     if (item.kind === 'leave') return r.reason || 'Leave request awaiting approval.';
     if (item.kind === 'advance') return r.purpose || r.notes || 'Advance / loan awaiting approval.';
     return '';
@@ -1012,7 +1015,7 @@
       const count = kind => queue.filter(item => item.kind === kind).length;
       const salary = count('salary');
       const transport = count('transport');
-      const other = count('attendance') + count('leave') + count('leave_balance') + count('advance');
+      const other = count('attendance') + count('overtime') + count('leave') + count('leave_balance') + count('advance');
       $('wfApprovalKpiTotal').textContent = String(queue.length);
       $('wfApprovalKpiSalary').textContent = String(salary);
       $('wfApprovalKpiTransport').textContent = String(transport);
@@ -1049,12 +1052,9 @@
     approvalMessage(`${verb} in progress…`, 'info');
     document.querySelectorAll('[data-approval-action]').forEach(btn => { btn.disabled = true; });
     try {
-      const payload = {
-        approval_status: action,
-        reviewed_by: state.session.user.id,
-        reviewed_at: new Date().toISOString(),
-        updated_by: state.session.user.id
-      };
+      const payload = item.kind === 'overtime'
+        ? { approval_status: action, updated_by: state.session.user.id }
+        : { approval_status: action, reviewed_by: state.session.user.id, reviewed_at: new Date().toISOString(), updated_by: state.session.user.id };
       const { data, error } = await state.client
         .from(item.table)
         .update(payload)
@@ -1101,7 +1101,7 @@
     let changed = 0, failed = 0;
     for (const item of eligible) {
       try {
-        const payload = { approval_status: action, reviewed_by: state.session.user.id, reviewed_at: new Date().toISOString(), updated_by: state.session.user.id };
+        const payload = item.kind === 'overtime' ? { approval_status: action, updated_by: state.session.user.id } : { approval_status: action, reviewed_by: state.session.user.id, reviewed_at: new Date().toISOString(), updated_by: state.session.user.id };
         const { data, error } = await state.client.from(item.table).update(payload).eq('company_id', state.workspace.companyId).eq('id', item.record.id).eq('approval_status','pending').select('id').maybeSingle();
         if (error || !data) failed++; else changed++;
       } catch (_) { failed++; }
